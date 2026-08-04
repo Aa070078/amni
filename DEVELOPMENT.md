@@ -36,8 +36,9 @@ Key variables (full list in the example files):
 |---|---|
 | `DATABASE_URL` | Postgres connection string for the platform DB |
 | `REDIS_URL` | Redis for BullMQ + cache |
-| `JWT_SESSION_SECRET` | session signing secret |
-| `REFRESH_TOKEN_SECRET` | refresh token secret |
+| `ACCESS_TOKEN_SECRET` | JWT access-token signing secret (min 32 chars) |
+| `ACCESS_TOKEN_TTL_SECONDS` | access-token lifetime in seconds (default 900) |
+| `REFRESH_TOKEN_TTL_DAYS` | refresh-token/session lifetime in days (default 30) |
 | `SMTP_*` / `MAIL_PROVIDER` | email delivery (dev: console/smtp4dev) |
 | `ERPNEXT_CLUSTER_*` | how the worker reaches the bench (`DOCKER_EXEC` in dev; exec target + site root) |
 | `PLATFORM_URL` / `PLATFORM_DOMAIN` | app + tenant subdomain base |

@@ -74,5 +74,5 @@ jobs:
         run: pnpm test:e2e
         env:
           # secrets injected via GH Actions
-          JWT_SESSION_SECRET: ${{ secrets.JWT_SESSION_SECRET }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}

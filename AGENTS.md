@@ -119,7 +119,7 @@ Follow `SECURITY.md`. Golden rules: server-side authorization everywhere; argon2
 ## 15. How to add a backend module
 
 1. `packages/shared`: add zod schemas + types for the domain.
-2. `apps/api/src/modules/<name>/`: module, controller, service, guard/decorator usage; register in `AppModule`.
+2. `apps/api/src/<name>/`: module, controller, service, guard/decorator usage; register in `AppModule`.
 3. Wire persistence through `packages/db` (Prisma client + migration if schema changes).
 4. Add AuditLog calls for mutating/sensitive actions.
 5. Tests: service unit tests + supertest integration.

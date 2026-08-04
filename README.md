@@ -4,7 +4,7 @@
 
 Any business signs up, answers a few simple questions, and gets a complete, provisioned ERP — while using Amni's own premium frontend as the product. ERPNext runs underneath as the business-management engine; users never need to understand it.
 
-> Current status: **Phase 0–1 (Discovery + Architecture).** See `DISCOVERY_REPORT.md` and `ARCHITECTURE.md`.
+> Current status: **M1 Foundation — auth shipped on `dev`.** Next: M2 Reference Build (premium ERP UI) then M3 tenant + provisioning.
 
 ---
 
