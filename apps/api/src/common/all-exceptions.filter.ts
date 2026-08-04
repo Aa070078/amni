@@ -1,7 +1,9 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Logger } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { ZodError } from "zod";
 import { type ApiError, ErrorCode, failure } from "@amni/shared";
 import { ErpError } from "@amni/erp";
+import { ApiException } from "./api.exception";
 
 const DEFAULT_ERROR: ApiError = {
   code: ErrorCode.INTERNAL,
@@ -30,6 +32,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   private map(exception: unknown): { status: number; error: ApiError } {
+    if (exception instanceof ApiException) {
+      return {
+        status: exception.getStatus(),
+        error: {
+          code: exception.code,
+          message: exception.message,
+          fieldErrors: exception.fieldErrors,
+        },
+      };
+    }
+
+    if (exception instanceof ZodError) {
+      const fieldErrors = flattenZodErrors(exception);
+      return {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        error: { code: ErrorCode.VALIDATION, message: "Validation failed", fieldErrors },
+      };
+    }
+
     if (exception instanceof ErpError) {
       return {
         status: erpHttpStatus(exception.code),
@@ -99,4 +120,14 @@ function erpHttpStatus(code: ErrorCode): number {
     default:
       return HttpStatus.INTERNAL_SERVER_ERROR;
   }
+}
+
+function flattenZodErrors(error: ZodError): Record<string, string[]> {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const issue of error.issues) {
+    const key = issue.path.length > 0 ? String(issue.path[0]) : "_root";
+    fieldErrors[key] = fieldErrors[key] ?? [];
+    fieldErrors[key].push(issue.message);
+  }
+  return fieldErrors;
 }
