@@ -1,0 +1,21 @@
+{
+  "name": "@amni/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared tsconfig, eslint, prettier and tailwind presets",
+  "exports": {
+    "./tsconfig/*": "./tsconfig/*.json",
+    "./eslint": "./eslint.config.mjs",
+    "./prettier": "./prettier.config.mjs"
+  },
+  "files": [
+    "tsconfig",
+    "eslint.config.mjs",
+    "prettier.config.mjs"
+  ],
+  "dependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint-config-prettier": "^9.1.0",
+    "typescript-eslint": "^8.15.0"
+  }
+}

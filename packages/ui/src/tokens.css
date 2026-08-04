@@ -1,0 +1,90 @@
+/* Amni design tokens — oklch, light default + true dark mode.
+   Palette: near-white surfaces, hairline borders, one deep-indigo accent.
+   Consume from the app's globals.css with `@theme inline` mapping so Tailwind
+   utilities (bg-background, text-foreground, …) resolve to these variables. */
+
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.99 0.002 255);
+  --foreground: oklch(0.21 0.02 260);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 260);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 260);
+
+  --primary: oklch(0.45 0.16 277);
+  --primary-foreground: oklch(0.99 0.002 255);
+
+  --secondary: oklch(0.96 0.004 265);
+  --secondary-foreground: oklch(0.3 0.02 265);
+
+  --muted: oklch(0.96 0.004 265);
+  --muted-foreground: oklch(0.52 0.015 265);
+
+  --accent: oklch(0.95 0.01 265);
+  --accent-foreground: oklch(0.3 0.02 265);
+
+  --destructive: oklch(0.55 0.19 22);
+  --destructive-foreground: oklch(0.99 0.002 255);
+
+  --success: oklch(0.55 0.14 158);
+  --success-foreground: oklch(0.99 0.002 255);
+
+  --warning: oklch(0.72 0.15 70);
+  --warning-foreground: oklch(0.2 0.03 70);
+
+  --border: oklch(0.91 0.005 260);
+  --input: oklch(0.91 0.005 260);
+  --ring: oklch(0.55 0.16 277);
+
+  --sidebar: oklch(0.985 0.002 255);
+  --sidebar-foreground: oklch(0.24 0.02 260);
+  --sidebar-accent: oklch(0.95 0.01 265);
+  --sidebar-accent-foreground: oklch(0.3 0.02 265);
+  --sidebar-border: oklch(0.91 0.005 260);
+}
+
+.dark {
+  --background: oklch(0.15 0.012 265);
+  --foreground: oklch(0.95 0.004 265);
+
+  --card: oklch(0.18 0.012 265);
+  --card-foreground: oklch(0.95 0.004 265);
+
+  --popover: oklch(0.18 0.012 265);
+  --popover-foreground: oklch(0.95 0.004 265);
+
+  --primary: oklch(0.62 0.14 277);
+  --primary-foreground: oklch(0.16 0.01 265);
+
+  --secondary: oklch(0.24 0.015 265);
+  --secondary-foreground: oklch(0.9 0.005 265);
+
+  --muted: oklch(0.24 0.015 265);
+  --muted-foreground: oklch(0.66 0.012 265);
+
+  --accent: oklch(0.26 0.015 265);
+  --accent-foreground: oklch(0.95 0.004 265);
+
+  --destructive: oklch(0.62 0.19 22);
+  --destructive-foreground: oklch(0.98 0.002 255);
+
+  --success: oklch(0.6 0.14 158);
+  --success-foreground: oklch(0.16 0.01 265);
+
+  --warning: oklch(0.72 0.15 70);
+  --warning-foreground: oklch(0.16 0.01 265);
+
+  --border: oklch(0.28 0.015 265);
+  --input: oklch(0.28 0.015 265);
+  --ring: oklch(0.62 0.14 277);
+
+  --sidebar: oklch(0.17 0.012 265);
+  --sidebar-foreground: oklch(0.93 0.005 265);
+  --sidebar-accent: oklch(0.26 0.015 265);
+  --sidebar-accent-foreground: oklch(0.95 0.004 265);
+  --sidebar-border: oklch(0.28 0.015 265);
+}
