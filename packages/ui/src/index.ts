@@ -14,7 +14,6 @@ export { Input } from "./components/input";
 export { Label } from "./components/label";
 export { Separator } from "./components/separator";
 export { Skeleton } from "./components/skeleton";
-export { Avatar, AvatarImage, AvatarFallback } from "./components/avatar";
 export {
   Dialog,
   DialogPortal,
@@ -27,6 +26,42 @@ export {
   DialogTitle,
   DialogDescription,
 } from "./components/dialog";
+export {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from "./components/sheet";
+export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+} from "./components/select";
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./components/popover";
+export {
+  DataTable,
+  DataTableColumnHeader,
+  DataTableFacetedFilter,
+  DataTablePagination,
+  DataTableViewOptions,
+  type DataTableProps,
+  type DataTableEmptyState,
+  type DataTableDensity,
+} from "./components/data-table";
+export { Avatar, AvatarImage, AvatarFallback } from "./components/avatar";
 export {
   DropdownMenu,
   DropdownMenuTrigger,
