@@ -20,8 +20,8 @@ export function useMe() {
     queryKey: ["me"],
     queryFn: async () => {
       try {
-        const data = await api<{ user: MeUser }>("/auth/me");
-        return data.user;
+        const data = await api<{ data: { user: MeUser } }>("/auth/me");
+        return data.data.user;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           router.replace("/login");
