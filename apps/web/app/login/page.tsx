@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@amni/ui";
 import { LoginForm } from "./login-form";
+import { QuickLogin } from "./quick-login";
 
 export default function LoginPage() {
   return (
@@ -12,6 +13,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <LoginForm />
+          <QuickLogin />
           <p className="mt-4 text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link href="/signup" className="font-medium text-primary hover:underline">
