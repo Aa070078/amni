@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@amni/ui/tokens.css";
 
+@source "../../../packages/ui/src";
+
 @plugin "tailwindcss-animate";
 
 @theme inline {
