@@ -17,6 +17,7 @@ interface ThrottlerStorageRecord {
 /**
  * Redis-backed sliding-window storage for @nestjs/throttler.
  * A sorted set holds hit timestamps per key; window = now - ttl.
+ * NOTE: @nestjs/throttler v5+ passes `ttl` and `blockDuration` in milliseconds.
  */
 @Injectable()
 export class RedisThrottlerStorage implements ThrottlerStorage {
@@ -32,7 +33,7 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
     const client = this.redis.get();
     const redisKey = `${KEY_PREFIX}${throttlerName}:${key}`;
     const now = Date.now();
-    const windowStart = now - ttl * 1000;
+    const windowStart = now - ttl;
 
     const blockKey = `${redisKey}:blocked`;
     const blockedUntil = await client.get(blockKey);
@@ -49,15 +50,17 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
     const pipeline = client.pipeline();
     pipeline.zadd(redisKey, now, member);
     pipeline.zcard(redisKey);
-    pipeline.pexpire(redisKey, ttl * 1000);
+    pipeline.pexpire(redisKey, ttl);
     const results = await pipeline.exec();
     const totalHits = Number(results?.[1]?.[1] ?? 0);
 
     if (totalHits >= limit) {
-      await client.set(blockKey, String(now + blockDuration * 1000), "PX", blockDuration * 1000);
-      return { totalHits, timeToExpire: ttl * 1000, isBlocked: true, timeToBlockExpire: blockDuration * 1000 };
+      if (blockDuration > 0) {
+        await client.set(blockKey, String(now + blockDuration), "PX", blockDuration);
+      }
+      return { totalHits, timeToExpire: ttl, isBlocked: true, timeToBlockExpire: blockDuration };
     }
 
-    return { totalHits, timeToExpire: ttl * 1000, isBlocked: false, timeToBlockExpire: 0 };
+    return { totalHits, timeToExpire: ttl, isBlocked: false, timeToBlockExpire: 0 };
   }
 }

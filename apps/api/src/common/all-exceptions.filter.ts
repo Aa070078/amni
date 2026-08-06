@@ -1,4 +1,5 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Logger } from "@nestjs/common";
+import { ThrottlerException } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { ZodError } from "zod";
 import { type ApiError, ErrorCode, failure } from "@amni/shared";
@@ -55,6 +56,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status: erpHttpStatus(exception.code),
         error: { code: exception.code, message: exception.message },
+      };
+    }
+
+    if (exception instanceof ThrottlerException) {
+      return {
+        status: HttpStatus.TOO_MANY_REQUESTS,
+        error: { code: ErrorCode.RATE_LIMITED, message: "Too many requests. Please wait a moment and try again." },
       };
     }
 
