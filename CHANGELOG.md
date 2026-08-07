@@ -32,3 +32,4 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 
 ### Fixed
 - CI workflow referenced a stale `JWT_SESSION_SECRET` secret; now uses `ACCESS_TOKEN_SECRET`.
+- Dashboard chart grid overflowed: the right column stacked Cash + Receivables aging inside a row sized to the Revenue card, so the aging card rendered over the Quick Actions and Alerts sections. Receivables aging now sits on its own full-width row; the cash chart uses a sparkline variant (no unreadable sub-10px axis labels).

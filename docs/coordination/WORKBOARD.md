@@ -78,4 +78,5 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-08 | Bugfix to M1-002 (dashboard): chart-grid overflow fixed so Receivables aging no longer overlaps Quick Actions/Alerts; cash chart converted to sparkline variant. Committed `035d82f` on `dev`. |
 | 2026-08-07 | Board created: M1 marked done; M2/M3/M4 planned tasks registered. |
