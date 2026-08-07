@@ -20,11 +20,9 @@ function OverviewSkeleton() {
         ))}
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
-        <Skeleton className="h-72 rounded-lg lg:col-span-2" />
-        <div className="space-y-6">
-          <Skeleton className="h-56 rounded-lg" />
-          <Skeleton className="h-48 rounded-lg" />
-        </div>
+        <Skeleton className="h-64 rounded-lg lg:col-span-2" />
+        <Skeleton className="h-64 rounded-lg" />
+        <Skeleton className="h-44 rounded-lg lg:col-span-3" />
       </div>
     </div>
   );
@@ -78,10 +76,14 @@ export function OverviewPanel() {
               <RevenueTrendCard data={overview.revenueTrend} />
             </div>
           ) : null}
-          {overview.cashTrend || overview.arAging ? (
-            <div className="space-y-6">
-              {overview.cashTrend ? <CashPositionCard data={overview.cashTrend} /> : null}
-              {overview.arAging ? <ArAgingCard data={overview.arAging} /> : null}
+          {overview.cashTrend ? (
+            <div>
+              <CashPositionCard data={overview.cashTrend} />
+            </div>
+          ) : null}
+          {overview.arAging ? (
+            <div className="lg:col-span-3">
+              <ArAgingCard data={overview.arAging} />
             </div>
           ) : null}
         </div>

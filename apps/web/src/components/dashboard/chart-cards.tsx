@@ -32,7 +32,7 @@ export function CashPositionCard({ data }: { data: DashboardSeriesPoint[] }) {
         <p className="text-2xl font-semibold tracking-tight tabular-nums">
           {last ? currency(last.value) : "—"}
         </p>
-        <AreaChart data={data} height={130} ariaLabel="Cash balance over the last 12 months" formatValue={currency} formatTick={compactUsd} />
+        <AreaChart data={data} variant="sparkline" ariaLabel="Cash balance over the last 12 months" formatValue={currency} />
       </CardContent>
     </Card>
   );

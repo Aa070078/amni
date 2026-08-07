@@ -13,6 +13,7 @@ const TOOLTIP_HEIGHT = 42;
 interface AreaChartProps {
   data: DashboardSeriesPoint[];
   height?: number;
+  variant?: "full" | "sparkline";
   formatValue?: (value: number) => string;
   formatTick?: (value: number) => string;
   ariaLabel: string;
@@ -21,10 +22,12 @@ interface AreaChartProps {
 export function AreaChart({
   data,
   height = 220,
+  variant = "full",
   formatValue = (value) => formatCompact(value),
   formatTick = (value) => formatCompact(value),
   ariaLabel,
 }: AreaChartProps) {
+  const sparkline = variant === "sparkline";
   const reducedMotion = useReducedMotion();
   const gradientId = useId().replace(/:/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -70,25 +73,29 @@ export function AreaChart({
           </linearGradient>
         </defs>
 
-        {ticks.map((tick) => {
-          const y = PAD + (1 - (tick - domain.min) / (domain.max - domain.min)) * (height - PAD * 2);
-          return (
-            <g key={tick}>
-              <line x1={0} x2={WIDTH} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 4" />
-              <text x={PAD} y={y - 4} fontSize={10} fill="var(--muted-foreground)">
-                {formatTick(tick)}
-              </text>
-            </g>
-          );
-        })}
+        {!sparkline ? (
+          <>
+            {ticks.map((tick) => {
+              const y = PAD + (1 - (tick - domain.min) / (domain.max - domain.min)) * (height - PAD * 2);
+              return (
+                <g key={tick}>
+                  <line x1={0} x2={WIDTH} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 4" />
+                  <text x={PAD} y={y - 4} fontSize={10} fill="var(--muted-foreground)">
+                    {formatTick(tick)}
+                  </text>
+                </g>
+              );
+            })}
 
-        {data.map((point, index) =>
-          index % labelStep === 0 ? (
-            <text key={point.label} x={points[index]?.x ?? 0} y={height - 2} fontSize={10} textAnchor="middle" fill="var(--muted-foreground)">
-              {point.label}
-            </text>
-          ) : null,
-        )}
+            {data.map((point, index) =>
+              index % labelStep === 0 ? (
+                <text key={point.label} x={points[index]?.x ?? 0} y={height - 2} fontSize={10} textAnchor="middle" fill="var(--muted-foreground)">
+                  {point.label}
+                </text>
+              ) : null,
+            )}
+          </>
+        ) : null}
 
         {area ? (
           <motion.path
