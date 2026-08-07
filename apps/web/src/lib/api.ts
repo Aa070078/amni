@@ -2,6 +2,18 @@ import type { ApiEnvelope } from "@amni/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
 
+const CSRF_COOKIE = "amni_csrf";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+function getCsrfToken(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const match = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${CSRF_COOKIE}=`));
+  return match?.slice(CSRF_COOKIE.length + 1) || undefined;
+}
+
 export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
@@ -23,11 +35,14 @@ interface RequestOptions {
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = options.method ?? "GET";
+  const csrfToken = !SAFE_METHODS.has(method) ? getCsrfToken() : undefined;
   const res = await fetch(`${API_BASE}${path}`, {
-    method: options.method ?? "GET",
+    method,
     headers: {
       "Content-Type": "application/json",
       ...(typeof window !== "undefined" ? { "X-Request-Id": crypto.randomUUID() } : {}),
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
     },
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     credentials: options.credentials ?? "include",

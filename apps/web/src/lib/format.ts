@@ -31,6 +31,10 @@ export function formatDelta(delta: number): string {
   return `${delta > 0 ? "+" : ""}${formatPercent(delta)}`;
 }
 
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 export function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   const minutes = Math.max(0, Math.round((Date.now() - then) / 60_000));
