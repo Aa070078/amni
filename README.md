@@ -4,7 +4,7 @@
 
 Any business signs up, answers a few simple questions, and gets a complete, provisioned ERP — while using Amni's own premium frontend as the product. ERPNext runs underneath as the business-management engine; users never need to understand it.
 
-> Current status: **M1 Foundation — auth shipped on `dev`.** Next: M2 Reference Build (premium ERP UI) then M3 tenant + provisioning.
+> Current status: **M1 Foundation — auth + dashboard shipped on `dev`.** Next: M2 Reference Build (premium ERP UI) then M3 tenant + provisioning. See the **[workboard](docs/coordination/WORKBOARD.md)** for task ownership and **[coordination protocol](docs/coordination/README.md)** for multi-agent workflow.
 
 ---
 
@@ -54,6 +54,10 @@ Full setup — including running the ERPNext cluster — is in [DEVELOPMENT.md](
 | [SECURITY.md](SECURITY.md) | Threat model, authz, isolation, incident response |
 | [TESTING.md](TESTING.md) | Testing strategy incl. tenant-isolation tests |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Environments, backups, monitoring, scaling |
+| [docs/design/DESIGN.md](docs/design/DESIGN.md) | Design system reference: tokens, components, motion, page contract |
+| [docs/design/UX_RESEARCH.md](docs/design/UX_RESEARCH.md) | UX research digest the design direction is based on |
+| [docs/coordination/README.md](docs/coordination/README.md) | Multi-agent coordination protocol (sync, claim, turf, conflicts) |
+| [docs/coordination/WORKBOARD.md](docs/coordination/WORKBOARD.md) | Task ownership board — who is working on what, by milestone |
 
 ## Core journey (acceptance proof)
 

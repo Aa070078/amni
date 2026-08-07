@@ -4,6 +4,21 @@ This is a living operational document. Read it before doing anything in this rep
 
 ---
 
+## 0. Multi-agent coordination (MANDATORY — read before ANY work)
+
+This repo is worked by multiple agents concurrently. Before starting any session, **every** agent must:
+
+1. **Sync to latest**: run `pnpm agent:sync` (fetches, checks out `dev`, `pull --rebase`, prints changelog + workboard). Always start from the latest `dev`. Never work from stale code.
+2. **Read the changelog** (`CHANGELOG.md` → `[Unreleased]`) to see what already landed.
+3. **Check the workboard** (`docs/coordination/WORKBOARD.md`) — the registry of who works on what.
+4. **Claim a task before building**: set `Owner` + `Status: in-progress` + `Branch` on your row and commit the claim *first*. One agent per task. Never claim/start a task that is `in-progress` by another agent.
+5. **Never overwrite others**: pull `dev` before every push; work on branches (`feat/<milestone>/<slug>`); never push to `dev`/`main` directly; never force-push or rewrite shared history; keep `packages/ui`, `packages/shared`, the workboard, and `CHANGELOG.md` additive.
+6. **Close the loop**: on completion, push branch → PR to `dev` (squash) → mark your board row `done` with PR link → append to `CHANGELOG.md` `[Unreleased]`. Output a session report (see protocol §8).
+
+Full protocol, claim format, turf map, and session-report template: **`docs/coordination/README.md`**. Task ownership: **`docs/coordination/WORKBOARD.md`**. Design language for all UI work: **`docs/design/DESIGN.md`**.
+
+---
+
 ## 1. Project purpose
 
 **Amni** is a multi-tenant ERP SaaS platform. Any business signs up, answers a few simple questions, and gets a complete, provisioned ERP (built on ERPNext/Frappe) — while using Amni's own premium frontend as the product. See `PRODUCT_SPEC.md` and `ARCHITECTURE.md`.
@@ -90,10 +105,12 @@ Follow `SECURITY.md`. Golden rules: server-side authorization everywhere; argon2
 - Commit messages: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`).
 - Open a PR to `dev`; PR description references the issue and lists what changed; request review. Merge via squash.
 - Keep PRs small. Never overwrite another's work: pull `dev` before branching, resolve conflicts carefully.
+- **Multi-agent:** follow §0 + `docs/coordination/README.md` — claim tasks on the workboard before starting, pull latest (`pnpm agent:sync`) before every session/push, and update board + changelog when done.
 
 ## 12. Documentation rules
 
 - Update the relevant doc with every behavior change: `PRODUCT_SPEC.md` (product), `ARCHITECTURE.md` (structure), `AGENTS.md` (this file, ops), `DEVELOPMENT.md` (setup), `DEPLOYMENT.md` (ops), `SECURITY.md` (security), `TESTING.md` (tests).
+- UI/visual work: follow and keep current `docs/design/DESIGN.md` (design language). Multi-agent work: follow `docs/coordination/README.md` + `WORKBOARD.md`.
 - Architecturally significant decisions → `docs/adr/NNNN-title.md` (ADR format: Context / Decision / Consequences).
 - Update `CHANGELOG.md` on merge to `dev`.
 

@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Multi-agent coordination system** — mandatory workflow for concurrent agents:
+  - `docs/coordination/README.md` protocol: session start via `pnpm agent:sync` (pull latest + print changelog + workboard), claim-before-build on `docs/coordination/WORKBOARD.md` (task ownership registry, one owner per task), branch-per-task PRs to `dev`, turf map (additive-only on `packages/ui`, `packages/shared`, board, changelog), session-report template.
+  - `docs/coordination/WORKBOARD.md` task board: M1 marked done; M2 (Reference UI: wizard, sales/inventory/purchasing/finance/settings, palette/search/notifications) + M3 (provisioning, ERP client, isolation tests) + M4 backlog planned.
+  - `docs/design/DESIGN.md` design-system reference: tokens, components, motion rules, chart patterns, page contract, dark-mode/a11y baseline.
+  - `scripts/agent-sync.mjs` + root `pnpm agent:sync`; AGENTS.md §0 makes the protocol mandatory; README docs table + status updated.
 - **Dashboard redesign** — `/dashboard` rebuilt as a command center:
   - Hero band with lazy-loaded React Three Fiber 3D floating shapes (WebGL, `frameloop`/reduced-motion aware) + aurora gradient + live status pill.
   - Animated KPI cards (framer-motion count-up, stagger entrance, hover lift) with SVG sparklines per KPI.

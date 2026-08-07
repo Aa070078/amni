@@ -16,7 +16,8 @@
     "db:seed": "pnpm --filter db run seed",
     "studio": "pnpm --filter db run studio",
     "storybook": "pnpm --filter ui run storybook",
-    "audit": "pnpm audit"
+    "audit": "pnpm audit",
+    "agent:sync": "node scripts/agent-sync.mjs"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
