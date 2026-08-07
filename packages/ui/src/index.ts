@@ -60,6 +60,8 @@ export {
   type DataTableProps,
   type DataTableEmptyState,
   type DataTableDensity,
+  type LegacyColumn,
+  type LegacyColumnDef,
 } from "./components/data-table";
 export { Avatar, AvatarImage, AvatarFallback } from "./components/avatar";
 export {

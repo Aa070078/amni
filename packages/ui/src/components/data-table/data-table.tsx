@@ -15,6 +15,7 @@ import {
   getSortedRowModel,
   useLegacyTable,
   type LegacyColumnDef,
+  type LegacyTable,
 } from "@tanstack/react-table/legacy";
 import type { RowData } from "@tanstack/react-table";
 import { Search, X } from "lucide-react";
@@ -76,7 +77,7 @@ interface DataTableProps<TData extends RowData> {
   bulkActions?: (selectedRows: TData[]) => React.ReactNode;
   emptyState?: DataTableEmptyState;
   noResultsState?: DataTableEmptyState;
-  toolbar?: React.ReactNode;
+  toolbar?: React.ReactNode | ((table: LegacyTable<TData>) => React.ReactNode);
   pageSizeOptions?: number[];
   initialSorting?: SortingState;
   initialColumnVisibility?: ColumnVisibilityState;
@@ -167,7 +168,13 @@ function DataTable<TData extends RowData>({
             />
           </div>
         )}
-        {toolbar}
+        {toolbar ? (
+          typeof toolbar === "function" ? (
+            toolbar(table)
+          ) : (
+            toolbar
+          )
+        ) : null}
         <DataTableViewOptions
           table={table}
           density={density}
@@ -267,12 +274,13 @@ function DataTable<TData extends RowData>({
                         {noResultsState.description ?? "Try adjusting your search or filters."}
                       </p>
                     </div>
-                    {noResultsState.action ?? (
-                      <Button variant="outline" size="sm" onClick={onClearFilters}>
-                        <X className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Clear filters
-                      </Button>
-                    )}
+                    {noResultsState.action ??
+                      (onClearFilters ? (
+                        <Button variant="outline" size="sm" onClick={onClearFilters}>
+                          <X className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Clear filters
+                        </Button>
+                      ) : null)}
                   </div>
                 </TableCell>
               </TableRow>
