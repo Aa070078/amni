@@ -5,6 +5,12 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **M2-001 Sales Customers list + detail** — first M2 Reference UI module (PR #23):
+  - `packages/shared`: `sales/customers.ts` contract — `Customer`, `CustomerDetail`, `CreateCustomerInput`, `CustomerListResponse`, sort/status helpers.
+  - `packages/ui`: fixed DataTable row-selection header/body alignment (style-widths so sticky thead aligns with the body); toolbar upgraded to a table-aware render function that stays in the sticky header; legacy `DataTable`/`DataTableToolbar`/`DataTableHeader` types re-exported.
+  - `apps/api`: `sales` module — `GET /sales/customers` (pagination/search/sort/status + summary stats), `GET /sales/customers/:code` (detail + orders), `POST /sales/customers` (zod-validated, 201); in-memory reference seed (13 customers); unit tests.
+  - `apps/web`: `/sales` hub; `/sales/customers` DataTable list (sortable columns, comfortable/dense density, row selection, live search, CSV export, per-status counts); `/sales/customers/[code]` detail (profile, totals, recent orders); new-customer dialog; typed `lib/sales.ts` client; `formatDate` helper.
+  - `api.ts` now sends the `X-CSRF-Token` header on unsafe methods (CSRF double-submit).
 - **Multi-agent coordination system** — mandatory workflow for concurrent agents:
   - `docs/coordination/README.md` protocol: session start via `pnpm agent:sync` (pull latest + print changelog + workboard), claim-before-build on `docs/coordination/WORKBOARD.md` (task ownership registry, one owner per task), branch-per-task PRs to `dev`, turf map (additive-only on `packages/ui`, `packages/shared`, board, changelog), session-report template.
   - `docs/coordination/WORKBOARD.md` task board: M1 marked done; M2 (Reference UI: wizard, sales/inventory/purchasing/finance/settings, palette/search/notifications) + M3 (provisioning, ERP client, isolation tests) + M4 backlog planned.
