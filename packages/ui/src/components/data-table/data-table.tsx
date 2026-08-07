@@ -181,28 +181,34 @@ function DataTable<TData extends RowData>({
           <TableHeader className="sticky top-0 z-10 bg-background">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => {
-                  const isSelectionColumn = header.column.id === "select";
-                  return (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className={cn(
-                        "bg-muted/50",
-                        density === "compact" && "h-8",
-                        density === "spacious" && "h-12",
-                      )}
-                    >
-                      {isSelectionColumn ? (
-                        <Checkbox
-                          checked={table.getIsAllPageRowsSelected()}
-                          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                          aria-label="Select all rows on page"
-                        />
-                      ) : header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  );
-                })}
+                {enableRowSelection && (
+                  <TableHead
+                    className={cn(
+                      "w-12 bg-muted/50",
+                      density === "compact" && "h-8",
+                      density === "spacious" && "h-12",
+                    )}
+                  >
+                    <Checkbox
+                      checked={table.getIsAllPageRowsSelected()}
+                      onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                      aria-label="Select all rows on page"
+                    />
+                  </TableHead>
+                )}
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className={cn(
+                      "bg-muted/50",
+                      density === "compact" && "h-8",
+                      density === "spacious" && "h-12",
+                    )}
+                  >
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
@@ -293,17 +299,11 @@ function DataTable<TData extends RowData>({
                       />
                     </TableCell>
                   )}
-                  {row.getVisibleCells().map((cell) => {
-                    const isSelectionColumn = cell.column.id === "select";
-                    return (
-                      <TableCell
-                        key={cell.id}
-                        className={cn(densityCellClasses[density], isSelectionColumn && "w-12")}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    );
-                  })}
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className={cn(densityCellClasses[density])}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))
             )}
