@@ -5,6 +5,13 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Dashboard redesign** — `/dashboard` rebuilt as a command center:
+  - Hero band with lazy-loaded React Three Fiber 3D floating shapes (WebGL, `frameloop`/reduced-motion aware) + aurora gradient + live status pill.
+  - Animated KPI cards (framer-motion count-up, stagger entrance, hover lift) with SVG sparklines per KPI.
+  - Chart zone: revenue-trend area chart with hover crosshair/tooltip and y/x grid labels, cash-position mini chart, receivables-aging bar list.
+  - "Data as of" freshness line (from `overview.asOf`) and staggered entrances for alerts/activity lists.
+  - Dashboard contract extended in `packages/shared` (`kpi.sparkline`, `revenueTrend`, `cashTrend`, `arAging`), with demo series in `apps/api`.
+  - Added `three`, `@react-three/fiber` deps to `apps/web`.
 - **M1 Foundation scaffold** — pnpm workspace + Turborepo; `apps/web` (Next.js), `apps/api` (NestJS), `apps/worker` (BullMQ); `packages/ui` (design system), `packages/db` (Prisma + platform schema + migrations), `packages/erp` (ERPNext typed client), `packages/shared` (API contract: zod schemas + envelope + error codes); infra docker compose (Postgres + Redis); CI workflow.
 - **M1 Auth foundation (#3)** — full auth module in `apps/api`:
   - argon2id password hashing (OWASP params) via `@node-rs/argon2`.

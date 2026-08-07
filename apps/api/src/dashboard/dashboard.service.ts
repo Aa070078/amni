@@ -3,8 +3,10 @@ import {
   ProductRole,
   type DashboardAlerts,
   type DashboardActivity,
+  type DashboardArBucket,
   type DashboardKpi,
   type DashboardOverview,
+  type DashboardSeriesPoint,
   type QuickAction,
 } from "@amni/shared";
 
@@ -25,6 +27,7 @@ const KPIS: Record<string, DashboardKpi> = {
     deltaLabel: "vs last month",
     trend: "up",
     hint: "Invoiced this month",
+    sparkline: [232_000, 241_000, 238_500, 249_800, 255_200, 263_400, 258_900, 271_300, 268_400, 276_200, 279_800, 284_500],
   },
   ar: {
     id: "ar",
@@ -36,6 +39,7 @@ const KPIS: Record<string, DashboardKpi> = {
     deltaLabel: "vs last month",
     trend: "up",
     hint: "12 invoices outstanding",
+    sparkline: [84_100, 86_400, 85_200, 88_300, 87_100, 89_600, 91_200, 90_400, 92_800, 93_500, 95_100, 96_250],
   },
   ap: {
     id: "ap",
@@ -47,6 +51,7 @@ const KPIS: Record<string, DashboardKpi> = {
     deltaLabel: "vs last month",
     trend: "down",
     hint: "9 bills due this month",
+    sparkline: [48_200, 47_100, 47_800, 46_500, 46_900, 45_800, 46_100, 44_900, 45_200, 43_800, 42_900, 41_800],
   },
   cash: {
     id: "cash",
@@ -58,6 +63,7 @@ const KPIS: Record<string, DashboardKpi> = {
     deltaLabel: "vs last month",
     trend: "up",
     hint: "Across 3 bank accounts",
+    sparkline: [438_000, 452_300, 447_800, 461_200, 473_900, 468_500, 481_400, 489_200, 496_100, 503_800, 508_600, 512_400],
   },
   inventory: {
     id: "inventory",
@@ -69,8 +75,47 @@ const KPIS: Record<string, DashboardKpi> = {
     deltaLabel: "vs last month",
     trend: "down",
     hint: "5 items low on stock",
+    sparkline: [208_300, 205_400, 207_100, 202_800, 204_200, 200_900, 202_300, 198_600, 200_100, 195_400, 190_800, 187_600],
   },
 };
+
+const REVENUE_TREND: DashboardSeriesPoint[] = [
+  { label: "Jan", value: 232_000 },
+  { label: "Feb", value: 241_000 },
+  { label: "Mar", value: 238_500 },
+  { label: "Apr", value: 249_800 },
+  { label: "May", value: 255_200 },
+  { label: "Jun", value: 263_400 },
+  { label: "Jul", value: 258_900 },
+  { label: "Aug", value: 271_300 },
+  { label: "Sep", value: 268_400 },
+  { label: "Oct", value: 276_200 },
+  { label: "Nov", value: 279_800 },
+  { label: "Dec", value: 284_500 },
+];
+
+const CASH_TREND: DashboardSeriesPoint[] = [
+  { label: "Jan", value: 438_000 },
+  { label: "Feb", value: 452_300 },
+  { label: "Mar", value: 447_800 },
+  { label: "Apr", value: 461_200 },
+  { label: "May", value: 473_900 },
+  { label: "Jun", value: 468_500 },
+  { label: "Jul", value: 481_400 },
+  { label: "Aug", value: 489_200 },
+  { label: "Sep", value: 496_100 },
+  { label: "Oct", value: 503_800 },
+  { label: "Nov", value: 508_600 },
+  { label: "Dec", value: 512_400 },
+];
+
+const AR_AGING: DashboardArBucket[] = [
+  { label: "Current", value: 54_200 },
+  { label: "1–30 days", value: 21_300 },
+  { label: "31–60 days", value: 11_600 },
+  { label: "61–90 days", value: 6_900 },
+  { label: "90+ days", value: 2_250 },
+];
 
 const ROLE_KPI_IDS: Record<ProductRole, string[]> = {
   [ProductRole.ADMIN]: ["revenue", "ar", "ap", "cash", "inventory"],
@@ -139,7 +184,15 @@ export class DashboardService {
     const kpis = kpiIds.map((id) => KPIS[id]).filter((kpi): kpi is DashboardKpi => kpi !== undefined);
     const quickActions = QUICK_ACTIONS.filter((action) => !action.roles || action.roles.includes(role));
 
-    return { asOf: new Date().toISOString(), role, kpis, quickActions };
+    return {
+      asOf: new Date().toISOString(),
+      role,
+      kpis,
+      quickActions,
+      revenueTrend: REVENUE_TREND,
+      cashTrend: CASH_TREND,
+      arAging: AR_AGING,
+    };
   }
 
   alerts(): DashboardAlerts {

@@ -16,6 +16,17 @@ export const dashboardKpiSchema = z.object({
   deltaLabel: z.string().max(80).optional(),
   trend: kpiTrendSchema.optional(),
   hint: z.string().max(120).optional(),
+  sparkline: z.array(z.number().finite()).min(2).max(24).optional(),
+});
+
+export const dashboardSeriesPointSchema = z.object({
+  label: z.string().min(1).max(32),
+  value: z.number().finite(),
+});
+
+export const dashboardArBucketSchema = z.object({
+  label: z.string().min(1).max(32),
+  value: z.number().finite(),
 });
 
 export const dashboardAlertSchema = z.object({
@@ -48,6 +59,9 @@ export const dashboardOverviewSchema = z.object({
   role: z.nativeEnum(ProductRole),
   kpis: z.array(dashboardKpiSchema),
   quickActions: z.array(quickActionSchema),
+  revenueTrend: z.array(dashboardSeriesPointSchema).optional(),
+  cashTrend: z.array(dashboardSeriesPointSchema).optional(),
+  arAging: z.array(dashboardArBucketSchema).optional(),
 });
 
 export const dashboardAlertsSchema = z.object({
@@ -65,6 +79,8 @@ export const dashboardOverviewQuerySchema = z.object({
 export type KpiTrend = z.infer<typeof kpiTrendSchema>;
 export type KpiFormat = z.infer<typeof kpiFormatSchema>;
 export type DashboardKpi = z.infer<typeof dashboardKpiSchema>;
+export type DashboardSeriesPoint = z.infer<typeof dashboardSeriesPointSchema>;
+export type DashboardArBucket = z.infer<typeof dashboardArBucketSchema>;
 export type DashboardAlert = z.infer<typeof dashboardAlertSchema>;
 export type ActivityItem = z.infer<typeof activityItemSchema>;
 export type QuickAction = z.infer<typeof quickActionSchema>;

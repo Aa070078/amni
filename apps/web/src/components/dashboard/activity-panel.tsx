@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { Activity as ActivityIcon, History } from "lucide-react";
 import { Card, CardContent, Skeleton } from "@amni/ui";
 import type { ActivityItem, DashboardActivity } from "@amni/shared";
@@ -21,7 +22,7 @@ function ActivitySkeleton() {
 
 function ActivityRow({ item }: { item: ActivityItem }) {
   const row = (
-    <li className="flex gap-3">
+    <div className="flex gap-3">
       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="text-sm">
@@ -33,7 +34,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           {formatRelativeTime(item.time)}
         </p>
       </div>
-    </li>
+    </div>
   );
 
   return item.href ? (
@@ -50,6 +51,16 @@ export function ActivityPanel() {
     queryKey: ["dashboard", "activity"],
     queryFn: () => api<DashboardActivity>("/dashboard/activity"),
   });
+  const reducedMotion = useReducedMotion();
+  const listVariants: Variants = reducedMotion
+    ? { hidden: {}, show: {} }
+    : { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
+  const itemVariants: Variants = reducedMotion
+    ? { hidden: {}, show: {} }
+    : {
+        hidden: { opacity: 0, x: 8 },
+        show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+      };
 
   return (
     <Card className="h-full">
@@ -67,11 +78,13 @@ export function ActivityPanel() {
               description="Actions your team takes will show up here."
             />
           ) : (
-            <ul className="space-y-4">
+            <motion.ul variants={listVariants} initial="hidden" animate="show" className="space-y-4">
               {query.data.activity.map((item) => (
-                <ActivityRow key={item.id} item={item} />
+                <motion.li key={item.id} variants={itemVariants}>
+                  <ActivityRow item={item} />
+                </motion.li>
               ))}
-            </ul>
+            </motion.ul>
           )
         ) : null}
       </CardContent>

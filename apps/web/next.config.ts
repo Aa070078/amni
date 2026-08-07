@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@amni/ui", "@amni/shared"],
   reactStrictMode: true,
   output: "standalone",
+  devIndicators: false,
 };
 
 export default nextConfig;

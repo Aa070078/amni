@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { ArrowRight, Bell, Info, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Badge, Card, CardContent, Skeleton } from "@amni/ui";
 import type { DashboardAlert, DashboardAlerts } from "@amni/shared";
@@ -67,6 +68,16 @@ export function AlertsPanel() {
     queryKey: ["dashboard", "alerts"],
     queryFn: () => api<DashboardAlerts>("/dashboard/alerts"),
   });
+  const reducedMotion = useReducedMotion();
+  const listVariants: Variants = reducedMotion
+    ? { hidden: {}, show: {} }
+    : { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+  const itemVariants: Variants = reducedMotion
+    ? { hidden: {}, show: {} }
+    : {
+        hidden: { opacity: 0, y: 8 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+      };
 
   return (
     <Card className="h-full">
@@ -84,11 +95,13 @@ export function AlertsPanel() {
               description="No alerts right now — we'll let you know when something needs attention."
             />
           ) : (
-            <div className="space-y-3">
+            <motion.div variants={listVariants} initial="hidden" animate="show" className="space-y-3">
               {query.data.alerts.map((alert) => (
-                <AlertRow key={alert.id} alert={alert} />
+                <motion.div key={alert.id} variants={itemVariants}>
+                  <AlertRow alert={alert} />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )
         ) : null}
       </CardContent>
