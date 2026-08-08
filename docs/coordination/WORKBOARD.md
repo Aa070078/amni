@@ -18,7 +18,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 |---|---|---|---|---|---|
 | **M2-000 Setup Wizard** (onboarding epic: company→regional→business→team→import→provision) | M2 | — | planned | — | Reuses auth; draft auto-save; see PRODUCT_SPEC §4 |
 | M2-001 Customers list + detail | M2 | — | planned | — | Sales module; uses DataTable core |
-| M2-002 Leads / Opportunities (pipeline) | M2 | agent-ui | in-progress | feat/M2/leads-pipeline | Sales |
+| M2-002 Leads / Opportunities (pipeline) | M2 | agent-ui | done | feat/M2/leads-pipeline | Sales; PR #24 |
 | M2-003 Quotations | M2 | — | planned | — | Sales |
 | M2-004 Sales Orders | M2 | — | planned | — | Sales |
 | M2-005 Sales Invoices + record payment | M2 | — | planned | — | Sales/Finance cross-cut |
@@ -78,5 +78,6 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-08 | M2-002 Leads marked done; PR #24 open (agent-ui). |
 | 2026-08-08 | Bugfix to M1-002 (dashboard): chart-grid overflow fixed so Receivables aging no longer overlaps Quick Actions/Alerts; cash chart converted to sparkline variant. Committed `035d82f` on `dev`. |
 | 2026-08-07 | Board created: M1 marked done; M2/M3/M4 planned tasks registered. |

@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Leads pipeline (M2-002, PR #24)** — Sales module:
+  - `packages/shared`: lead, activity, stage-stat, pipeline, list schemas + stage/source constants and stage probability map.
+  - `apps/api`: `sales/leads` module — pipeline (stats + items), list, detail (with activity), create, update, move-stage, delete; zod-validated; 18 unit tests.
+  - `apps/web`: kanban board with drag-and-drop stage moves (optimistic with rollback), DataTable list view with bulk move-to-stage, lead detail page (stage mover, notes, activity timeline, 404 handling), new-lead dialog, KPI stats (open pipeline, won value, win rate), debounced search, and full loading/empty/error states.
+  - Sales landing page now links to the live Leads workspace.
 - **Multi-agent coordination system** — mandatory workflow for concurrent agents:
   - `docs/coordination/README.md` protocol: session start via `pnpm agent:sync` (pull latest + print changelog + workboard), claim-before-build on `docs/coordination/WORKBOARD.md` (task ownership registry, one owner per task), branch-per-task PRs to `dev`, turf map (additive-only on `packages/ui`, `packages/shared`, board, changelog), session-report template.
   - `docs/coordination/WORKBOARD.md` task board: M1 marked done; M2 (Reference UI: wizard, sales/inventory/purchasing/finance/settings, palette/search/notifications) + M3 (provisioning, ERP client, isolation tests) + M4 backlog planned.
