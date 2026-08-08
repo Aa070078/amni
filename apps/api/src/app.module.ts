@@ -5,6 +5,7 @@ import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./redis/redis.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { LeadsModule } from "./leads/leads.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { DashboardModule } from "./dashboard/dashboard.module";
     HealthModule,
     AuthModule,
     DashboardModule,
+    LeadsModule,
   ],
 })
 export class AppModule {}
