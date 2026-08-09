@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Handshake, Users } from "lucide-react";
+import { ArrowRight, Handshake, PackageCheck, Users } from "lucide-react";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@amni/ui";
 
 export const metadata: Metadata = { title: "Sales" };
@@ -38,11 +38,33 @@ export default function SalesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
+            <PackageCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            Sales orders
+            <Badge variant="success">Live</Badge>
+          </CardTitle>
+          <CardDescription>
+            Raise orders, track delivery dates, and manage fulfilment.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/sales/orders"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Open orders
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <Handshake className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Customers &amp; orders
+            Customers &amp; quotations
             <Badge variant="secondary">Coming soon</Badge>
           </CardTitle>
-          <CardDescription>Quotes and orders ship in a later milestone.</CardDescription>
+          <CardDescription>Customers and quotes ship in a later milestone.</CardDescription>
         </CardHeader>
       </Card>
     </div>
