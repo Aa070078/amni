@@ -25,9 +25,10 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | M2-006 Products list + detail | M2 | — | planned | — | Inventory |
 | M2-007 Warehouses + Inventory stock levels | M2 | — | planned | — | Inventory; low-stock alerts |
 | M2-008 Stock Movements | M2 | — | planned | — | Inventory |
-| M2-009 Suppliers | M2 | — | planned | — | Purchasing |
-| M2-010 Purchase Orders | M2 | — | planned | — | Purchasing |
-| M2-011 Purchase Invoices | M2 | — | planned | — | Purchasing |
+| M2-009 Suppliers | M2 | agent-amni-01 | in-progress | feat/M2/purchasing-people | Purchasing; mirrors customers pattern |
+| M2-010 Purchase Orders | M2 | agent-amni-01 | in-progress | feat/M2/purchasing-people | Purchasing |
+| M2-011 Purchase Invoices | M2 | agent-amni-01 | in-progress | feat/M2/purchasing-people | Purchasing |
+| M2-019 People: Contacts list + detail | M2 | agent-amni-01 | in-progress | feat/M2/purchasing-people | People module (nav); new task |
 | M2-012 Financial Overview + Reports | M2 | — | planned | — | Finance; revenue/AR/AP/cash KPIs |
 | M2-013 Expenses + Payments | M2 | — | planned | — | Finance |
 | M2-014 Settings: Company / Team & roles | M2 | — | planned | — | Self-serve admin |
