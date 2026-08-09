@@ -4,7 +4,9 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 
 ## [Unreleased]
 
-### Added (dev)
+## [0.1.0] - 2026-08-10
+
+### Added
 - **Finance workspaces (M2-019..M2-024)** — invoicing, accounting, sign, equity, esg, and expense claims/categories, extending the M2 finance module:
   - `packages/shared`: domain schemas for invoicing (invoice, credit note, recurring), accounting (account, journal entry), sign (template, request, recipient, SIGN_* constants), equity (class, round, shareholder), esg (metric, board, policy, report) and expenses (expense claim + category).
   - `apps/api`: `invoicing`, `accounting`, `sign`, `equity`, `esg` modules + expense claim/category endpoints — list/detail/create/update/remove, zod-validated, envelope-shaped, service unit-tested, registered in `AppModule`.
