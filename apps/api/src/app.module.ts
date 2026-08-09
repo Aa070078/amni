@@ -28,6 +28,7 @@ import { AccountingModule } from "./accounting/accounting.module";
 import { SignModule } from "./sign/sign.module";
 import { EquityModule } from "./equity/equity.module";
 import { EsgModule } from "./esg/esg.module";
+import { ContactsModule } from "./contacts/contacts.module";
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { EsgModule } from "./esg/esg.module";
     SignModule,
     EquityModule,
     EsgModule,
+    ContactsModule,
   ],
 })
 export class AppModule {}
