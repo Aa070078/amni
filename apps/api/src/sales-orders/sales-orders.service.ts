@@ -332,7 +332,7 @@ function sortValue(order: SalesOrder, sortBy: string): unknown {
  */
 @Injectable()
 export class SalesOrdersService {
-  private records: SalesOrder[] = [...SEED];
+  private records: SalesOrder[] = structuredClone(SEED);
 
   options(): SalesOrderOptions {
     return { customers: SEED_CUSTOMERS, products: SEED_PRODUCTS };

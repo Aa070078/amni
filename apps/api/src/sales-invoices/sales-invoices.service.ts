@@ -449,7 +449,7 @@ function sortValue(invoice: SalesInvoice, sortBy: string): unknown {
  */
 @Injectable()
 export class SalesInvoicesService {
-  private records: SalesInvoice[] = [...SEED];
+  private records: SalesInvoice[] = structuredClone(SEED);
 
   summary(): SalesInvoiceSummary {
     const now = Date.now();

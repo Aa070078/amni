@@ -28,8 +28,12 @@ export const supplierSchema = z.object({
 
 export const createSupplierInputSchema = supplierSchema.omit({ createdAt: true, updatedAt: true }).partial();
 
+export const updateSupplierInputSchema = createSupplierInputSchema;
+
 export type Supplier = z.infer<typeof supplierSchema>;
 export type SupplierStatus = z.infer<typeof supplierStatusSchema>;
+export type CreateSupplierInput = z.infer<typeof createSupplierInputSchema>;
+export type UpdateSupplierInput = z.infer<typeof updateSupplierInputSchema>;
 
 export const purchaseOrderStatusSchema = z.enum(["draft", "submitted", "partially_received", "received", "completed", "cancelled"]);
 

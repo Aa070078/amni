@@ -32,8 +32,12 @@ export const createCustomerInputSchema = customerSchema
   .partial()
   .extend({ code: z.string().regex(/^CUS-\d{4}$/).optional() });
 
+export const updateCustomerInputSchema = createCustomerInputSchema;
+
 export type Customer = z.infer<typeof customerSchema>;
 export type CustomerStatus = z.infer<typeof customerStatusSchema>;
+export type CreateCustomerInput = z.infer<typeof createCustomerInputSchema>;
+export type UpdateCustomerInput = z.infer<typeof updateCustomerInputSchema>;
 
 export const quotationStatusSchema = z.enum(["draft", "sent", "accepted", "rejected", "expired", "converted"]);
 

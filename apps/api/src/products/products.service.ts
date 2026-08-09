@@ -51,7 +51,7 @@ function nextCode(records: Product[]): string {
  */
 @Injectable()
 export class ProductsService {
-  private records: Product[] = [...SEED];
+  private records: Product[] = structuredClone(SEED);
 
   list(query: ProductListQuery): ProductListResponse {
     const q = (query.q ?? "").toLowerCase().trim();

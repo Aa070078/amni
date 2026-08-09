@@ -54,7 +54,7 @@ function nextCode(records: StockMovement[]): string {
  */
 @Injectable()
 export class StockMovementsService {
-  private records: StockMovement[] = [...SEED];
+  private records: StockMovement[] = structuredClone(SEED);
 
   list(query: StockMovementListQuery): StockMovementListResponse {
     const q = (query.q ?? "").toLowerCase().trim();

@@ -23,6 +23,7 @@ export const updateCompanySettingsInputSchema = companySettingsSchema
   .omit({ slug: true, createdAt: true })
   .partial();
 
+export type UpdateCompanySettingsInput = z.infer<typeof updateCompanySettingsInputSchema>;
 export type CompanySettings = z.infer<typeof companySettingsSchema>;
 
 export const teamRoleSchema = z.enum(["OWNER", "ADMIN", "MEMBER", "ACCOUNTANT", "SALES", "INVENTORY"]);
