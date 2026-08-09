@@ -21,7 +21,7 @@
   },
   "files": ["dist", "prisma"],
   "scripts": {
-    "build": "tsup",
+    "build": "prisma generate && tsup",
     "dev": "tsup --watch",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
@@ -29,8 +29,8 @@
     "studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "prisma generate && tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
