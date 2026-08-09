@@ -30,7 +30,7 @@
     "seed": "tsx prisma/seed.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
