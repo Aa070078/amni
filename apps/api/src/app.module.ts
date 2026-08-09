@@ -23,6 +23,11 @@ import { SettingsModule } from "./settings/settings.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { SearchModule } from "./search/search.module";
 import { WizardModule } from "./wizard/wizard.module";
+import { InvoicingModule } from "./invoicing/invoicing.module";
+import { AccountingModule } from "./accounting/accounting.module";
+import { SignModule } from "./sign/sign.module";
+import { EquityModule } from "./equity/equity.module";
+import { EsgModule } from "./esg/esg.module";
 
 @Module({
   imports: [
@@ -53,6 +58,11 @@ import { WizardModule } from "./wizard/wizard.module";
     NotificationsModule,
     SearchModule,
     WizardModule,
+    InvoicingModule,
+    AccountingModule,
+    SignModule,
+    EquityModule,
+    EsgModule,
   ],
 })
 export class AppModule {}

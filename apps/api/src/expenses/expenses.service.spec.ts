@@ -100,4 +100,94 @@ describe("ExpensesService", () => {
       expect(() => service.remove("EXP-9999")).toThrowError(ApiException);
     });
   });
+
+  describe("overview", () => {
+    it("computes KPIs and top categories from records", () => {
+      const overview = createService().overview();
+
+      expect(overview.kpis.length).toBe(4);
+      expect(overview.topCategories.length).toBeGreaterThan(0);
+      expect(overview.topCategories[0].amount).toBeGreaterThanOrEqual(overview.topCategories[1].amount);
+    });
+  });
+
+  describe("claims", () => {
+    it("lists seeded claims filtered by status", () => {
+      const result = createService().listClaims({ page: 1, pageSize: 20, status: "paid" });
+
+      expect(result.meta.total).toBe(1);
+      expect(result.items[0].code).toBe("CLM-0003");
+    });
+
+    it("computes the total from items on create", () => {
+      const service = createService();
+      const claim = service.createClaim({
+        employee: "Amara Osei",
+        purpose: "Client dinner",
+        items: [
+          { description: "Dinner with client", category: "travel", date: new Date().toISOString(), amount: 120 },
+          { description: "Taxi", category: "travel", date: new Date().toISOString(), amount: 40 },
+        ],
+      });
+
+      expect(claim.code).toBe("CLM-0004");
+      expect(claim.status).toBe("draft");
+      expect(claim.total).toBe(160);
+    });
+
+    it("recomputes total when items change and stamps paidDate on paid", () => {
+      const service = createService();
+      const updated = service.updateClaim("CLM-0002", {
+        items: [{ description: "Stationery restock", category: "office", date: new Date().toISOString(), amount: 300 }],
+      });
+
+      expect(updated.total).toBe(300);
+
+      const paid = service.changeClaimStatus("CLM-0002", { status: "paid" });
+      expect(paid.status).toBe("paid");
+      expect(paid.paidDate).toBeDefined();
+    });
+
+    it("throws not_found for unknown claims", () => {
+      expect(() => createService().detailClaim("CLM-9999")).toThrowError(
+        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
+      );
+    });
+
+    it("removes a claim", () => {
+      const service = createService();
+      service.removeClaim("CLM-0003");
+
+      expect(service.listClaims({ page: 1, pageSize: 20 }).meta.total).toBe(2);
+    });
+  });
+
+  describe("categories", () => {
+    it("lists seeded categories and filters by status", () => {
+      const result = createService().listCategories({ page: 1, pageSize: 20, status: "archived" });
+
+      expect(result.meta.total).toBe(1);
+      expect(result.items[0].code).toBe("CAT-0009");
+    });
+
+    it("creates a category with the next code", () => {
+      const service = createService();
+      const category = service.createCategory({ name: "Training" });
+
+      expect(category.code).toBe("CAT-0010");
+      expect(category.status).toBe("active");
+      expect(category.color).toBe("zinc");
+    });
+
+    it("updates, changes status and throws not_found", () => {
+      const service = createService();
+
+      expect(service.updateCategory("CAT-0001", { color: "indigo" }).color).toBe("indigo");
+      expect(service.changeCategoryStatus("CAT-0001", { status: "archived" }).status).toBe("archived");
+      expect(() => service.updateCategory("CAT-9999", { name: "x" })).toThrowError(ApiException);
+
+      service.removeCategory("CAT-0009");
+      expect(service.listCategories({ page: 1, pageSize: 20 }).meta.total).toBe(8);
+    });
+  });
 });
