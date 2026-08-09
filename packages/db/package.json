@@ -29,7 +29,7 @@
     "studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "prisma generate && tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "prisma": {
