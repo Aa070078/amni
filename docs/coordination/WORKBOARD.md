@@ -41,7 +41,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | M2-022 Equity (cap table, classes, rounds, shareholders) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
 | M2-023 ESG (metrics, board, policies, reports) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
 | M2-024 Expense claims + categories | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; extends M2-013; PR #25 |
-| M2-025 People: Contacts list + detail | M2 | agent-amni-01 | in-progress | feat/M2/people-contacts | People module (nav: Contacts, access); new task |
+| M2-025 People: Contacts list + detail | M2 | agent-amni-01 | done | feat/M2/people-contacts | People module (nav: Contacts, access); new task; PR #30 |
 
 ---
 
@@ -85,7 +85,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
-| 2026-08-10 | M2-025 People: Contacts claimed (agent-amni-01) on `feat/M2/people-contacts`. |
+| 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |
 | 2026-08-09 | M2-000, M2-001, M2-009..M2-018 marked done, plus new finance workspaces M2-019..M2-024 (invoicing, accounting, sign, equity, esg, expense claims/categories) — all on `feat/M2/sales-inventory`, delivered via PR #25. Epic is code-complete; merge to `dev` is the remaining gate. |
 | 2026-08-09 | M2-003..M2-008 (quotations, sales orders, sales invoices, products, warehouses, stock movements) marked done; PR #25 open (agent-sales-inventory), stacked on PR #24. |
 | 2026-08-08 | M2-002 Leads marked done; PR #24 open (agent-ui). |

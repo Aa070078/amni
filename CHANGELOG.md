@@ -5,6 +5,10 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **People module: Contacts (M2-025) (#30)** — list + detail reference UI matching the conventions landed in #25:
+  - `packages/shared`: `contact` zod schema (`CON-\d{4}` codes, active/inactive status, `contactListQuerySchema`/`contactListResponseSchema`) in `schemas/contacts.ts`.
+  - `apps/api`: `contacts` module with 10 seeded reference contacts — `GET /people/contacts` (search/status filter/sort/pagination) + `/:code` detail + create/update/remove, AuthGuard-protected; registered in `AppModule`.
+  - `apps/web`: `/people` hub card, `/people/contacts` list (search, DataTable, "New contact" dialog) and `/people/contacts/[code]` detail (profile/summary + delete).
 - **Finance workspaces (M2-019..M2-024)** — invoicing, accounting, sign, equity, esg, and expense claims/categories, extending the M2 finance module:
   - `packages/shared`: domain schemas for invoicing (invoice, credit note, recurring), accounting (account, journal entry), sign (template, request, recipient, SIGN_* constants), equity (class, round, shareholder), esg (metric, board, policy, report) and expenses (expense claim + category).
   - `apps/api`: `invoicing`, `accounting`, `sign`, `equity`, `esg` modules + expense claim/category endpoints — list/detail/create/update/remove, zod-validated, envelope-shaped, service unit-tested, registered in `AppModule`.
