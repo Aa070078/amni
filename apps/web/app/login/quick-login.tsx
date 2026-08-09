@@ -15,7 +15,7 @@ export function QuickLogin() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (process.env.NODE_ENV === "production") return null;
+  if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_DEMO_MODE !== "true") return null;
 
   async function login(account: (typeof DEMO_ACCOUNTS)[number]) {
     setPending(account.email);

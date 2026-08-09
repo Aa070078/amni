@@ -135,9 +135,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.101.4(react@19.2.8)
-      '@types/three':
-        specifier: ^0.185.4
-        version: 0.185.4
       framer-motion:
         specifier: ^11.15.0
         version: 11.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -181,6 +178,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.4(@types/react@19.2.18)
+      '@types/three':
+        specifier: ^0.185.4
+        version: 0.185.4
       eslint:
         specifier: ^9.15.0
         version: 9.39.5(jiti@2.7.0)
