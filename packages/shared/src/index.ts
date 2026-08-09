@@ -8,3 +8,7 @@ export * from "./schemas/tenant.js";
 export * from "./schemas/import.js";
 export * from "./schemas/erp.js";
 export * from "./schemas/dashboard.js";
+export * from "./schemas/supplier.js";
+export * from "./schemas/purchase-order.js";
+export * from "./schemas/purchase-invoice.js";
+export * from "./schemas/contact.js";
