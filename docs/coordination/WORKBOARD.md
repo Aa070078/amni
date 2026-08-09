@@ -19,12 +19,12 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | **M2-000 Setup Wizard** (onboarding epic: company→regional→business→team→import→provision) | M2 | — | planned | — | Reuses auth; draft auto-save; see PRODUCT_SPEC §4 |
 | M2-001 Customers list + detail | M2 | — | planned | — | Sales module; uses DataTable core |
 | M2-002 Leads / Opportunities (pipeline) | M2 | agent-ui | done | feat/M2/leads-pipeline | Sales; PR #24 |
-| M2-003 Quotations | M2 | — | planned | — | Sales |
-| M2-004 Sales Orders | M2 | — | planned | — | Sales |
-| M2-005 Sales Invoices + record payment | M2 | — | planned | — | Sales/Finance cross-cut |
-| M2-006 Products list + detail | M2 | — | planned | — | Inventory |
-| M2-007 Warehouses + Inventory stock levels | M2 | — | planned | — | Inventory; low-stock alerts |
-| M2-008 Stock Movements | M2 | — | planned | — | Inventory |
+| M2-003 Quotations | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Sales; PR #25 |
+| M2-004 Sales Orders | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Sales; PR #25 |
+| M2-005 Sales Invoices + record payment | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Sales/Finance cross-cut; PR #25 |
+| M2-006 Products list + detail | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Inventory; PR #25 |
+| M2-007 Warehouses + Inventory stock levels | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Inventory; low-stock alerts; PR #25 |
+| M2-008 Stock Movements | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Inventory; PR #25 |
 | M2-009 Suppliers | M2 | — | planned | — | Purchasing |
 | M2-010 Purchase Orders | M2 | — | planned | — | Purchasing |
 | M2-011 Purchase Invoices | M2 | — | planned | — | Purchasing |
@@ -78,6 +78,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-09 | M2-003..M2-008 (quotations, sales orders, sales invoices, products, warehouses, stock movements) marked done; PR #25 open (agent-sales-inventory), stacked on PR #24. |
 | 2026-08-08 | M2-002 Leads marked done; PR #24 open (agent-ui). |
 | 2026-08-08 | Bugfix to M1-002 (dashboard): chart-grid overflow fixed so Receivables aging no longer overlaps Quick Actions/Alerts; cash chart converted to sparkline variant. Committed `035d82f` on `dev`. |
 | 2026-08-07 | Board created: M1 marked done; M2/M3/M4 planned tasks registered. |

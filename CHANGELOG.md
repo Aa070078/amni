@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Sales & Inventory reference modules (M2-003..M2-008, PR #25)** — six modules built to the M1 dashboard standard:
+  - `packages/shared`: `CustomerSummary` type export.
+  - `apps/api`: `products`, `warehouses`, `stock-movements`, `quotations`, `sales-orders`, `sales-invoices` modules — list/detail/create/update/remove with zod-validated input, whitelisted sorting (fallback to `createdAt desc`), search, pagination; status workflows for quotations/orders/invoices; record-payment for invoices; 102 new unit tests across the six services.
+  - `apps/web`: full page contract for each module — DataTable lists with search/sort/filter, new-record dialogs, detail views with status actions, KPI stat cards, loading/empty/error states, responsive + a11y baseline, dark mode.
+  - Sales landing page now links to the live Sales orders workspace.
 - **Leads pipeline (M2-002, PR #24)** — Sales module:
   - `packages/shared`: lead, activity, stage-stat, pipeline, list schemas + stage/source constants and stage probability map.
   - `apps/api`: `sales/leads` module — pipeline (stats + items), list, detail (with activity), create, update, move-stage, delete; zod-validated; 18 unit tests.
