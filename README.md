@@ -2,7 +2,7 @@
 
 **A multi-tenant ERP SaaS platform built on ERPNext/Frappe.**
 
-Any business signs up, answers a few simple questions, and gets a complete, provisioned ERP — while using Amni's own premium frontend as the product. ERPNext runs underneath as the business-management engine; users never need to understand it.
+Any business signs up, answers a few simple questions, and gets a complete, provisioned ERP — while using Amni's own premium frontend as the product. ERPNext runs underneath as the business-management engine.
 
 > Current status: **M1 Foundation — auth + dashboard shipped on `dev`.** Next: M2 Reference Build (premium ERP UI) then M3 tenant + provisioning. See the **[workboard](docs/coordination/WORKBOARD.md)** for task ownership and **[coordination protocol](docs/coordination/README.md)** for multi-agent workflow.
 
