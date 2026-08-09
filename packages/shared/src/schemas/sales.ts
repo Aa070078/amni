@@ -8,6 +8,8 @@ export const customerSummarySchema = z.object({
   name: z.string().min(1).max(160),
 });
 
+export type CustomerSummary = z.infer<typeof customerSummarySchema>;
+
 export const customerStatusSchema = z.enum(["active", "inactive"]);
 
 export const customerSchema = customerSummarySchema.extend({
