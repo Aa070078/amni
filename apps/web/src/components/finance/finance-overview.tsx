@@ -57,14 +57,29 @@ function OverviewHeader() {
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Finance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Overview, reports, expenses, and payments.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Overview, reports, and workspaces.</p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline" size="sm">
+          <Link href="/finance/invoicing">Invoicing</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/finance/accounting">Accounting</Link>
+        </Button>
         <Button asChild variant="outline" size="sm">
           <Link href="/finance/expenses">Expenses</Link>
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link href="/finance/payments">Payments</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/finance/sign">Sign</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/finance/equity">Equity</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/finance/esg">ESG</Link>
         </Button>
       </div>
     </div>

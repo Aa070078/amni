@@ -169,7 +169,12 @@ export function ExpensesView() {
             Track costs from draft through approval and payment.
           </p>
         </div>
-        <NewExpenseDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreate={createExpense} />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/finance/expenses/claims">Claims & categories</Link>
+          </Button>
+          <NewExpenseDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreate={createExpense} />
+        </div>
       </div>
 
       {createdExpense ? (

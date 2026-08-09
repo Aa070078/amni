@@ -21,7 +21,7 @@ export const appModules: AppModule[] = [
   { title: "Sales", intent: "Customers, quotes, orders", href: "/sales", icon: Handshake },
   { title: "Purchasing", intent: "Suppliers, purchase orders", href: "/purchasing", icon: ShoppingCart },
   { title: "Inventory", intent: "Items, stock levels", href: "/inventory", icon: Package },
-  { title: "Finance", intent: "Invoices, payments", href: "/finance", icon: Landmark },
+  { title: "Finance", intent: "Invoicing, accounting, expenses", href: "/finance", icon: Landmark },
   { title: "People", intent: "Contacts, access", href: "/people", icon: Users },
   { title: "Settings", intent: "Company, plan", href: "/settings", icon: Settings },
 ];
