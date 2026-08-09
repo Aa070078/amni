@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import { Landmark } from "lucide-react";
-import { ModulePage } from "@/src/components/app-shell/module-page";
+import { FinanceOverviewView } from "@/src/components/finance/finance-overview";
 
 export const metadata: Metadata = { title: "Finance" };
 
 export default function FinancePage() {
   return (
-    <ModulePage
-      title="Finance"
-      description="Invoices, payments"
-      icon={Landmark}
-    />
+    <div className="mx-auto w-full max-w-6xl">
+      <FinanceOverviewView />
+    </div>
   );
 }
