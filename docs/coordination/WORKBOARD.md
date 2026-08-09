@@ -16,8 +16,8 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| **M2-000 Setup Wizard** (onboarding epic: company→regional→business→team→import→provision) | M2 | — | planned | — | Reuses auth; draft auto-save; see PRODUCT_SPEC §4 |
-| M2-001 Customers list + detail | M2 | — | planned | — | Sales module; uses DataTable core |
+| **M2-000 Setup Wizard** (onboarding epic: company→regional→business→team→import→provision) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | `/setup`; auto-save + submit; PR #25 |
+| M2-001 Customers list + detail | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Sales module; DataTable; PR #25 |
 | M2-002 Leads / Opportunities (pipeline) | M2 | agent-ui | done | feat/M2/leads-pipeline | Sales; PR #24 |
 | M2-003 Quotations | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Sales; PR #25 |
 | M2-004 Sales Orders | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Sales; PR #25 |
@@ -25,16 +25,22 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | M2-006 Products list + detail | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Inventory; PR #25 |
 | M2-007 Warehouses + Inventory stock levels | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Inventory; low-stock alerts; PR #25 |
 | M2-008 Stock Movements | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Inventory; PR #25 |
-| M2-009 Suppliers | M2 | — | planned | — | Purchasing |
-| M2-010 Purchase Orders | M2 | — | planned | — | Purchasing |
-| M2-011 Purchase Invoices | M2 | — | planned | — | Purchasing |
-| M2-012 Financial Overview + Reports | M2 | — | planned | — | Finance; revenue/AR/AP/cash KPIs |
-| M2-013 Expenses + Payments | M2 | — | planned | — | Finance |
-| M2-014 Settings: Company / Team & roles | M2 | — | planned | — | Self-serve admin |
-| M2-015 Settings: Plan & billing / Integrations / Profile | M2 | — | planned | — | — |
-| M2-016 Command palette (Cmd/Ctrl-K) | M2 | — | planned | — | `packages/ui` Command primitives ready |
-| M2-017 Global search (top bar) | M2 | — | planned | — | Depends on command palette patterns |
-| M2-018 Notifications center (top bar) | M2 | — | planned | — | Worker `notify` job exists; UI only |
+| M2-009 Suppliers | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Purchasing; PR #25 |
+| M2-010 Purchase Orders | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Purchasing; PR #25 |
+| M2-011 Purchase Invoices | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Purchasing; PR #25 |
+| M2-012 Financial Overview + Reports | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; revenue/AR/AP/cash KPIs; PR #25 |
+| M2-013 Expenses + Payments | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
+| M2-014 Settings: Company / Team & roles | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Self-serve admin; PR #25 |
+| M2-015 Settings: Plan & billing / Integrations / Profile | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | PR #25 |
+| M2-016 Command palette (Cmd/Ctrl-K) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | `packages/ui` Command primitives; PR #25 |
+| M2-017 Global search (top bar) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | PR #25 |
+| M2-018 Notifications center (top bar) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Worker `notify` job exists; UI only; PR #25 |
+| M2-019 Invoicing (invoices, credit notes, recurring) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
+| M2-020 Accounting (chart of accounts, journal entries) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
+| M2-021 Sign (e-signature templates, requests) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
+| M2-022 Equity (cap table, classes, rounds, shareholders) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
+| M2-023 ESG (metrics, board, policies, reports) | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; PR #25 |
+| M2-024 Expense claims + categories | M2 | agent-sales-inventory | done | feat/M2/sales-inventory | Finance; extends M2-013; PR #25 |
 
 ---
 
@@ -78,6 +84,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-09 | M2-000, M2-001, M2-009..M2-018 marked done, plus new finance workspaces M2-019..M2-024 (invoicing, accounting, sign, equity, esg, expense claims/categories) — all on `feat/M2/sales-inventory`, delivered via PR #25. Epic is code-complete; merge to `dev` is the remaining gate. |
 | 2026-08-09 | M2-003..M2-008 (quotations, sales orders, sales invoices, products, warehouses, stock movements) marked done; PR #25 open (agent-sales-inventory), stacked on PR #24. |
 | 2026-08-08 | M2-002 Leads marked done; PR #24 open (agent-ui). |
 | 2026-08-08 | Bugfix to M1-002 (dashboard): chart-grid overflow fixed so Receivables aging no longer overlaps Quick Actions/Alerts; cash chart converted to sparkline variant. Committed `035d82f` on `dev`. |

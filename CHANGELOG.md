@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Finance workspaces (M2-019..M2-024)** — invoicing, accounting, sign, equity, esg, and expense claims/categories, extending the M2 finance module:
+  - `packages/shared`: domain schemas for invoicing (invoice, credit note, recurring), accounting (account, journal entry), sign (template, request, recipient, SIGN_* constants), equity (class, round, shareholder), esg (metric, board, policy, report) and expenses (expense claim + category).
+  - `apps/api`: `invoicing`, `accounting`, `sign`, `equity`, `esg` modules + expense claim/category endpoints — list/detail/create/update/remove, zod-validated, envelope-shaped, service unit-tested, registered in `AppModule`.
+  - `apps/web`: typed API clients for each module; full workspaces at `/finance/invoicing` (invoices, credit notes, recurring), `/finance/accounting` (accounts, journal entries), `/finance/sign` (templates, requests), `/finance/equity` (classes, rounds, shareholders), `/finance/esg` (metrics, board, policies, reports), `/finance/expenses/claims` (claims + categories, bulk approve/reject/archive); finance hub links to all.
+  - All new surfaces implement the page contract (loading/empty/error/validation/success, responsive, a11y, dark mode) and pass `typecheck` + `lint` + `next build`.
 - **M2 core workspaces (web + API)** — settings, notifications, global search, setup wizard, purchasing, finance and customers all wired end-to-end:
   - `apps/api`: `settings` (company/team/roles/plan/integrations/profile), `notifications`, `search` (global search index), `wizard` (onboarding draft/save/submit/status), `suppliers`, `purchase-orders`, `purchase-invoices`, `expenses`, `payments`, `finance` (overview + reports), and `customers` module fixes — all zod-validated, envelope-shaped, unit-tested; registered in `AppModule`. 223/223 API tests green.
   - `packages/shared`: settings, notifications, wizard, search (in `erp.ts`) schemas + `UpdateCompanySettingsInput`, `CreateCustomerInput`/`UpdateCustomerInput`, `CreateSupplierInput`/`UpdateSupplierInput`, `RecordPaymentInput`; seed services now use `structuredClone`.
