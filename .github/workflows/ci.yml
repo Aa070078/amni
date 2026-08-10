@@ -50,10 +50,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Integration + ERPNext integration + isolation + e2e run on merge to dev (and release).
+  # Merge to dev/main gate: verify migrations + seed against a real Postgres, then run
+  # the full suite. ERPNext integration, tenant-isolation, and Playwright e2e
+  # (TESTING.md 4-6) are intentionally not wired yet: the harness
+  # (vitest.isolation.config.ts / Playwright / ERP cluster) does not exist in the repo
+  # and lands under WORKBOARD M3-005. They will slot in below when it does.
   integration:
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: amni
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/amni
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -62,11 +88,9 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm db:migrate
-      - run: pnpm test:isolation
-      - name: e2e
-        run: pnpm test:e2e
-        env:
-          # secrets injected via GH Actions
-          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      - name: Migrate + generate client + seed
+        run: pnpm --filter db run deploy && pnpm --filter db run generate && pnpm db:seed
+      - name: Full suite
+        run: pnpm test
+      # TODO(M3-005): ERPNext integration + isolation + e2e steps go here once the
+      # harness exists (see TESTING.md 4-6 and docs/coordination/WORKBOARD.md).

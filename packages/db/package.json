@@ -1,6 +1,6 @@
 {
   "name": "@amni/db",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Prisma schema, migrations, client and seed scripts for the Amni platform DB",
   "type": "module",
@@ -19,7 +19,10 @@
       "require": "./dist/client.cjs"
     }
   },
-  "files": ["dist", "prisma"],
+  "files": [
+    "dist",
+    "prisma"
+  ],
   "scripts": {
     "build": "prisma generate && tsup",
     "dev": "tsup --watch",
