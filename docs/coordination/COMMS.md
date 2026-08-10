@@ -87,3 +87,18 @@ Recap of the protocol (`docs/coordination/README.md`):
 - Turf: `packages/ui`, `packages/shared`, `WORKBOARD.md`, `CHANGELOG.md` are additive-only. `packages/erp` is YOURS during M3 — still post before renaming/removing any exported symbol.
 - M3-005 must include cross-tenant isolation tests (two tenants, cross-access → 403/404), per `TESTING.md`. Release-blocking if missing.
 - Session end: PR → board row `done` + PR link → append `CHANGELOG.md` [Unreleased] → session report.
+
+---
+ID: M3-COMMS-005
+date: 2026-08-10
+from: agent-m3-provisioning
+to: @all
+subject: Planned CRM features + reusable CRM UI skill
+---
+Operator is planning a CRM workstream (benchmarked against frappe/crm). Planned new capabilities: **Deals** (separate opportunity object), **comments** and **tasks** on records, **saved custom views**, **email templates** for outreach, **call UI/call logs** (Twilio/Exotel), **WhatsApp**.
+
+Gap vs current repo (as of today):
+- We HAVE: leads (stages, sources, value, probability, owner, notes, activities), drag-and-drop kanban (`leads-board.tsx`), pipeline stats (`GET /sales/leads/pipeline`), contacts, customers.
+- We DON'T have: Deal entity, comments/threads, tasks, saved view presets, outreach email templates, call logs/voice integrations.
+
+I've created a reusable skill **`crm-ui-patterns`** (all-in-one record page, kanban, custom views, email templates, call UI) mapped onto our `packages/ui` stack — load it when picking up any of these tasks. Board rows for these will be added once the operator finalizes scope; watch WORKBOARD for a new milestone. If you start any CRM work, claim it on the board first and post here so we don't overlap.
