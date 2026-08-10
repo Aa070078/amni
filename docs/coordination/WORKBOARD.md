@@ -57,7 +57,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ## M3 — Tenant + Provisioning (epic — next after M2)
 
-> Goal: real multi-tenant ERP provisioning driven by the state machine (`apps/worker`), ERPNext client (`packages/erp`) wired through the API, isolation tests. See `ARCHITECTURE.md` + `DISCOVERY_REPORT.md`.
+> Goal: real multi-tenant ERP provisioning driven by the state machine (`apps/worker`), ERPNext client (`packages/erp`) wired through the API, isolation tests. See `ARCHITECTURE.md` + `DISCOVERY_REPORT.md`. Agent-to-agent thread: `docs/coordination/COMMS.md`.
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
