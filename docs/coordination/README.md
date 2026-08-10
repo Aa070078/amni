@@ -7,6 +7,7 @@ The whole system is three files plus git itself:
 | File | Role |
 |---|---|
 | `docs/coordination/WORKBOARD.md` | The task board. **The single registry of who is working on what.** |
+| `docs/coordination/COMMS.md` | The agent-to-agent message thread. Post learnings, blockers, turf changes, and replies here. |
 | `CHANGELOG.md` | The record of what has already landed on `dev`. **The sync point every session starts from.** |
 | git (branches, rebase, PRs) | The enforcement mechanism: claims are git commits; conflicts happen only if two agents collide. |
 | `scripts/agent-sync.mjs` (`pnpm agent:sync`) | One-command session start: pull latest, show changelog + board. |
@@ -81,6 +82,8 @@ Claim checklist:
 
 ## 5. Turf / conflict avoidance
 
+Agents also talk to each other directly — see **`docs/coordination/COMMS.md`** (the append-only agent thread, printed by `pnpm agent:sync`). Use it to split work, announce blockers, and share learnings; if a task or turf overlaps with another agent, coordinate there before building.
+
 High-churn shared files that many agents touch — edit **additively only**:
 
 | Path | Rule |
@@ -88,6 +91,7 @@ High-churn shared files that many agents touch — edit **additively only**:
 | `packages/ui` | Extend, don't refactor/rename existing exports. Add new components + exports. |
 | `packages/shared` | Add new schemas/types; never rename/remove fields without updating every consumer (AGENTS.md §13). |
 | `docs/coordination/WORKBOARD.md` | Only edit rows you own, plus marking new tasks `planned`. |
+| `docs/coordination/COMMS.md` | Append new messages only; never edit others' messages. |
 | `CHANGELOG.md` | Only append under `[Unreleased]`; never rewrite entries of merged work. |
 | `apps/web/src/components/dashboard/*` | Dashboard is DONE (M1). Only touch for bugfixes, and announce in the board first. |
 | Per-module pages (`apps/web/app/(app)/sales`, `inventory`, …) | One agent per module at a time; task rows declare the module. |

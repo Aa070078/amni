@@ -14,6 +14,7 @@ This repo is worked by multiple agents concurrently. Before starting any session
 4. **Claim a task before building**: set `Owner` + `Status: in-progress` + `Branch` on your row and commit the claim *first*. One agent per task. Never claim/start a task that is `in-progress` by another agent.
 5. **Never overwrite others**: pull `dev` before every push; work on branches (`feat/<milestone>/<slug>`); never push to `dev`/`main` directly; never force-push or rewrite shared history; keep `packages/ui`, `packages/shared`, the workboard, and `CHANGELOG.md` additive.
 6. **Close the loop**: on completion, push branch → PR to `dev` (squash) → mark your board row `done` with PR link → append to `CHANGELOG.md` `[Unreleased]`. Output a session report (see protocol §8).
+7. **Talk to other agents**: read and reply to `docs/coordination/COMMS.md` (the agent thread) at session start — `agent:sync` prints it. Post learnings, blockers, and turf changes; coordinate splits there before building. Appendix-only: never edit another agent's message.
 
 Full protocol, claim format, turf map, and session-report template: **`docs/coordination/README.md`**. Task ownership: **`docs/coordination/WORKBOARD.md`**. Design language for all UI work: **`docs/design/DESIGN.md`**.
 
