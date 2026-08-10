@@ -88,8 +88,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Apply migrations + seed
-        run: pnpm --filter db run deploy && pnpm db:seed
+      - name: Migrate + generate client + seed
+        run: pnpm --filter db run deploy && pnpm --filter db run generate && pnpm db:seed
       - name: Full suite
         run: pnpm test
       # TODO(M3-005): ERPNext integration + isolation + e2e steps go here once the
