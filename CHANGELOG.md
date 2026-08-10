@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **ERP gateway milestone (M3-001/M3-002/M3-005, PR #41)** — first real path from the API to per-tenant ERPNext sites, with tenant isolation guarantees:
+  - `packages/erp` client v1: session auth (`login`/`getLoggedUser`/`logout` via Frappe `sid`), AES-256-GCM at-rest encryption for tenant service-account keys (`ENCRYPTION_KEY`), and `resolveTenantErp`/`createErpClientForTenant` resolving the tenant's `ERPInstance` from the authenticated session (never client input) with an `allowHost` SSRF pin. 35 unit tests.
+  - `apps/api` `ErpGatewayModule` at `/api/v1/erp/*`: tenant-scoped `resource` CRUD (+ `?action=submit|cancel`) and whitelisted `method` proxy; no-membership → 403; every mutation written to `AuditLog` (actor, company, resource, ip, requestId). Tenant-state `ErpError`s now map to 409 instead of 500 in the exception filter.
+  - `packages/shared` `erp-gateway` zod schemas for the proxy contract.
+  - Tenant isolation suite: `pnpm --filter @amni/api test:isolation` (`vitest.isolation.config.ts`) runs `*.isolation.spec.ts` against in-process mock Frappe REST sites (two tenants, per-site token enforcement) — cross-tenant access returns 403/404, no data leaks, forged cross-tenant credentials rejected. Passes in CI without a live bench.
 
 ## [0.2.0] - 2026-08-10
 
