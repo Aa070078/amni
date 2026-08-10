@@ -23,3 +23,4 @@ export * from "./schemas/sign.js";
 export * from "./schemas/equity.js";
 export * from "./schemas/esg.js";
 export * from "./schemas/contacts.js";
+export * from "./schemas/erp-gateway.js";
