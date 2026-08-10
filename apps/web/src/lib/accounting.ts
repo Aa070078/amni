@@ -21,7 +21,10 @@ export const accountingClient = {
   },
   listAccounts(query: Partial<AccountListQuery> = {}): Promise<AccountListResponse> {
     const { page, pageSize, q, sortBy, sortDir, type, status } = query;
-    return apiRequest<AccountListResponse>("/accounting", toQueryString({ page, pageSize, q, sortBy, sortDir, type, status }));
+    return apiRequest<AccountListResponse>(
+      "/accounting",
+      `/accounts${toQueryString({ page, pageSize, q, sortBy, sortDir, type, status })}`,
+    );
   },
   accountDetail(code: string): Promise<Account> {
     return apiRequest<Account>("/accounting", `/accounts/${encodeURIComponent(code)}`);
@@ -42,7 +45,7 @@ export const accountingClient = {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
     return apiRequest<JournalEntryListResponse>(
       "/accounting",
-      toQueryString({ page, pageSize, q, sortBy, sortDir, status }),
+      `/journal-entries${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
     );
   },
   journalEntryDetail(code: string): Promise<JournalEntry> {
