@@ -125,6 +125,11 @@ function erpHttpStatus(code: ErrorCode): number {
     case ErrorCode.ERP_UNREACHABLE:
     case ErrorCode.ERP_SSRF_BLOCKED:
       return HttpStatus.BAD_GATEWAY;
+    case ErrorCode.TENANT_NOT_READY:
+    case ErrorCode.TENANT_SUSPENDED:
+    case ErrorCode.TENANT_ARCHIVED:
+    case ErrorCode.PROVISIONING_IN_PROGRESS:
+      return HttpStatus.CONFLICT;
     default:
       return HttpStatus.INTERNAL_SERVER_ERROR;
   }

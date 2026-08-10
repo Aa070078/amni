@@ -29,6 +29,7 @@ import { SignModule } from "./sign/sign.module";
 import { EquityModule } from "./equity/equity.module";
 import { EsgModule } from "./esg/esg.module";
 import { ContactsModule } from "./contacts/contacts.module";
+import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ContactsModule } from "./contacts/contacts.module";
     EquityModule,
     EsgModule,
     ContactsModule,
+    ErpGatewayModule,
   ],
 })
 export class AppModule {}
