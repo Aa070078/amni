@@ -32,6 +32,7 @@ export const ErrorCode = {
   PROVISIONING_IN_PROGRESS: "provisioning_in_progress",
   SITE_NAME_UNAVAILABLE: "site_name_unavailable",
   PROVISIONING_JOB_STALE: "provisioning_job_stale",
+  HRMS_NOT_INSTALLED: "hrms_not_installed",
 
   // ERP integration
   ERP_UNREACHABLE: "erp_unreachable",

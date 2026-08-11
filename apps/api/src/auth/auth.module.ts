@@ -4,6 +4,7 @@ import { APP_GUARD } from "@nestjs/core";
 
 import { RedisService } from "../redis/redis.service";
 import { RedisThrottlerStorage } from "../throttler/redis-throttler.storage";
+import { JobsModule } from "../jobs/jobs.module";
 import { AuthController } from "./auth.controller";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
@@ -12,6 +13,7 @@ import { TokensService } from "./tokens.service";
 
 @Module({
   imports: [
+    JobsModule,
     ThrottlerModule.forRootAsync({
       inject: [RedisService],
       useFactory: (redis: RedisService) => ({

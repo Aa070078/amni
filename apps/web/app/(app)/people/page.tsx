@@ -10,7 +10,7 @@ export default function PeoplePage() {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">People</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Contacts and access</p>
+        <p className="mt-1 text-sm text-muted-foreground">Part of HRMS — contacts and access</p>
       </div>
 
       <Card>
