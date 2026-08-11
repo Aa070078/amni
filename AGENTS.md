@@ -4,6 +4,23 @@ This is a living operational document. Read it before doing anything in this rep
 
 ---
 
+## For AI coding agents
+
+- Use this file as the primary repo-specific instruction source.
+- Always start a session with `pnpm agent:sync` from the repo root.
+- Follow the board claim process in `docs/coordination/WORKBOARD.md` before writing code.
+- Do not modify `dev` or `main` directly; work on a branch and never force-push shared history.
+- Prefer existing shared packages: `packages/shared` for API contracts, `packages/ui` for UI components, `packages/erp` for ERPNext integration, and `packages/db` for persistence.
+- Run `pnpm lint`, `pnpm typecheck`, and `pnpm test` for logic changes; use `pnpm test:isolation` for ERP isolation paths.
+- If you need setup details, consult `DEVELOPMENT.md`; for architecture, consult `ARCHITECTURE.md`.
+- For repo-specific UI and dashboard guidance, see `docs/skills/dashboard-design.md`, `docs/skills/design-system.md`, and `docs/skills/ui-styling.md`.
+- For provisioning, ERP integration, or tenant isolation work, see `docs/skills/provisioning.md`, `docs/skills/erp-integration.md`, and `docs/skills/testing-isolation.md`.
+- For coordination workflows, see `docs/skills/agent-coordination.md`.
+- **Always pull the latest**: before starting work and before every push, run `git fetch origin && git pull --rebase origin dev` (or `pnpm agent:sync`). Collaborators — other agents AND human contributors (e.g. `Mohamed-El-Shaieb`) — land commits on `dev` at any time. Never build or push on stale code.
+- **Always commit when you finish**: never leave work-in-progress in the shared working tree. Commit small, focused units of work as you complete them (Conventional Commits), and stage only your own files.
+
+---
+
 ## 0. Multi-agent coordination (MANDATORY — read before ANY work)
 
 This repo is worked by multiple agents concurrently. Before starting any session, **every** agent must:
