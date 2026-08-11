@@ -61,6 +61,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
+<<<<<<< HEAD
 | **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/worker/src/provisioning/state-machine.ts` + drivers; shipped via PR #51 |
 | M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Typed client + isolation tests |
 | M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | — |
@@ -69,6 +70,16 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Mandatory before any ERP data path ships (TESTING.md) |
 | M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | done | feat/M3/provisioning | BullMQ `provision` enqueue w/ idempotency key; shipped via PR #51 |
 | M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-m3-erp | in-progress | feat/M3/onboarding-mail | `apps/worker/src/jobs/mail.processor.ts` stub exists |
+=======
+| **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | `apps/worker/src/jobs/provisioning.processor.ts` stub exists |
+| M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; login/session, AES-256-GCM service-key crypto, resolveTenantErp; 35 tests. Reassigned from agent-m3-erp (operator) |
+| M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; /api/v1/erp/* proxy + AuditLog on mutations; built against mock ERP so CI stays green. Reassigned from agent-m3-erp (operator) |
+| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Platform DB (Prisma) |
+| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Depends on M3-000 events |
+| M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; test:isolation + mock Frappe REST sites; 9 cases. Mandatory before any ERP data path ships (TESTING.md); reassigned from agent-m3-erp (operator) |
+| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Wires M2-000 to M3-000 |
+| M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-amni-01 | done | feat/M3/onboarding-mail | PR #49; shared mail job schema, API enqueue (register/reset/verify), worker render + console/smtp send; 14 worker + 5 api tests. Reassigned from agent-m3-erp (operator) |
+>>>>>>> origin/dev
 
 ---
 
@@ -81,11 +92,34 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## CRM — Deals & Engagement (epic — claimable)
+
+> Goal: close the gap vs Frappe CRM. Baseline already shipped: Leads (stages, sources, value, probability, kanban, pipeline stats), Contacts, Customers. Reference patterns: reusable skill **`crm-ui-patterns`** (all-in-one record page, kanban, saved views, email templates, call UI) — load it before building. All work is demo-data-surface like the rest of M2 (no ERP dependency), so it is **not blocked** by the ERP cluster. Branch prefix `feat/crm/`.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| CRM-000 Deals/Opportunities entity (schema + API + kanban/table UI, mirrors leads) | CRM | agent-crm | done | feat/crm/deals | Schema+API+kanban/table+detail; PR #50 |
+| CRM-001 Comments & threaded discussions on records | CRM | agent-crm | planned | feat/crm/comments | Activity timeline extension |
+| CRM-002 Tasks / checklists on records | CRM | agent-crm | planned | feat/crm/tasks | — |
+| CRM-003 Saved custom views (named view presets) | CRM | agent-crm | planned | feat/crm/saved-views | Filters/sort/columns → preset |
+| CRM-004 Outreach email templates (placeholders + send via worker `mail`) | CRM | agent-crm | planned | feat/crm/email-templates | Distinct from finance `sign` templates |
+| CRM-005 Call UI + call logs (Twilio/Exotel) | CRM | agent-crm | planned | feat/crm/calls | Settings → Integrations |
+| CRM-006 WhatsApp surface | CRM | agent-crm | planned | feat/crm/whatsapp | — |
+
+---
+
 ## Change log of the board itself
 
 | Date | Change |
 |---|---|
 | 2026-08-11 | M3-000/M3-003/M3-006/M3-004 marked done (agent-m3-provisioning); shipped via PR #51 (feat/M3/provisioning). Worker state machine + drivers + spec, plans module, wizard→enqueue, provisioning status surfacing. |
+| 2026-08-11 | CRM-000 Deals marked done; PR #50 open (agent-crm) — shared schema, API module, kanban/table/detail UI, `/sales/deals` routes. |
+| 2026-08-11 | CRM-000 Deals claimed by agent-crm → in-progress on feat/crm/deals. |
+| 2026-08-10 | CRM epic registered (7 planned tasks, owner agent-crm, prefix feat/crm/): Deals, comments, tasks, saved views, email templates, calls, WhatsApp. Skill `crm-ui-patterns` is the reference. Not ERP-blocked. |
+| 2026-08-10 | M3-001/M3-002/M3-005 marked done: ERP client v1 + ErpGatewayModule + isolation suite, PR #41 (agent-amni-01). Built against mock ERP sites so CI stays green without a bench. |
+| 2026-08-10 | M3-001/M3-002/M3-005 reassigned by operator from agent-m3-erp → agent-amni-01 (branch feat/M3/erp-gateway). |
+| 2026-08-10 | M3-007 marked done: onboarding email pipeline (shared contract + API enqueue + worker render/send), PR #49 (agent-amni-01). |
+| 2026-08-10 | M3-007 claimed by agent-amni-01 (operator reassignment from agent-m3-erp). Branch feat/M3/onboarding-mail. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
 | 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |
 | 2026-08-09 | M2-000, M2-001, M2-009..M2-018 marked done, plus new finance workspaces M2-019..M2-024 (invoicing, accounting, sign, equity, esg, expense claims/categories) — all on `feat/M2/sales-inventory`, delivered via PR #25. Epic is code-complete; merge to `dev` is the remaining gate. |

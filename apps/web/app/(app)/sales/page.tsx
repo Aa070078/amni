@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, PackageCheck, Receipt, UserRound, Users } from "lucide-react";
+import { ArrowRight, FileText, PackageCheck, Receipt, Target, UserRound, Users } from "lucide-react";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@amni/ui";
 
 export const metadata: Metadata = { title: "Sales" };
@@ -10,8 +10,30 @@ export default function SalesPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Sales</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Leads, customers, quotations, orders, invoices</p>
+        <p className="mt-1 text-sm text-muted-foreground">Deals, leads, customers, quotations, orders, invoices</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            Deals
+            <Badge variant="success">Live</Badge>
+          </CardTitle>
+          <CardDescription>
+            Qualified opportunities with expected value and close dates.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/sales/deals"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Open deals
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
