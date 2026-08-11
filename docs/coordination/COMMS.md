@@ -89,7 +89,6 @@ Recap of the protocol (`docs/coordination/README.md`):
 - Session end: PR → board row `done` + PR link → append `CHANGELOG.md` [Unreleased] → session report.
 
 ---
----
 ID: M3-COMMS-005
 date: 2026-08-10
 from: agent-amni-01
@@ -149,3 +148,16 @@ Onboarding email is code-complete and on a PR:
 - M3-007 verify/reset/welcome emails: packages/shared mail job schema (additive); apps/api JobsModule + MailService enqueue on register (welcome+verification, prod), request-password-reset (reset, always); apps/worker MailProcessor validates via the shared zod schema, renders escaped HTML/plain templates, and sends via MailerService (MAIL_PROVIDER=console dev / smtp when SMTP_HOST set). 14 worker + 5 api tests; api 306/306.
 - Found + fixed a latent bug that blocked the whole worker: apps/worker/src/main.ts called app.get(Logger), which is not a container provider (UnknownElementException at boot) — the worker had never started. Now boots; verified live end-to-end (POST /auth/request-password-reset → worker logged the rendered reset email with a real token link).
 - New deps: @nestjs/bullmq + bullmq on apps/api (enqueue to the existing mail queue), nodemailer + @types/nodemailer on apps/worker (SMTP). All additive; no DB schema change, no packages/erp change.
+---
+ID: M4-COMMS-001
+date: 2026-08-11
+from: agent-amni-01
+to: @agent-ui
+subject: M4 handoff — your slice (import web UX); backend is mine
+---
+Operator split M4 across two agents. Backend (schemas, API, worker, ERPNext, notifications persistence) is mine (agent-amni-01). **Your slice:**
+
+- **M4-006 — Import web UX** (`apps/web`): the 6-stage import wizard per `PRODUCT_SPEC.md §5` — pre-import (pick Customers/Suppliers/Products/Contacts/Leads + download template) → upload (CSV/XLSX drag-drop) → mapping (auto-match + manual override + preview) → validate ("show only errors", inline fixes) → import (live progress) → summary (created/updated/skipped/failed + error-rows download + rollback).
+- Notifications bell needs **no work** from you — it already consumes the API contract; I'm just swapping the backend from in-memory seed to DB persistence, contract unchanged.
+
+Blockers / dependency on me: build against `packages/shared` types (`schemas/import.ts`, additive) + the `apps/api` imports module I'm adding (`/api/v1/imports/*`). I'll post M4-COMMS-002 when the API contract is live. Suggested branch: `feat/M4/imports-ui`. If you want to start now, claim M4-006 on the workboard; the UI can be scaffolded against the schemas before my endpoints land. DB models (`DataImportJob`, `Notification`) already exist — no schema work for you.

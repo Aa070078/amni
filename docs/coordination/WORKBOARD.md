@@ -61,25 +61,14 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-<<<<<<< HEAD
 | **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/worker/src/provisioning/state-machine.ts` + drivers; shipped via PR #51 |
-| M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Typed client + isolation tests |
-| M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | — |
-| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/api/src/plans` + wizard submit (tenant/subscription/audit); shipped via PR #51 |
-| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `GET /provisioning/status` + wizard progress card → dashboard on ACTIVE; shipped via PR #51 |
-| M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Mandatory before any ERP data path ships (TESTING.md) |
-| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | done | feat/M3/provisioning | BullMQ `provision` enqueue w/ idempotency key; shipped via PR #51 |
-| M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-m3-erp | in-progress | feat/M3/onboarding-mail | `apps/worker/src/jobs/mail.processor.ts` stub exists |
-=======
-| **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | `apps/worker/src/jobs/provisioning.processor.ts` stub exists |
 | M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; login/session, AES-256-GCM service-key crypto, resolveTenantErp; 35 tests. Reassigned from agent-m3-erp (operator) |
 | M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; /api/v1/erp/* proxy + AuditLog on mutations; built against mock ERP so CI stays green. Reassigned from agent-m3-erp (operator) |
-| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Platform DB (Prisma) |
-| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Depends on M3-000 events |
+| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/api/src/plans` + wizard submit (tenant/subscription/audit); shipped via PR #51 |
+| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `GET /provisioning/status` + wizard progress card → dashboard on ACTIVE; shipped via PR #51 |
 | M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; test:isolation + mock Frappe REST sites; 9 cases. Mandatory before any ERP data path ships (TESTING.md); reassigned from agent-m3-erp (operator) |
-| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Wires M2-000 to M3-000 |
+| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | done | feat/M3/provisioning | BullMQ `provision` enqueue w/ idempotency key; shipped via PR #51 |
 | M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-amni-01 | done | feat/M3/onboarding-mail | PR #49; shared mail job schema, API enqueue (register/reset/verify), worker render + console/smtp send; 14 worker + 5 api tests. Reassigned from agent-m3-erp (operator) |
->>>>>>> origin/dev
 
 ---
 
@@ -87,8 +76,13 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback) | M4 | — | planned | — | See PRODUCT_SPEC §5; worker `imports` stub exists |
-| M4-001 In-app notifications persistence (`Notification` model) | M4 | — | planned | — | — |
+| **M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback)** | M4 | — | planned | — | Epic umbrella; split into M4-002..M4-006. See PRODUCT_SPEC §5. |
+| M4-001 In-app notifications persistence (`Notification` model, notify processor) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | Swap in-memory seed → DB (worker persist + API read); contract unchanged |
+| M4-002 Import shared schemas (upload, mapping, validation, preview, envelopes) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | Extend `packages/shared/schemas/import.ts`, additive |
+| M4-003 Import API module (`/api/v1/imports/*`: create/upload/mapping/validate/execute/summary/error-rows/rollback + templates) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | Zod-validated, audited |
+| M4-004 Worker imports processor (parse/validate/batch/progress/summary/error rows) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | `apps/worker/src/jobs/imports.processor.ts` stub exists |
+| M4-005 ERPNext import integration + tenant isolation tests | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | kind→doctype mapping, `packages/erp` methods, two-tenant suite |
+| M4-006 Import web UX (6-stage wizard + templates) | M4 | agent-ui | planned | feat/M4/imports-ui | Per PRODUCT_SPEC §5; depends on M4-002/M4-003 contract |
 
 ---
 
@@ -120,6 +114,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | 2026-08-10 | M3-001/M3-002/M3-005 reassigned by operator from agent-m3-erp → agent-amni-01 (branch feat/M3/erp-gateway). |
 | 2026-08-10 | M3-007 marked done: onboarding email pipeline (shared contract + API enqueue + worker render/send), PR #49 (agent-amni-01). |
 | 2026-08-10 | M3-007 claimed by agent-amni-01 (operator reassignment from agent-m3-erp). Branch feat/M3/onboarding-mail. |
+| 2026-08-11 | M4 planned breakdown registered (operator split): M4-001..M4-005 → agent-amni-01 (backend); M4-006 → agent-ui (web UX). COMMS M4-COMMS-001. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
 | 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |
 | 2026-08-09 | M2-000, M2-001, M2-009..M2-018 marked done, plus new finance workspaces M2-019..M2-024 (invoicing, accounting, sign, equity, esg, expense claims/categories) — all on `feat/M2/sales-inventory`, delivered via PR #25. Epic is code-complete; merge to `dev` is the remaining gate. |
