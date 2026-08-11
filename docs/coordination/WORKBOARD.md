@@ -76,7 +76,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback) | M4 | — | planned | — | See PRODUCT_SPEC §5; worker `imports` stub exists |
+| M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback) | M4 | agent-m4 | in-progress | feat/M4/data-import | See PRODUCT_SPEC §5; worker `imports` stub exists; ImportModule + shared schemas + web 6-stage flow |
 | M4-001 In-app notifications persistence (`Notification` model) | M4 | — | planned | — | — |
 
 ---
