@@ -8,6 +8,7 @@ import { ImportsProcessor } from "./jobs/imports.processor";
 import { MailProcessor } from "./jobs/mail.processor";
 import { NotifyProcessor } from "./jobs/notify.processor";
 import { DefaultProcessor } from "./jobs/default.processor";
+import { MailerService } from "./mail/mailer.service";
 
 @Module({
   imports: [
@@ -38,6 +39,6 @@ import { DefaultProcessor } from "./jobs/default.processor";
       { name: BullQueue.DEFAULT },
     ),
   ],
-  providers: [ProvisioningProcessor, ImportsProcessor, MailProcessor, NotifyProcessor, DefaultProcessor],
+  providers: [ProvisioningProcessor, ImportsProcessor, MailProcessor, NotifyProcessor, DefaultProcessor, MailerService],
 })
 export class AppModule {}
