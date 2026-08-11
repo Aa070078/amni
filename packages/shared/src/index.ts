@@ -5,6 +5,7 @@ export * from "./constants.js";
 export * from "./schemas/auth.js";
 export * from "./schemas/company.js";
 export * from "./schemas/tenant.js";
+export * from "./schemas/plans.js";
 export * from "./schemas/import.js";
 export * from "./schemas/dashboard.js";
 export * from "./schemas/leads.js";
