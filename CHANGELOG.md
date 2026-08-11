@@ -10,6 +10,10 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
   - `apps/api` `ErpGatewayModule` at `/api/v1/erp/*`: tenant-scoped `resource` CRUD (+ `?action=submit|cancel`) and whitelisted `method` proxy; no-membership → 403; every mutation written to `AuditLog` (actor, company, resource, ip, requestId). Tenant-state `ErpError`s now map to 409 instead of 500 in the exception filter.
   - `packages/shared` `erp-gateway` zod schemas for the proxy contract.
   - Tenant isolation suite: `pnpm --filter @amni/api test:isolation` (`vitest.isolation.config.ts`) runs `*.isolation.spec.ts` against in-process mock Frappe REST sites (two tenants, per-site token enforcement) — cross-tenant access returns 403/404, no data leaks, forged cross-tenant credentials rejected. Passes in CI without a live bench.
+- **CRM: Deals entity (CRM-000) (#50)** — qualified-opportunities pipeline mirroring the Leads pattern:
+  - `packages/shared`: `deals.ts` zod schemas (`DL-\d{4}` codes, stages qualification/analysis/proposal/negotiation/won/lost with probabilities 15/30/55/80/100/0, sources, activity/detail/pipeline/stat schemas, list response schema).
+  - `apps/api`: `deals` module — seeded pipeline of 10 deals, `GET/POST /sales/deals`, `GET/PATCH/DELETE /sales/deals/:code`, `PATCH /sales/deals/:code/stage`, whitelisted sorting, derived activity feed; AuthGuard-protected; registered in `AppModule`.
+  - `apps/web`: `lib/deals.ts` typed client; `components/deals/` — kanban board (column-wise stage columns), table view, list view with stat cards + debounced search, detail page (stage select, notes, activity timeline), new-deal dialog; routes `/sales/deals` + `/sales/deals/[code]`; Sales hub Deals card.
 
 ## [0.2.0] - 2026-08-10
 

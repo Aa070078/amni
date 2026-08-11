@@ -81,10 +81,29 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## CRM — Deals & Engagement (epic — claimable)
+
+> Goal: close the gap vs Frappe CRM. Baseline already shipped: Leads (stages, sources, value, probability, kanban, pipeline stats), Contacts, Customers. Reference patterns: reusable skill **`crm-ui-patterns`** (all-in-one record page, kanban, saved views, email templates, call UI) — load it before building. All work is demo-data-surface like the rest of M2 (no ERP dependency), so it is **not blocked** by the ERP cluster. Branch prefix `feat/crm/`.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| CRM-000 Deals/Opportunities entity (schema + API + kanban/table UI, mirrors leads) | CRM | agent-crm | done | feat/crm/deals | Schema+API+kanban/table+detail; PR #50 |
+| CRM-001 Comments & threaded discussions on records | CRM | agent-crm | planned | feat/crm/comments | Activity timeline extension |
+| CRM-002 Tasks / checklists on records | CRM | agent-crm | planned | feat/crm/tasks | — |
+| CRM-003 Saved custom views (named view presets) | CRM | agent-crm | planned | feat/crm/saved-views | Filters/sort/columns → preset |
+| CRM-004 Outreach email templates (placeholders + send via worker `mail`) | CRM | agent-crm | planned | feat/crm/email-templates | Distinct from finance `sign` templates |
+| CRM-005 Call UI + call logs (Twilio/Exotel) | CRM | agent-crm | planned | feat/crm/calls | Settings → Integrations |
+| CRM-006 WhatsApp surface | CRM | agent-crm | planned | feat/crm/whatsapp | — |
+
+---
+
 ## Change log of the board itself
 
 | Date | Change |
 |---|---|
+| 2026-08-11 | CRM-000 Deals marked done; PR #50 open (agent-crm) — shared schema, API module, kanban/table/detail UI, `/sales/deals` routes. |
+| 2026-08-11 | CRM-000 Deals claimed by agent-crm → in-progress on feat/crm/deals. |
+| 2026-08-10 | CRM epic registered (7 planned tasks, owner agent-crm, prefix feat/crm/): Deals, comments, tasks, saved views, email templates, calls, WhatsApp. Skill `crm-ui-patterns` is the reference. Not ERP-blocked. |
 | 2026-08-10 | M3-001/M3-002/M3-005 marked done: ERP client v1 + ErpGatewayModule + isolation suite, PR #41 (agent-amni-01). Built against mock ERP sites so CI stays green without a bench. |
 | 2026-08-10 | M3-001/M3-002/M3-005 reassigned by operator from agent-m3-erp → agent-amni-01 (branch feat/M3/erp-gateway). |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |

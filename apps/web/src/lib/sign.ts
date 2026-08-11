@@ -22,7 +22,10 @@ export const signClient = {
   },
   listRequests(query: Partial<SignRequestListQuery> = {}): Promise<SignRequestListResponse> {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
-    return apiRequest<SignRequestListResponse>("/sign", toQueryString({ page, pageSize, q, sortBy, sortDir, status }));
+    return apiRequest<SignRequestListResponse>(
+      "/sign",
+      `/requests${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
+    );
   },
   requestDetail(code: string): Promise<SignRequest> {
     return apiRequest<SignRequest>("/sign", `/requests/${encodeURIComponent(code)}`);
@@ -52,7 +55,10 @@ export const signClient = {
   },
   listTemplates(query: Partial<SignTemplateListQuery> = {}): Promise<SignTemplateListResponse> {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
-    return apiRequest<SignTemplateListResponse>("/sign", toQueryString({ page, pageSize, q, sortBy, sortDir, status }));
+    return apiRequest<SignTemplateListResponse>(
+      "/sign",
+      `/templates${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
+    );
   },
   templateDetail(code: string): Promise<SignTemplate> {
     return apiRequest<SignTemplate>("/sign", `/templates/${encodeURIComponent(code)}`);
