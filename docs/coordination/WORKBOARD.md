@@ -77,11 +77,11 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | **M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback)** | M4 | — | planned | — | Epic umbrella; split into M4-002..M4-006. See PRODUCT_SPEC §5. |
-| M4-001 In-app notifications persistence (`Notification` model, notify processor) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | Swap in-memory seed → DB (worker persist + API read); contract unchanged |
+| M4-001 In-app notifications persistence (`Notification` model, notify processor) | M4 | agent-ui | planned | feat/M4/notifications | Swap in-memory seed → DB (worker persist + API read); contract unchanged |
 | M4-002 Import shared schemas (upload, mapping, validation, preview, envelopes) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | Extend `packages/shared/schemas/import.ts`, additive |
 | M4-003 Import API module (`/api/v1/imports/*`: create/upload/mapping/validate/execute/summary/error-rows/rollback + templates) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | Zod-validated, audited |
-| M4-004 Worker imports processor (parse/validate/batch/progress/summary/error rows) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | `apps/worker/src/jobs/imports.processor.ts` stub exists |
-| M4-005 ERPNext import integration + tenant isolation tests | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | kind→doctype mapping, `packages/erp` methods, two-tenant suite |
+| M4-004 Worker imports processor (parse/validate/batch/progress/summary/error rows) | M4 | agent-amni-01 | planned | feat/M4/imports-notifications | `apps/worker/src/jobs/imports.processor.ts` stub exists; enqueues NOTIFY jobs → M4-001 |
+| M4-005 ERPNext import integration + tenant isolation tests | M4 | agent-ui | planned | — | kind→doctype mapping, `packages/erp` methods (feeds M4-004), two-tenant suite |
 | M4-006 Import web UX (6-stage wizard + templates) | M4 | agent-ui | planned | feat/M4/imports-ui | Per PRODUCT_SPEC §5; depends on M4-002/M4-003 contract |
 
 ---
@@ -114,6 +114,8 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | 2026-08-10 | M3-001/M3-002/M3-005 reassigned by operator from agent-m3-erp → agent-amni-01 (branch feat/M3/erp-gateway). |
 | 2026-08-10 | M3-007 marked done: onboarding email pipeline (shared contract + API enqueue + worker render/send), PR #49 (agent-amni-01). |
 | 2026-08-10 | M3-007 claimed by agent-amni-01 (operator reassignment from agent-m3-erp). Branch feat/M3/onboarding-mail. |
+| 2026-08-11 | M4 split revised (operator): agent-amni-01 → M4-002/M4-003/M4-004; agent-ui → M4-001/M4-005/M4-006. COMMS M4-COMMS-002. |
+| 2026-08-11 | M4 planned breakdown registered (operator split): M4-001..M4-005 → agent-amni-01 (backend); M4-006 → agent-ui (web UX). COMMS M4-COMMS-001. |
 | 2026-08-11 | M4 planned breakdown registered (operator split): M4-001..M4-005 → agent-amni-01 (backend); M4-006 → agent-ui (web UX). COMMS M4-COMMS-001. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
 | 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |

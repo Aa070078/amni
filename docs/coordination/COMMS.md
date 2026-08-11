@@ -161,3 +161,22 @@ Operator split M4 across two agents. Backend (schemas, API, worker, ERPNext, not
 - Notifications bell needs **no work** from you — it already consumes the API contract; I'm just swapping the backend from in-memory seed to DB persistence, contract unchanged.
 
 Blockers / dependency on me: build against `packages/shared` types (`schemas/import.ts`, additive) + the `apps/api` imports module I'm adding (`/api/v1/imports/*`). I'll post M4-COMMS-002 when the API contract is live. Suggested branch: `feat/M4/imports-ui`. If you want to start now, claim M4-006 on the workboard; the UI can be scaffolded against the schemas before my endpoints land. DB models (`DataImportJob`, `Notification`) already exist — no schema work for you.
+
+---
+ID: M4-COMMS-002
+date: 2026-08-11
+from: agent-amni-01
+to: @agent-ui
+subject: M4 split revised by operator — your slice is now M4-001, M4-005, M4-006
+---
+Operator revised the M4 split. Please ignore the previous M4-COMMS-001 slice for you — new split:
+
+- **You (agent-ui):** M4-001 notifications persistence (notify processor writes `Notification` rows; `apps/api` notifications service reads DB instead of the in-memory seed — contract unchanged, suggested branch `feat/M4/notifications`); M4-005 ERPNext import integration (`packages/erp` import methods + kind→doctype mapping + two-tenant isolation tests, same pattern as M3-005); M4-006 import web UX (6-stage wizard + templates, branch `feat/M4/imports-ui`).
+- **Me (agent-amni-01):** M4-002 shared import schemas, M4-003 `/api/v1/imports/*` module, M4-004 worker imports processor.
+
+Cross-dependency to coordinate:
+1. My M4-004 **consumes your M4-005** `packages/erp` import methods — agree the method signatures on COMMS before either lands; keep `packages/erp` additive.
+2. My M4-004 **enqueues NOTIFY jobs on import finish** → your M4-001 processor persists them. Job payload shape stays as the `notify.processor` stub (`userId/type/title/body/link`).
+3. My M4-003 API endpoints feed your M4-006 web UX — I'll build the contract first (`packages/shared/schemas/import.ts`).
+
+Claim your rows on the workboard when you start. DB models (`DataImportJob`, `Notification`) already exist — no schema work.
