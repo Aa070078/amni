@@ -9,7 +9,6 @@ import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./redis/redis.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { LeadsModule } from "./leads/leads.module";
-import { DealsModule } from "./deals/deals.module";
 import { CustomersModule } from "./customers/customers.module";
 import { ProductsModule } from "./products/products.module";
 import { QuotationsModule } from "./quotations/quotations.module";
@@ -57,7 +56,6 @@ import { ProvisioningModule } from "./provisioning/provisioning.module";
     AuthModule,
     DashboardModule,
     LeadsModule,
-    DealsModule,
     CustomersModule,
     ProductsModule,
     QuotationsModule,
