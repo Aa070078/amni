@@ -122,11 +122,29 @@ function isEmptyCell(value: ImportCellValue | undefined): boolean {
   return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
 }
 
-export function validateImportRows(
+export interface ImportPreparedRow {
+  /** 1-based row number in the uploaded file. */
+  row: number;
+  /** Mapped record: target field -> value (source values already applied). */
+  record: Record<string, ImportCellValue>;
+  /** Issues specific to this row (validation errors only, no blocking-field issues). */
+  issues: ImportIssue[];
+  /** True when the row passes all checks and can be written to the ERP. */
+  ok: boolean;
+}
+
+/**
+ * Applies the mapping to every row, validates each one against the kind's
+ * template, and returns both the aggregate summary/issues and the per-row
+ * mapped records. The worker uses the per-row records to write to ERPNext;
+ * the API uses the summary for the validation preview. Behavior matches
+ * validateImportRows exactly.
+ */
+export function prepareImportRows(
   rows: Array<Record<string, ImportCellValue>>,
   mapping: ImportMapping,
   kind: ImportKind,
-): { summary: ImportSummary; issues: ImportIssue[] } {
+): { summary: ImportSummary; issues: ImportIssue[]; rows: ImportPreparedRow[] } {
   const template = IMPORT_TEMPLATE_BY_KIND[kind];
   const templateFields = new Set(template.columns.map((column) => column.field));
   const requiredFields = template.columns.filter((column) => column.required).map((column) => column.field);
@@ -145,6 +163,7 @@ export function validateImportRows(
   let created = 0;
   let failed = 0;
   let warnings = 0;
+  const prepared: ImportPreparedRow[] = [];
 
   rows.forEach((row, index) => {
     const rowNumber = index + 1;
@@ -181,6 +200,8 @@ export function validateImportRows(
     } else {
       created += 1;
     }
+
+    prepared.push({ row: rowNumber, record, issues: rowIssues, ok: rowIssues.length === 0 });
   });
 
   const blockingFields = new Set(allIssues.filter((issue) => issue.severity === "error" && !issue.row).map((issue) => issue.column ?? ""));
@@ -196,5 +217,15 @@ export function validateImportRows(
       warnings: warnings + blockingFields.size,
     },
     issues: allIssues,
+    rows: prepared,
   };
+}
+
+export function validateImportRows(
+  rows: Array<Record<string, ImportCellValue>>,
+  mapping: ImportMapping,
+  kind: ImportKind,
+): { summary: ImportSummary; issues: ImportIssue[] } {
+  const { summary, issues } = prepareImportRows(rows, mapping, kind);
+  return { summary, issues };
 }

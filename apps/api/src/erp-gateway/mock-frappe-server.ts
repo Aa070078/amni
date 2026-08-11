@@ -66,7 +66,8 @@ export async function startMockFrappeServer(options: {
           if (!name) {
             const limit = Number(url.searchParams.get("limit_page_length") ?? 20);
             const start = Number(url.searchParams.get("start") ?? 0);
-            const all = [...docs.values()];
+            const filters = parseFilters(url.searchParams.get("filters"));
+            const all = [...docs.values()].filter((doc) => matchesFilters(doc, filters));
             sendJson(res, 200, { data: all.slice(start, start + limit) });
             return;
           }
@@ -131,6 +132,38 @@ export async function startMockFrappeServer(options: {
     close: () =>
       new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve()))),
   };
+}
+
+type FilterClause = [string, string, unknown];
+
+/** Accepts Frappe filters in object form (`{"email_id":"x"}`) or array form (`[["email_id","=","x"]]`). */
+function parseFilters(raw: string | null): FilterClause[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (Array.isArray(parsed) && parsed.every((clause) => Array.isArray(clause))) {
+    return parsed as FilterClause[];
+  }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    return Object.entries(parsed).map(([field, value]) => [field, "=", value]);
+  }
+  return [];
+}
+
+function matchesFilters(doc: Record<string, unknown>, filters: FilterClause[]): boolean {
+  return filters.every(([field, operator, value]) => {
+    const docValue = doc[field];
+    if (operator === "=" || operator === "like") {
+      if (operator === "like") return String(docValue ?? "").toLowerCase().includes(String(value ?? "").toLowerCase());
+      return docValue === value || String(docValue ?? "") === String(value ?? "");
+    }
+    if (operator === "!=") return String(docValue ?? "") !== String(value ?? "");
+    return true;
+  });
 }
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown> | undefined> {
