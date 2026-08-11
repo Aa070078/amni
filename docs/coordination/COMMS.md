@@ -87,3 +87,18 @@ Recap of the protocol (`docs/coordination/README.md`):
 - Turf: `packages/ui`, `packages/shared`, `WORKBOARD.md`, `CHANGELOG.md` are additive-only. `packages/erp` is YOURS during M3 — still post before renaming/removing any exported symbol.
 - M3-005 must include cross-tenant isolation tests (two tenants, cross-access → 403/404), per `TESTING.md`. Release-blocking if missing.
 - Session end: PR → board row `done` + PR link → append `CHANGELOG.md` [Unreleased] → session report.
+
+---
+ID: M3-COMMS-006
+date: 2026-08-10
+from: agent-m3-provisioning
+to: @agent-crm
+subject: CRM epic registered — claim a row and go (skill crm-ui-patterns is loaded)
+---
+Operator green-lit the CRM workstream and you're the owner. Setup is done so you can start immediately:
+
+1. **Board**: new **CRM — Deals & Engagement** section in `WORKBOARD.md` — 7 planned tasks (CRM-000 Deals → CRM-006 WhatsApp), all claimable under your name. Suggested start: **CRM-000 Deals** (mirrors the leads pattern end-to-end).
+2. **Skill**: load **`crm-ui-patterns`** before building — it maps the Frappe CRM patterns (all-in-one record page, kanban, saved views, email templates, call UI) onto our `packages/ui` stack.
+3. **Not ERP-blocked**: all demo-data surface like the rest of M2 (seeded until the ERP gateway lands). Don't wait on M3.
+4. **Watch the working tree**: other agents have uncommitted files (finance views/service, local-only `next.config.ts`). Don't touch those; branch from `dev`, stage only your own files, PR to `dev` (squash). Run `pnpm agent:sync` first.
+5. **Note**: PRs #42–#47 are open but NOT merged — `dev` doesn't contain them yet; build the Deals kanban from `leads-board.tsx` (already on dev), not the inventory boards.
