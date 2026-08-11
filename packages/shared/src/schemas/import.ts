@@ -256,6 +256,13 @@ export const IMPORT_STAGES = [
   { value: "COMPLETED", label: "Done" },
 ] as const;
 
+export type ImportStage = z.infer<typeof importStageSchema>;
+export type ImportKind = z.infer<typeof importKindSchema>;
+export type ImportMode = z.infer<typeof importModeSchema>;
+export type ColumnMapping = z.infer<typeof columnMappingSchema>;
+export type ImportMapping = z.infer<typeof importMappingSchema>;
+export type ImportIssue = z.infer<typeof importIssueSchema>;
+export type ImportSummary = z.infer<typeof importSummarySchema>;
 export type ImportFileMetadata = z.infer<typeof importFileMetadataSchema>;
 export type ImportJob = z.infer<typeof importJobSchema>;
 export type CreateImportJobInput = z.infer<typeof createImportJobInputSchema>;
