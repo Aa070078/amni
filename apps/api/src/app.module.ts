@@ -37,6 +37,7 @@ import { ContactsModule } from "./contacts/contacts.module";
 import { PlansModule } from "./plans/plans.module";
 import { ProvisioningModule } from "./provisioning/provisioning.module";
 import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
+import { ImportsModule } from "./imports/imports.module";
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
     PlansModule,
     ProvisioningModule,
     ErpGatewayModule,
+    ImportsModule,
   ],
 })
 export class AppModule {}
