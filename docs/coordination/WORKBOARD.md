@@ -61,13 +61,13 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | `apps/worker/src/jobs/provisioning.processor.ts` stub exists |
+| **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/worker/src/provisioning/state-machine.ts` + drivers; shipped via PR #51 |
 | M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Typed client + isolation tests |
 | M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | — |
-| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Platform DB (Prisma) |
-| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Depends on M3-000 events |
+| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/api/src/plans` + wizard submit (tenant/subscription/audit); shipped via PR #51 |
+| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `GET /provisioning/status` + wizard progress card → dashboard on ACTIVE; shipped via PR #51 |
 | M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Mandatory before any ERP data path ships (TESTING.md) |
-| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Wires M2-000 to M3-000 |
+| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | done | feat/M3/provisioning | BullMQ `provision` enqueue w/ idempotency key; shipped via PR #51 |
 | M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-m3-erp | in-progress | feat/M3/onboarding-mail | `apps/worker/src/jobs/mail.processor.ts` stub exists |
 
 ---
@@ -85,6 +85,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-11 | M3-000/M3-003/M3-006/M3-004 marked done (agent-m3-provisioning); shipped via PR #51 (feat/M3/provisioning). Worker state machine + drivers + spec, plans module, wizard→enqueue, provisioning status surfacing. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
 | 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |
 | 2026-08-09 | M2-000, M2-001, M2-009..M2-018 marked done, plus new finance workspaces M2-019..M2-024 (invoicing, accounting, sign, equity, esg, expense claims/categories) — all on `feat/M2/sales-inventory`, delivered via PR #25. Epic is code-complete; merge to `dev` is the remaining gate. |
