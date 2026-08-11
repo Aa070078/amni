@@ -15,6 +15,7 @@ import {
   ReviewStep,
   TeamStep,
 } from "./setup-steps";
+import { ProvisioningCard } from "./provisioning-card";
 
 const STEP_ORDER: WizardStep[] = ["company", "regional", "business", "team", "import", "review"];
 
@@ -33,6 +34,7 @@ export function SetupWizard() {
   const [currentStep, setCurrentStep] = React.useState<WizardStep>("company");
   const [completed, setCompleted] = React.useState<WizardStep[]>([]);
   const [provisioned, setProvisioned] = React.useState<string | null>(null);
+  const [provisioning, setProvisioning] = React.useState(false);
 
   const draftQuery = useQuery({
     queryKey: ["wizard", "draft"],
@@ -55,6 +57,12 @@ export function SetupWizard() {
     retry: false,
   });
 
+  React.useEffect(() => {
+    if (statusQuery.data?.status === "provisioning" && !provisioning && !provisioned) {
+      setProvisioning(true);
+    }
+  }, [statusQuery.data, provisioning, provisioned]);
+
   const saveMutation = useMutation({
     mutationFn: (input: Partial<WizardDraft>) => wizardClient.save(input),
     onSuccess: (data) => setDraft(data),
@@ -63,7 +71,11 @@ export function SetupWizard() {
   const submitMutation = useMutation({
     mutationFn: () => wizardClient.submit(),
     onSuccess: (data) => {
-      setProvisioned(data.message ?? "Your workspace is ready.");
+      if (data.status === "provisioning") {
+        setProvisioning(true);
+      } else {
+        setProvisioned(data.message ?? "Your workspace is ready.");
+      }
     },
   });
 
@@ -133,6 +145,14 @@ export function SetupWizard() {
             <Button onClick={() => router.push("/dashboard")}>Go to dashboard</Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (provisioning) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <ProvisioningCard />
       </div>
     );
   }

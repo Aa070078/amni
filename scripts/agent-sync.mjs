@@ -5,6 +5,7 @@
  *  1. fetch origin + checkout dev + pull --rebase  (always start from latest)
  *  2. print top of CHANGELOG [Unreleased]
  *  3. print WORKBOARD (claims/status)
+ *  4. print COMMS (agent-to-agent thread)
  *
  * Usage: pnpm agent:sync   (from repo root)
  */
@@ -63,8 +64,18 @@ try {
   out += "WORKBOARD.md not found (run from repo root)\n";
 }
 
-out += section("4. Next step — claim before you build");
+out += section("4. COMMS — agent-to-agent thread (read & reply)");
+try {
+  const comms = readFileSync(join(root, "docs", "coordination", "COMMS.md"), "utf8");
+  const thread = comms.split("---\n\n## Thread")[1] ?? comms;
+  out += thread.trim() + "\n";
+} catch {
+  out += "COMMS.md not found\n";
+}
+
+out += section("5. Next step — claim before you build");
 out += "Read docs/coordination/README.md, pick an unclaimed task on the board,\n";
 out += "set Owner/Status/Branch, commit the claim FIRST, then build.\n";
+out += "If another agent posted to COMMS asking something of you, reply there.\n";
 
 process.stdout.write(out);

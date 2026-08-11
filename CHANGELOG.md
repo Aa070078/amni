@@ -5,6 +5,39 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Onboarding email pipeline (M3-007, PR #49)** — verify/reset/welcome emails end-to-end:
+  - `packages/shared`: `schemas/mail.ts` — `MailTemplate` constants + zod `mailJobSchema` discriminated union (`verification`/`reset`/`welcome`) + `MailJob` type.
+  - `apps/api`: `JobsModule` (BullMQ `mail` queue) + `MailService.enqueue()`; `AuthService` enqueues welcome + verification on production registration, and reset on `request-password-reset` (replacing the `TODO(M5)` stubs).
+  - `apps/worker`: `MailProcessor` validates jobs against the shared schema, renders escaped HTML/plain templates, and sends via `MailerService` — `console` provider in dev (logs the rendered message) or SMTP when `MAIL_PROVIDER=smtp` + `SMTP_HOST` set (nodemailer); `MAIL_FROM` + `PLATFORM_URL` configurable. Mail config documented in `apps/worker/.env.example` + `infra/docker/.env.example`.
+  - Fixed a latent worker boot crash (`app.get(Logger)` on a non-provider) so `apps/worker` actually starts; verified live end-to-end.
+- **ERP gateway milestone (M3-001/M3-002/M3-005, PR #41)** — first real path from the API to per-tenant ERPNext sites, with tenant isolation guarantees:
+  - `packages/erp` client v1: session auth (`login`/`getLoggedUser`/`logout` via Frappe `sid`), AES-256-GCM at-rest encryption for tenant service-account keys (`ENCRYPTION_KEY`), and `resolveTenantErp`/`createErpClientForTenant` resolving the tenant's `ERPInstance` from the authenticated session (never client input) with an `allowHost` SSRF pin. 35 unit tests.
+  - `apps/api` `ErpGatewayModule` at `/api/v1/erp/*`: tenant-scoped `resource` CRUD (+ `?action=submit|cancel`) and whitelisted `method` proxy; no-membership → 403; every mutation written to `AuditLog` (actor, company, resource, ip, requestId). Tenant-state `ErpError`s now map to 409 instead of 500 in the exception filter.
+  - `packages/shared` `erp-gateway` zod schemas for the proxy contract.
+  - Tenant isolation suite: `pnpm --filter @amni/api test:isolation` (`vitest.isolation.config.ts`) runs `*.isolation.spec.ts` against in-process mock Frappe REST sites (two tenants, per-site token enforcement) — cross-tenant access returns 403/404, no data leaks, forged cross-tenant credentials rejected. Passes in CI without a live bench.
+- **CRM: Deals entity (CRM-000) (#50)** — qualified-opportunities pipeline mirroring the Leads pattern:
+  - `packages/shared`: `deals.ts` zod schemas (`DL-\d{4}` codes, stages qualification/analysis/proposal/negotiation/won/lost with probabilities 15/30/55/80/100/0, sources, activity/detail/pipeline/stat schemas, list response schema).
+  - `apps/api`: `deals` module — seeded pipeline of 10 deals, `GET/POST /sales/deals`, `GET/PATCH/DELETE /sales/deals/:code`, `PATCH /sales/deals/:code/stage`, whitelisted sorting, derived activity feed; AuthGuard-protected; registered in `AppModule`.
+  - `apps/web`: `lib/deals.ts` typed client; `components/deals/` — kanban board (column-wise stage columns), table view, list view with stat cards + debounced search, detail page (stage select, notes, activity timeline), new-deal dialog; routes `/sales/deals` + `/sales/deals/[code]`; Sales hub Deals card.
+
+- **Provisioning pipeline (M3-000/M3-003/M3-006/M3-004, PR #51)** — wizard submit now drives an async, idempotent provisioning pipeline:
+  - `packages/shared`: plan catalog schema/types (`catalogPlanSchema`, `PlansListResponse`) + provisioning status/step types reused from `tenant.ts`.
+  - `apps/worker`: 7-step provisioning state machine (`provisioning/state-machine.ts`) with per-step persistence, resume-from-failed-step, terminal failure states, per-step tenant status transitions; `SimulationDriver` + `BenchDriver`; `provisioning.processor.ts` delegates to the state machine; `state-machine.spec.ts` (4 tests).
+  - `apps/api`: `plans` module (GET catalog, `findByCode`), `provisioning` module (`GET /provisioning/status`), `WizardService.submit` upserts the tenant, creates the subscription, writes an AuditLog and enqueues a BullMQ `provision` job with an idempotency key (`BullModule` registered in `AppModule`); wizard spec extended (5 tests).
+  - `apps/web`: setup wizard renders a live provisioning progress card polling `/provisioning/status` every 3s, routing to `/dashboard` once the tenant is `ACTIVE`.
+
+- **HRMS embed (M5-000, PR #53)** — the full Frappe HR desk embedded in the platform as the HRMS module:
+  - `apps/worker`: `ERPNEXT_INSTALL_APPS` (default `erpnext,hrms`) installs Frappe HR on every new site; `Tenant.hrmsInstalled` set after `create_site`.
+  - `packages/db`: `Tenant.hrmsInstalled` column (migration `20260811090000_hrms_installed`).
+  - `infra/erp`: non-core `amni_bridge` app (SSO login endpoint + Amni desk theming) + `scripts/install-hrms.ps1` for existing sites.
+  - `apps/api`: `hrms` module — `GET /hrms/status`, `GET /hrms/sso-url` minting short-lived HS256 tokens (`HRMS_SSO_SECRET`); `hrms.service.spec.ts` (6 tests).
+  - `apps/web`: HRMS module in nav (People moved under it), `/hrms` page with the embedded desk iframe + People hub.
+
+- **Provisioning pipeline (M3-000/M3-003/M3-006/M3-004, PR #51)** — wizard submit now drives an async, idempotent provisioning pipeline:
+  - `packages/shared`: plan catalog schema/types (`catalogPlanSchema`, `PlansListResponse`) + provisioning status/step types reused from `tenant.ts`.
+  - `apps/worker`: 7-step provisioning state machine (`provisioning/state-machine.ts`) with per-step persistence, resume-from-failed-step, terminal failure states, per-step tenant status transitions; `SimulationDriver` + `BenchDriver`; `provisioning.processor.ts` delegates to the state machine; `state-machine.spec.ts` (4 tests).
+  - `apps/api`: `plans` module (GET catalog, `findByCode`), `provisioning` module (`GET /provisioning/status`), `WizardService.submit` upserts the tenant, creates the subscription, writes an AuditLog and enqueues a BullMQ `provision` job with an idempotency key (`BullModule` registered in `AppModule`); wizard spec extended (5 tests).
+  - `apps/web`: setup wizard renders a live provisioning progress card polling `/provisioning/status` every 3s, routing to `/dashboard` once the tenant is `ACTIVE`.
 
 ## [0.2.0] - 2026-08-10
 

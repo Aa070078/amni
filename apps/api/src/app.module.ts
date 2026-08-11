@@ -1,11 +1,16 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { BullModule } from "@nestjs/bullmq";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+
+import { BullQueue } from "@amni/shared";
 
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./redis/redis.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { LeadsModule } from "./leads/leads.module";
+import { DealsModule } from "./deals/deals.module";
 import { CustomersModule } from "./customers/customers.module";
 import { ProductsModule } from "./products/products.module";
 import { QuotationsModule } from "./quotations/quotations.module";
@@ -29,6 +34,11 @@ import { SignModule } from "./sign/sign.module";
 import { EquityModule } from "./equity/equity.module";
 import { EsgModule } from "./esg/esg.module";
 import { ContactsModule } from "./contacts/contacts.module";
+import { CrmModule } from "./crm/crm.module";
+import { PlansModule } from "./plans/plans.module";
+import { ProvisioningModule } from "./provisioning/provisioning.module";
+import { HrmsModule } from "./hrms/hrms.module";
+import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
 
 @Module({
   imports: [
@@ -37,11 +47,22 @@ import { ContactsModule } from "./contacts/contacts.module";
       cache: true,
       envFilePath: [".env.local", ".env"],
     }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          url: config.get<string>("REDIS_URL") ?? "redis://localhost:6379",
+        },
+      }),
+    }),
+    BullModule.registerQueue({ name: BullQueue.PROVISIONING }),
     RedisModule,
+    JobsModule,
     HealthModule,
     AuthModule,
     DashboardModule,
     LeadsModule,
+    DealsModule,
     CustomersModule,
     ProductsModule,
     QuotationsModule,
@@ -65,6 +86,11 @@ import { ContactsModule } from "./contacts/contacts.module";
     EquityModule,
     EsgModule,
     ContactsModule,
+    CrmModule,
+    PlansModule,
+    ProvisioningModule,
+    HrmsModule,
+    ErpGatewayModule,
   ],
 })
 export class AppModule {}

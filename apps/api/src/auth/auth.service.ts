@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { prisma } from "@amni/db";
-import { ErrorCode } from "@amni/shared";
+import { ErrorCode, MailTemplate } from "@amni/shared";
 import type {
   ChangePasswordInput,
   LoginInput,
@@ -19,6 +19,8 @@ import { ApiException } from "../common/api.exception";
 import { PasswordService } from "./password.service";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { TokensService } from "./tokens.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { MailService } from "../jobs/mail.service";
 
 const MAX_FAILED_LOGINS = 10;
 const LOCKOUT_BASE_MS = 60_000;
@@ -53,6 +55,7 @@ export class AuthService {
   constructor(
     private readonly passwords: PasswordService,
     private readonly tokens: TokensService,
+    private readonly mail: MailService,
   ) {}
 
   async register(input: RegisterInput, res: Response, meta: RequestMeta): Promise<AuthResult> {
@@ -112,7 +115,13 @@ export class AuthService {
     });
 
     if (!isDev) {
-      await this.createEmailVerification(user.id, user.email);
+      await this.createEmailVerification(user.id, user.email, user.firstName);
+      await this.mail.enqueue({
+        template: MailTemplate.WELCOME,
+        to: user.email,
+        firstName: user.firstName,
+        companyName: input.companyName,
+      });
     }
 
     await this.issueSession(user.id, user.email, res, meta, "auth.register");
@@ -266,7 +275,12 @@ export class AuthService {
           expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
         },
       });
-      // TODO(M5): send email with `token`; dev log until a mailer exists.
+      await this.mail.enqueue({
+        template: MailTemplate.RESET,
+        to: user.email,
+        firstName: user.firstName,
+        token,
+      });
       await this.audit(user.id, "auth.request_reset", meta);
     }
   }
@@ -373,7 +387,7 @@ export class AuthService {
     });
   }
 
-  private async createEmailVerification(userId: string, email: string) {
+  private async createEmailVerification(userId: string, email: string, firstName: string) {
     const token = this.tokens.generateRefreshToken();
     await prisma.emailVerification.create({
       data: {
@@ -382,8 +396,12 @@ export class AuthService {
         expiresAt: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
       },
     });
-    // TODO(M5): send email with `token`; dev auto-verifies so no link needed locally.
-    void email;
+    await this.mail.enqueue({
+      template: MailTemplate.VERIFICATION,
+      to: email,
+      firstName,
+      token,
+    });
   }
 
   private async audit(actorId: string | undefined, action: string, meta: RequestMeta) {
