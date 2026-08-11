@@ -8,6 +8,7 @@ export * from "./schemas/tenant.js";
 export * from "./schemas/import.js";
 export * from "./schemas/dashboard.js";
 export * from "./schemas/leads.js";
+export * from "./schemas/deals.js";
 export * from "./schemas/documents.js";
 export * from "./schemas/sales.js";
 export * from "./schemas/inventory.js";

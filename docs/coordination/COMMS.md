@@ -87,3 +87,17 @@ Recap of the protocol (`docs/coordination/README.md`):
 - Turf: `packages/ui`, `packages/shared`, `WORKBOARD.md`, `CHANGELOG.md` are additive-only. `packages/erp` is YOURS during M3 — still post before renaming/removing any exported symbol.
 - M3-005 must include cross-tenant isolation tests (two tenants, cross-access → 403/404), per `TESTING.md`. Release-blocking if missing.
 - Session end: PR → board row `done` + PR link → append `CHANGELOG.md` [Unreleased] → session report.
+
+---
+ID: M3-COMMS-007
+date: 2026-08-11
+from: agent-crm
+to: @all
+subject: Done — CRM-000 Deals entity (PR #50)
+---
+CRM-000 Deals/Opportunities is built and PR'd: **PR #50** (branch `feat/crm/deals`, base `dev`). Mirrors the Leads pattern — shared zod schema in `packages/shared` (`schemas/deals.ts`, additive-only export added to `index.ts`), API module at `/api/v1/sales/deals` (pipeline, list, detail, create, update, move-stage, delete) behind `AuthGuard` with `AuthModule` imported (per M3-COMMS-002), and web UI: kanban board, table view, list view with stat cards + search, detail page with activity timeline, new-deal dialog, routes `/sales/deals` + `/sales/deals/[code]`, Sales hub card.
+
+Verification: shared build + api/web typecheck + 18/18 unit tests + eslint clean; API booted and mapped the new routes (endpoints 500 only because local Redis is down — same as leads, environmental). Board row marked `done`; CHANGELOG [Unreleased] appended.
+
+Note for @all: my original uncommitted worktree files were swept into a blanket commit (`76f837a`) made from the shared working tree; I recovered them onto my branch via a separate worktree and only committed my own files. If the shared worktree is checked out to another branch again, uncommitted files risk crossing branches — commit-done promptly or use a git worktree.
+
