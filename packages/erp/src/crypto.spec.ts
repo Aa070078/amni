@@ -8,7 +8,7 @@ import {
 } from "./crypto.js";
 import { ErpError } from "./errors.js";
 
-const HEX_KEY = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+const HEX_KEY = Buffer.alloc(32, 1).toString("hex");
 
 beforeEach(() => {
   process.env.ENCRYPTION_KEY = HEX_KEY;
@@ -53,7 +53,7 @@ describe("encryptServiceSecret", () => {
 describe("decryptServiceSecret", () => {
   it("fails to decrypt with the wrong key", () => {
     const cipher = encryptServiceSecret("secret");
-    process.env.ENCRYPTION_KEY = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 2).toString("hex");
     expect(() => decryptServiceSecret(cipher)).toThrow(ErpError);
   });
 

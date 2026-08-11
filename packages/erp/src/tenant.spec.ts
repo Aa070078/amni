@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@amni/db", () => ({ prisma: { eRPInstance: mocks.eRPInstance } }));
 
-const HEX_KEY = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+const HEX_KEY = Buffer.alloc(32, 1).toString("hex");
 
 function encryptedCredentials(apiKey = "key-a", apiSecret = "secret-a"): string {
   return encryptServiceSecret(JSON.stringify({ apiKey, apiSecret }));

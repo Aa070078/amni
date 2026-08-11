@@ -16,7 +16,7 @@ vi.mock("@amni/db", () => ({
   prisma: { membership: mocks.membership, eRPInstance: mocks.eRPInstance, auditLog: mocks.auditLog },
 }));
 
-const HEX_KEY = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+const HEX_KEY = Buffer.alloc(32, 1).toString("hex");
 
 const USER_A = { id: "user-a", email: "a@acme.com", role: "USER" };
 const USER_B = { id: "user-b", email: "b@beta.com", role: "USER" };
