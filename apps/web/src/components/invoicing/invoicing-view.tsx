@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { CheckCircle2, FileMinus, Loader2, Repeat } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileMinus, Loader2, Repeat } from "lucide-react";
 import { useState } from "react";
 import type { LegacyColumnDef } from "@tanstack/react-table/legacy";
 import type { CreditNote, RecurringProfile } from "@amni/shared";
@@ -174,6 +174,13 @@ export function InvoicingView() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/finance"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        Finance
+      </Link>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Invoicing</h1>
