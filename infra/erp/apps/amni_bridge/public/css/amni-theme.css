@@ -1,0 +1,41 @@
+/* Amni design theme for the Frappe desk (applied via app_include_css).
+ *
+ * Maps Amni's brand violet onto Frappe's theme surfaces. Amni tokens
+ * (packages/ui/src/tokens.css): light primary oklch(0.45 0.16 277) ~ #4345ab,
+ * dark primary oklch(0.62 0.14 277) ~ #727cd9.
+ *
+ * Best-effort override of the stable Frappe v14+ design variables. If a
+ * variable name diverges on the pinned bench version, re-check against the
+ * running bench source (see DEVELOPMENT.md "Container source reading").
+ */
+
+:root {
+  --primary: #4345ab;
+  --primary-color: #4345ab;
+  --btn-primary-bg: #4345ab;
+  --btn-primary-color: #ffffff;
+  --navbar-bg: #ffffff;
+  --control-bg: #f9fafb;
+  --border-color: #e5e7eb;
+}
+
+.dark-mode {
+  --primary: #727cd9;
+  --primary-color: #727cd9;
+  --btn-primary-bg: #727cd9;
+  --btn-primary-color: #121326;
+  --navbar-bg: #16171f;
+  --control-bg: #1e1f2b;
+  --border-color: #2a2b3a;
+}
+
+/* Frappe historically derives its accent from --blue-*; point the accent at
+ * Amni's violet so primary buttons, links and focus rings match the brand. */
+.btn-primary,
+.navbar .navbar-header .btn-primary,
+#page-HRMS .btn-primary,
+.primary-action {
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
+}

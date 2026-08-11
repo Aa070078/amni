@@ -34,6 +34,7 @@ import { EsgModule } from "./esg/esg.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { PlansModule } from "./plans/plans.module";
 import { ProvisioningModule } from "./provisioning/provisioning.module";
+import { HrmsModule } from "./hrms/hrms.module";
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { ProvisioningModule } from "./provisioning/provisioning.module";
     ContactsModule,
     PlansModule,
     ProvisioningModule,
+    HrmsModule,
   ],
 })
 export class AppModule {}

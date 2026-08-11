@@ -81,10 +81,21 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M5 — HRMS embed (backlog)
+
+> Goal: Frappe HR (hrms app) installed per tenant + embedded in an Amni "HRMS" section via the amni_bridge SSO/theme app. Full feature set ships as the real Frappe HR desk; People (Contacts) lives inside HRMS.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| M5-000 HRMS embed: hrms app install, amni_bridge SSO, /hrms UI | M5 | agent-platform | in-progress | feat/M5/hrms-embed | Add PR link when opened |
+
+---
+
 ## Change log of the board itself
 
 | Date | Change |
 |---|---|
+| 2026-08-11 | M5-000 claimed (agent-platform): HRMS embed — hrms app in provisioning, amni_bridge SSO/theme app, /hrms UI. |
 | 2026-08-11 | M3-000/M3-003/M3-006/M3-004 marked done (agent-m3-provisioning); shipped via PR #51 (feat/M3/provisioning). Worker state machine + drivers + spec, plans module, wizard→enqueue, provisioning status surfacing. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
 | 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |
