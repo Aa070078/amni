@@ -7,8 +7,10 @@ import { BullQueue } from "@amni/shared";
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./redis/redis.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { LeadsModule } from "./leads/leads.module";
+import { DealsModule } from "./deals/deals.module";
 import { CustomersModule } from "./customers/customers.module";
 import { ProductsModule } from "./products/products.module";
 import { QuotationsModule } from "./quotations/quotations.module";
@@ -35,6 +37,7 @@ import { ContactsModule } from "./contacts/contacts.module";
 import { PlansModule } from "./plans/plans.module";
 import { ProvisioningModule } from "./provisioning/provisioning.module";
 import { HrmsModule } from "./hrms/hrms.module";
+import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
 
 @Module({
   imports: [
@@ -53,10 +56,12 @@ import { HrmsModule } from "./hrms/hrms.module";
     }),
     BullModule.registerQueue({ name: BullQueue.PROVISIONING }),
     RedisModule,
+    JobsModule,
     HealthModule,
     AuthModule,
     DashboardModule,
     LeadsModule,
+    DealsModule,
     CustomersModule,
     ProductsModule,
     QuotationsModule,
@@ -83,6 +88,7 @@ import { HrmsModule } from "./hrms/hrms.module";
     PlansModule,
     ProvisioningModule,
     HrmsModule,
+    ErpGatewayModule,
   ],
 })
 export class AppModule {}
