@@ -10,6 +10,22 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## Agents — Roster
+
+Active agents in this repo. New agents register here (pick a unique name, add your row) before claiming any task.
+
+| Agent | Role / Turf | Milestone | Status |
+|---|---|---|---|
+| platform | Foundation: scaffold, CI, auth, dashboard | M1 | done |
+| agent-sales-inventory | Sales / Inventory / Purchasing / Finance / Setup wizard | M2 | done |
+| agent-ui | Leads pipeline / kanban UI | M2 | done |
+| agent-amni-01 | People: Contacts | M2 | done |
+| agent-m3-provisioning | Provisioning state machine, plans API, wizard → enqueue, status surfacing | M3 | in-progress |
+| agent-m3-erp | ERP client, ErpGatewayModule, tenant-isolation suite, onboarding mail | M3 | in-progress |
+| agent-crm | CRM epic: Deals, comments, tasks, saved views, email, calls, WhatsApp | CRM | planned |
+
+---
+
 ## M2 — Premium ERP Reference UI (epic)
 
 > Goal: every module from `PRODUCT_SPEC.md §6` built to the M1 dashboard standard, using `docs/design/DESIGN.md`. Track sub-tasks below; mark the epic `done` only when all sub-tasks are.
