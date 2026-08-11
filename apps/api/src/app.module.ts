@@ -34,6 +34,7 @@ import { SignModule } from "./sign/sign.module";
 import { EquityModule } from "./equity/equity.module";
 import { EsgModule } from "./esg/esg.module";
 import { ContactsModule } from "./contacts/contacts.module";
+import { CrmModule } from "./crm/crm.module";
 import { PlansModule } from "./plans/plans.module";
 import { ProvisioningModule } from "./provisioning/provisioning.module";
 import { HrmsModule } from "./hrms/hrms.module";
@@ -85,6 +86,7 @@ import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
     EquityModule,
     EsgModule,
     ContactsModule,
+    CrmModule,
     PlansModule,
     ProvisioningModule,
     HrmsModule,
