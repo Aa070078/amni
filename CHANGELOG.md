@@ -6,6 +6,13 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 
 ### Added (dev)
 
+- **HRMS embed (M5-000, PR #53)** — the full Frappe HR desk embedded in the platform as the HRMS module:
+  - `apps/worker`: `ERPNEXT_INSTALL_APPS` (default `erpnext,hrms`) installs Frappe HR on every new site; `Tenant.hrmsInstalled` set after `create_site`.
+  - `packages/db`: `Tenant.hrmsInstalled` column (migration `20260811090000_hrms_installed`).
+  - `infra/erp`: non-core `amni_bridge` app (SSO login endpoint + Amni desk theming) + `scripts/install-hrms.ps1` for existing sites.
+  - `apps/api`: `hrms` module — `GET /hrms/status`, `GET /hrms/sso-url` minting short-lived HS256 tokens (`HRMS_SSO_SECRET`); `hrms.service.spec.ts` (6 tests).
+  - `apps/web`: HRMS module in nav (People moved under it), `/hrms` page with the embedded desk iframe + People hub.
+
 - **Provisioning pipeline (M3-000/M3-003/M3-006/M3-004, PR #51)** — wizard submit now drives an async, idempotent provisioning pipeline:
   - `packages/shared`: plan catalog schema/types (`catalogPlanSchema`, `PlansListResponse`) + provisioning status/step types reused from `tenant.ts`.
   - `apps/worker`: 7-step provisioning state machine (`provisioning/state-machine.ts`) with per-step persistence, resume-from-failed-step, terminal failure states, per-step tenant status transitions; `SimulationDriver` + `BenchDriver`; `provisioning.processor.ts` delegates to the state machine; `state-machine.spec.ts` (4 tests).
