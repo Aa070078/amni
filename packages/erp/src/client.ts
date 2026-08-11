@@ -1,18 +1,31 @@
 import { ErrorCode } from "@amni/shared";
 import { ErpError } from "./errors.js";
 import { mapErrorResponse } from "./mapping.js";
-import { ERP_API_PREFIX, type ErpClientConfig, type ErpListOptions, type ErpListResult } from "./types.js";
+import {
+  ERP_API_PREFIX,
+  type ErpClientConfig,
+  type ErpListOptions,
+  type ErpListResult,
+  type ErpLoginResult,
+} from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_RETRIES = 2;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
+type RequestAuth = "token" | "session" | "none";
+
 /**
  * Thin, typed client over the official Frappe REST API.
  *
- * Auth: `Authorization: token <api_key>:<api_secret>` (CSRF-exempt by design).
- * Every call forwards an `X-Frappe-Request-Id` derived from the platform
- * requestId so the worker/API and ERPNext logs can be correlated.
+ * Service-account auth: `Authorization: token <api_key>:<api_secret>`
+ * (CSRF-exempt by design). Every call forwards an `X-Frappe-Request-Id`
+ * derived from the platform requestId so the worker/API and ERPNext logs can
+ * be correlated.
+ *
+ * Session auth (optional, used to validate tenant-admin credentials during
+ * provisioning): the `sid` cookie returned by `login()` is stored and sent on
+ * subsequent `session`-authed calls.
  *
  * This class is intentionally dumb: it holds no tenant context. The Amni API
  * gateway resolves the tenant's ERPInstance and passes its config in.
@@ -25,6 +38,7 @@ export class ErpClient {
   private readonly maxRetries: number;
   private readonly requestId?: string;
   private readonly allowHost?: string;
+  private sid?: string;
 
   constructor(config: ErpClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
@@ -51,8 +65,8 @@ export class ErpClient {
   private async request<T>(
     method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
-    init?: { params?: Record<string, unknown>; body?: unknown },
-  ): Promise<T> {
+    init?: { params?: Record<string, unknown>; body?: unknown; auth?: RequestAuth },
+  ): Promise<{ status: number; body: T; sid?: string }> {
     const url = this.buildUrl(path);
     for (const [key, value] of Object.entries(init?.params ?? {})) {
       if (value !== undefined) {
@@ -60,12 +74,19 @@ export class ErpClient {
       }
     }
 
+    const auth = init?.auth ?? "token";
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      Authorization: `token ${this.apiKey}:${this.apiSecret}`,
-      ...(this.requestId ? { "X-Frappe-Request-Id": this.requestId } : {}),
     };
+    if (auth === "token") {
+      headers.Authorization = `token ${this.apiKey}:${this.apiSecret}`;
+    } else if (auth === "session" && this.sid) {
+      headers.Cookie = `sid=${this.sid}`;
+    }
+    if (this.requestId) {
+      headers["X-Frappe-Request-Id"] = this.requestId;
+    }
 
     let lastErr: unknown;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -85,7 +106,7 @@ export class ErpClient {
         if (!res.ok) {
           throw mapErrorResponse(res.status, body, this.requestId);
         }
-        return body as T;
+        return { status: res.status, body: body as T, sid: extractSid(res.headers) };
       } catch (err) {
         clearTimeout(timer);
         if (err instanceof ErpError) {
@@ -113,7 +134,7 @@ export class ErpClient {
 
   /** GET /resource/{doctype}?filters=... */
   async list<T extends object>(doctype: string, options: ErpListOptions = {}): Promise<ErpListResult<T>> {
-    const data = await this.request<{ data: T[] }>("GET", `/resource/${doctype}`, {
+    const { body } = await this.request<{ data: T[] }>("GET", `/resource/${doctype}`, {
       params: {
         filters: options.filters,
         fields: options.fields,
@@ -122,56 +143,88 @@ export class ErpClient {
         start: options.start,
       },
     });
-    const items = data.data;
+    const items = body.data;
     const hasMore = (options.limitPageLength ?? 0) > 0 && items.length >= (options.limitPageLength ?? 0);
     return { items, hasMore };
   }
 
   /** GET /resource/{doctype}/{name} */
   async get<T extends object>(doctype: string, name: string): Promise<T> {
-    const data = await this.request<{ data: T }>("GET", `/resource/${doctype}/${encodeURIComponent(name)}`);
-    return data.data;
+    const { body } = await this.request<{ data: T }>("GET", `/resource/${doctype}/${encodeURIComponent(name)}`);
+    return body.data;
   }
 
   /** POST /resource/{doctype} — create draft doc. */
   async create<T extends object>(doctype: string, doc: Record<string, unknown>): Promise<T> {
-    const data = await this.request<{ data: T }>("POST", `/resource/${doctype}`, { body: doc });
-    return data.data;
+    const { body } = await this.request<{ data: T }>("POST", `/resource/${doctype}`, { body: doc });
+    return body.data;
   }
 
   /** PUT /resource/{doctype}/{name} — update draft doc. */
   async update<T extends object>(doctype: string, name: string, doc: Record<string, unknown>): Promise<T> {
-    const data = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
+    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
       body: doc,
     });
-    return data.data;
+    return body.data;
   }
 
   /** PUT /resource/{doctype}/{name}?action=submit — submit the doc. */
   async submit<T extends object>(doctype: string, name: string): Promise<T> {
-    const data = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
+    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
       params: { action: "submit" },
     });
-    return data.data;
+    return body.data;
   }
 
   /** PUT /resource/{doctype}/{name}?action=cancel — cancel the doc. */
   async cancel<T extends object>(doctype: string, name: string): Promise<T> {
-    const data = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
+    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
       params: { action: "cancel" },
     });
-    return data.data;
+    return body.data;
   }
 
   /** DELETE /resource/{doctype}/{name} */
   async delete(doctype: string, name: string): Promise<void> {
-    await this.request("DELETE", `/resource/${doctype}/${encodeURIComponent(name)}`);
+    await this.request<void>("DELETE", `/resource/${doctype}/${encodeURIComponent(name)}`);
   }
 
   /** POST /method/{method} — whitelisted RPC. */
   async call<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
-    const data = await this.request<{ message: T }>("POST", `/method/${method}`, { body: args });
-    return data.message;
+    const { body } = await this.request<{ message: T }>("POST", `/method/${method}`, { body: args });
+    return body.message;
+  }
+
+  /**
+   * POST /method/login — authenticate with tenant-admin credentials and store
+   * the returned session cookie. Used to validate provisioning input, not for
+   * per-request auth (service-account tokens are the default).
+   */
+  async login(usr: string, pwd: string): Promise<ErpLoginResult> {
+    const { body, sid } = await this.request<{ message?: string; sid?: string }>("POST", "/method/login", {
+      body: { usr, pwd },
+      auth: "none",
+    });
+    const session = sid ?? body?.sid;
+    if (!session) {
+      throw new ErpError(ErrorCode.ERP_UNAUTHORIZED, "Login did not return a session");
+    }
+    this.sid = session;
+    return { sid: session, loggedUser: await this.getLoggedUser() };
+  }
+
+  /** POST /method/frappe.auth.get_logged_user with the stored session. */
+  async getLoggedUser(): Promise<string> {
+    const { body } = await this.request<{ message?: string }>("GET", "/method/frappe.auth.get_logged_user", {
+      auth: "session",
+    });
+    return body?.message ?? "";
+  }
+
+  /** POST /method/logout — clear the stored session. */
+  async logout(): Promise<void> {
+    await this.request<void>("POST", "/method/logout", { auth: "session" });
+    this.sid = undefined;
   }
 }
 
@@ -181,4 +234,20 @@ function safeJson(text: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+function extractSid(headers: Headers): string | undefined {
+  const setCookie: string[] = [];
+  if (typeof headers.getSetCookie === "function") {
+    setCookie.push(...headers.getSetCookie());
+  } else {
+    const single = headers.get("set-cookie");
+    if (single) setCookie.push(single);
+  }
+  for (const cookie of setCookie) {
+    if (!cookie.toLowerCase().startsWith("sid=")) continue;
+    const match = /^sid=([^;]+)/.exec(cookie);
+    if (match?.[1]) return decodeURIComponent(match[1]);
+  }
+  return undefined;
 }
