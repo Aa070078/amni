@@ -9,7 +9,7 @@ import { AppModule } from "./app.module";
  * processors, then stays alive consuming jobs. No HTTP server.
  */
 async function bootstrap() {
-  const app = await NestFactory.createApplicationContext(AppModule);
+  await NestFactory.createApplicationContext(AppModule);
   Logger.log("Amni worker started", "Bootstrap");
 }
 
