@@ -4,6 +4,7 @@ import { ConfigModule } from "@nestjs/config";
 import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./redis/redis.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { LeadsModule } from "./leads/leads.module";
 import { DealsModule } from "./deals/deals.module";
@@ -40,6 +41,7 @@ import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
       envFilePath: [".env.local", ".env"],
     }),
     RedisModule,
+    JobsModule,
     HealthModule,
     AuthModule,
     DashboardModule,

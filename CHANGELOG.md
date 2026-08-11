@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Onboarding email pipeline (M3-007, PR #49)** — verify/reset/welcome emails end-to-end:
+  - `packages/shared`: `schemas/mail.ts` — `MailTemplate` constants + zod `mailJobSchema` discriminated union (`verification`/`reset`/`welcome`) + `MailJob` type.
+  - `apps/api`: `JobsModule` (BullMQ `mail` queue) + `MailService.enqueue()`; `AuthService` enqueues welcome + verification on production registration, and reset on `request-password-reset` (replacing the `TODO(M5)` stubs).
+  - `apps/worker`: `MailProcessor` validates jobs against the shared schema, renders escaped HTML/plain templates, and sends via `MailerService` — `console` provider in dev (logs the rendered message) or SMTP when `MAIL_PROVIDER=smtp` + `SMTP_HOST` set (nodemailer); `MAIL_FROM` + `PLATFORM_URL` configurable. Mail config documented in `apps/worker/.env.example` + `infra/docker/.env.example`.
+  - Fixed a latent worker boot crash (`app.get(Logger)` on a non-provider) so `apps/worker` actually starts; verified live end-to-end.
 - **ERP gateway milestone (M3-001/M3-002/M3-005, PR #41)** — first real path from the API to per-tenant ERPNext sites, with tenant isolation guarantees:
   - `packages/erp` client v1: session auth (`login`/`getLoggedUser`/`logout` via Frappe `sid`), AES-256-GCM at-rest encryption for tenant service-account keys (`ENCRYPTION_KEY`), and `resolveTenantErp`/`createErpClientForTenant` resolving the tenant's `ERPInstance` from the authenticated session (never client input) with an `allowHost` SSRF pin. 35 unit tests.
   - `apps/api` `ErpGatewayModule` at `/api/v1/erp/*`: tenant-scoped `resource` CRUD (+ `?action=submit|cancel`) and whitelisted `method` proxy; no-membership → 403; every mutation written to `AuditLog` (actor, company, resource, ip, requestId). Tenant-state `ErpError`s now map to 409 instead of 500 in the exception filter.
