@@ -7,6 +7,7 @@ import { RedisModule } from "./redis/redis.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { LeadsModule } from "./leads/leads.module";
+import { DealsModule } from "./deals/deals.module";
 import { CustomersModule } from "./customers/customers.module";
 import { ProductsModule } from "./products/products.module";
 import { QuotationsModule } from "./quotations/quotations.module";
@@ -30,6 +31,7 @@ import { SignModule } from "./sign/sign.module";
 import { EquityModule } from "./equity/equity.module";
 import { EsgModule } from "./esg/esg.module";
 import { ContactsModule } from "./contacts/contacts.module";
+import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
 
 @Module({
   imports: [
@@ -44,6 +46,7 @@ import { ContactsModule } from "./contacts/contacts.module";
     AuthModule,
     DashboardModule,
     LeadsModule,
+    DealsModule,
     CustomersModule,
     ProductsModule,
     QuotationsModule,
@@ -67,6 +70,7 @@ import { ContactsModule } from "./contacts/contacts.module";
     EquityModule,
     EsgModule,
     ContactsModule,
+    ErpGatewayModule,
   ],
 })
 export class AppModule {}
