@@ -49,6 +49,8 @@ Security is a first-class requirement. This document defines the threat model, c
 - Dev: platform secrets from `.env`; tenant ERP keys encrypted at rest with `ENCRYPTION_KEY` (AES-256-GCM) before storage.
 - Prod: secrets from the secret manager; `ENCRYPTION_KEY` never in repo; keys rotated per tenant on a schedule (job) and on suspected compromise; access to decrypted keys is limited to `packages/erp` and audited.
 - CI: secrets injected via GitHub Actions secrets; never echoed.
+- `HRMS_SSO_SECRET` (API) signs the HRMS SSO token; the bench copy (`amni_sso_secret` in `common_site_config.json`) validates it. They must match.
+- The HRMS SSO token is short-lived (`HRMS_SSO_TOKEN_TTL_SECONDS`, default 120s), single-audience (the tenant site URL), single-use by design (`jti`), and only minted for active workspaces with `hrmsInstalled`.
 
 ## 6. API security
 

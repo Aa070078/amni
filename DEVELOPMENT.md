@@ -41,6 +41,8 @@ Key variables (full list in the example files):
 | `REFRESH_TOKEN_TTL_DAYS` | refresh-token/session lifetime in days (default 30) |
 | `SMTP_*` / `MAIL_PROVIDER` | email delivery (dev: console/smtp4dev) |
 | `ERPNEXT_CLUSTER_*` | how the worker reaches the bench (`DOCKER_EXEC` in dev; exec target + site root) |
+| `ERPNEXT_INSTALL_APPS` | apps installed on every new site (default `erpnext,hrms`) |
+| `HRMS_SSO_SECRET` | HMAC secret that signs the HRMS SSO token (must match bench `amni_sso_secret`) |
 | `PLATFORM_URL` / `PLATFORM_DOMAIN` | app + tenant subdomain base |
 | `ENCRYPTION_KEY` | AES-GCM key used to encrypt tenant ERP service keys at rest |
 | `SENTRY_DSN` | optional error tracking |
@@ -74,6 +76,19 @@ docker compose -p frappe -f compose.yaml \
   ```
 - Verify: `http://localhost:8080/api/method/ping` → `{"message":"pong"}`. Login: `Administrator` / `admin`.
 - A second tenant site in dev: `bench new-site myco.localhost --mariadb-user-host-login-scope=% --db-root-password admin --admin-password admin --install-app erpnext`, reachable at `http://myco.localhost:8080` (nginx routes by Host header; `*.localhost` resolves to 127.0.0.1).
+
+### 5.1 HRMS (Frappe HR + Amni SSO)
+
+Frappe HR (the `hrms` app) ships as the embedded HRMS section in the platform. Every new site gets it automatically via `ERPNEXT_INSTALL_APPS` (default `erpnext,hrms`). Existing sites need the one-off script below.
+
+- **The SSO bridge**: the platform API mints a short-lived JWT (`HRMS_SSO_SECRET`), and the tiny `amni_bridge` app (in `infra/erp/apps/amni_bridge`, a non-core app) validates it on the tenant site and logs the platform user into the Frappe HR desk. It also themes the desk with Amni colors.
+- **Existing site setup** (new sites get `hrms` + `amni_bridge` from provisioning, no action needed):
+  ```powershell
+  # infra/erp/scripts/install-hrms.ps1
+  ./scripts/install-hrms.ps1 -Sites localhost,myco.localhost
+  ```
+  This fetches `hrms` (branch `HRMS_BRANCH`, default `version-16`) + `amni_bridge` into the bench, installs them on the given sites, and writes `amni_sso_secret` into the bench `common_site_config.json`.
+- **Secrets must match**: set the same value for `AMNI_SSO_SECRET` in `infra/erp/.env` (used to write the bench config) and `HRMS_SSO_SECRET` in `apps/api/.env`. The script fails loudly if they differ.
 
 ## 6. Run apps
 

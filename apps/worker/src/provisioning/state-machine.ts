@@ -165,6 +165,14 @@ async function afterStep(
   key: StepKey,
   result: StepResult,
 ): Promise<void> {
+  if (key === "create_site") {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { hrmsInstalled: (result.installApps ?? []).includes("hrms") },
+    });
+    return;
+  }
+
   if (key !== "service_account" || !result.host) return;
 
   const existing = await prisma.eRPInstance.findUnique({ where: { tenantId } });

@@ -9,12 +9,18 @@ interface BenchConfig {
   container: string;
   dbRootPassword: string;
   adminPassword: string;
+  /** Apps installed on every new site, in order (e.g. `erpnext,hrms`). */
+  installApps: string[];
 }
 
 const loadConfig = (): BenchConfig => ({
   container: process.env.BENCH_CONTAINER ?? "frappe-bench",
   dbRootPassword: process.env.BENCH_DB_ROOT_PASSWORD ?? "",
   adminPassword: process.env.BENCH_ADMIN_PASSWORD ?? "",
+  installApps: (process.env.ERPNEXT_INSTALL_APPS ?? "erpnext,hrms")
+    .split(",")
+    .map((app) => app.trim())
+    .filter(Boolean),
 });
 
 /**
@@ -55,19 +61,23 @@ export class BenchDriver implements ProvisioningDriver {
 
   async createSite(ctx: ProvisioningContext): Promise<StepResult> {
     const config = loadConfig();
+    const installFlags = config.installApps.flatMap((app) => ["--install-app", app]);
     const { code, stdout } = await this.runBench([
       "new-site",
       ctx.siteName,
       "--mariadb-user-host-login-scope=%",
       `--db-root-password=${config.dbRootPassword}`,
       `--admin-password=${config.adminPassword}`,
-      "--install-app",
-      "erpnext",
+      ...installFlags,
     ]);
     if (code !== 0) {
       return { ok: false, detail: `new-site failed: ${stdout}` };
     }
-    return { ok: true, detail: `site ${ctx.siteName} created` };
+    return {
+      ok: true,
+      detail: `site ${ctx.siteName} created (apps: ${config.installApps.join(", ")})`,
+      installApps: config.installApps,
+    };
   }
 
   async configureCompany(ctx: ProvisioningContext): Promise<StepResult> {
