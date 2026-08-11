@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Onboarding email pipeline (M3-007, PR #49)** — verify/reset/welcome emails end-to-end:
+  - `packages/shared`: `schemas/mail.ts` — `MailTemplate` constants + zod `mailJobSchema` discriminated union (`verification`/`reset`/`welcome`) + `MailJob` type.
+  - `apps/api`: `JobsModule` (BullMQ `mail` queue) + `MailService.enqueue()`; `AuthService` enqueues welcome + verification on production registration, and reset on `request-password-reset` (replacing the `TODO(M5)` stubs).
+  - `apps/worker`: `MailProcessor` validates jobs against the shared schema, renders escaped HTML/plain templates, and sends via `MailerService` — `console` provider in dev (logs the rendered message) or SMTP when `MAIL_PROVIDER=smtp` + `SMTP_HOST` set (nodemailer); `MAIL_FROM` + `PLATFORM_URL` configurable. Mail config documented in `apps/worker/.env.example` + `infra/docker/.env.example`.
+  - Fixed a latent worker boot crash (`app.get(Logger)` on a non-provider) so `apps/worker` actually starts; verified live end-to-end.
 
 ## [0.2.0] - 2026-08-10
 
