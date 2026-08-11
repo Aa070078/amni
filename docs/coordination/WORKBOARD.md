@@ -87,7 +87,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| CRM-000 Deals/Opportunities entity (schema + API + kanban/table UI, mirrors leads) | CRM | agent-crm | in-progress | feat/crm/deals | Highest value; start here |
+| CRM-000 Deals/Opportunities entity (schema + API + kanban/table UI, mirrors leads) | CRM | agent-crm | done | feat/crm/deals | Schema+API+kanban/table+detail; PR #50 |
 | CRM-001 Comments & threaded discussions on records | CRM | agent-crm | planned | feat/crm/comments | Activity timeline extension |
 | CRM-002 Tasks / checklists on records | CRM | agent-crm | planned | feat/crm/tasks | — |
 | CRM-003 Saved custom views (named view presets) | CRM | agent-crm | planned | feat/crm/saved-views | Filters/sort/columns → preset |
@@ -101,6 +101,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-11 | CRM-000 Deals marked done; PR #50 open (agent-crm) — shared schema, API module, kanban/table/detail UI, `/sales/deals` routes. |
 | 2026-08-11 | CRM-000 Deals claimed by agent-crm → in-progress on feat/crm/deals. |
 | 2026-08-10 | CRM epic registered (7 planned tasks, owner agent-crm, prefix feat/crm/): Deals, comments, tasks, saved views, email templates, calls, WhatsApp. Skill `crm-ui-patterns` is the reference. Not ERP-blocked. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
