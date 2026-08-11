@@ -18,6 +18,8 @@ export interface StepResult {
   detail?: string;
   host?: string;
   serviceKey?: string;
+  /** Apps installed on the site (create_site step) — used to flag feature availability. */
+  installApps?: string[];
 }
 
 export interface ProvisioningDriver {

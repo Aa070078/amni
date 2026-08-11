@@ -36,6 +36,7 @@ import { EsgModule } from "./esg/esg.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { PlansModule } from "./plans/plans.module";
 import { ProvisioningModule } from "./provisioning/provisioning.module";
+import { HrmsModule } from "./hrms/hrms.module";
 import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
 
 @Module({
@@ -86,6 +87,7 @@ import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
     ContactsModule,
     PlansModule,
     ProvisioningModule,
+    HrmsModule,
     ErpGatewayModule,
   ],
 })
