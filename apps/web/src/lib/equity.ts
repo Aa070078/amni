@@ -27,7 +27,10 @@ export const equityClient = {
   },
   listShareholders(query: Partial<ShareholderListQuery> = {}): Promise<ShareholderListResponse> {
     const { page, pageSize, q, sortBy, sortDir, type } = query;
-    return apiRequest<ShareholderListResponse>("/equity", toQueryString({ page, pageSize, q, sortBy, sortDir, type }));
+    return apiRequest<ShareholderListResponse>(
+      "/equity",
+      `/shareholders${toQueryString({ page, pageSize, q, sortBy, sortDir, type })}`,
+    );
   },
   shareholderDetail(code: string): Promise<Shareholder> {
     return apiRequest<Shareholder>("/equity", `/shareholders/${encodeURIComponent(code)}`);
@@ -40,7 +43,10 @@ export const equityClient = {
   },
   listClasses(query: Partial<ShareClassListQuery> = {}): Promise<ShareClassListResponse> {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
-    return apiRequest<ShareClassListResponse>("/equity", toQueryString({ page, pageSize, q, sortBy, sortDir, status }));
+    return apiRequest<ShareClassListResponse>(
+      "/equity",
+      `/classes${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
+    );
   },
   classDetail(code: string): Promise<ShareClass> {
     return apiRequest<ShareClass>("/equity", `/classes/${encodeURIComponent(code)}`);
@@ -59,7 +65,10 @@ export const equityClient = {
   },
   listRounds(query: Partial<RoundListQuery> = {}): Promise<RoundListResponse> {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
-    return apiRequest<RoundListResponse>("/equity", toQueryString({ page, pageSize, q, sortBy, sortDir, status }));
+    return apiRequest<RoundListResponse>(
+      "/equity",
+      `/rounds${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
+    );
   },
   roundDetail(code: string): Promise<Round> {
     return apiRequest<Round>("/equity", `/rounds/${encodeURIComponent(code)}`);
