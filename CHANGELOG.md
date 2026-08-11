@@ -20,6 +20,12 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
   - `apps/api`: `deals` module — seeded pipeline of 10 deals, `GET/POST /sales/deals`, `GET/PATCH/DELETE /sales/deals/:code`, `PATCH /sales/deals/:code/stage`, whitelisted sorting, derived activity feed; AuthGuard-protected; registered in `AppModule`.
   - `apps/web`: `lib/deals.ts` typed client; `components/deals/` — kanban board (column-wise stage columns), table view, list view with stat cards + debounced search, detail page (stage select, notes, activity timeline), new-deal dialog; routes `/sales/deals` + `/sales/deals/[code]`; Sales hub Deals card.
 
+- **Provisioning pipeline (M3-000/M3-003/M3-006/M3-004, PR #51)** — wizard submit now drives an async, idempotent provisioning pipeline:
+  - `packages/shared`: plan catalog schema/types (`catalogPlanSchema`, `PlansListResponse`) + provisioning status/step types reused from `tenant.ts`.
+  - `apps/worker`: 7-step provisioning state machine (`provisioning/state-machine.ts`) with per-step persistence, resume-from-failed-step, terminal failure states, per-step tenant status transitions; `SimulationDriver` + `BenchDriver`; `provisioning.processor.ts` delegates to the state machine; `state-machine.spec.ts` (4 tests).
+  - `apps/api`: `plans` module (GET catalog, `findByCode`), `provisioning` module (`GET /provisioning/status`), `WizardService.submit` upserts the tenant, creates the subscription, writes an AuditLog and enqueues a BullMQ `provision` job with an idempotency key (`BullModule` registered in `AppModule`); wizard spec extended (5 tests).
+  - `apps/web`: setup wizard renders a live provisioning progress card polling `/provisioning/status` every 3s, routing to `/dashboard` once the tenant is `ACTIVE`.
+
 ## [0.2.0] - 2026-08-10
 
 ### Added

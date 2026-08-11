@@ -48,7 +48,18 @@ export const provisioningStepSchema = z.object({
 
 export const tenantHealthSchema = z.enum(["UNKNOWN", "HEALTHY", "DEGRADED", "UNREACHABLE"]);
 
+export const provisioningStatusSchema = z.object({
+  tenantStatus: tenantStatusSchema,
+  jobState: provisioningJobStateSchema.optional(),
+  steps: z.array(provisioningStepSchema).default([]),
+  attempts: z.number().int().min(0).default(0),
+  lastError: z.string().optional(),
+  startedAt: z.string().datetime().optional(),
+  finishedAt: z.string().datetime().optional(),
+});
+
 export type TenantStatus = z.infer<typeof tenantStatusSchema>;
+export type ProvisioningStatus = z.infer<typeof provisioningStatusSchema>;
 export type PlanTier = z.infer<typeof planTierSchema>;
 export type ProvisioningJobType = z.infer<typeof provisioningJobTypeSchema>;
 export type ProvisioningJobState = z.infer<typeof provisioningJobStateSchema>;
