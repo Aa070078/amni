@@ -5,6 +5,12 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **Import web UX + notifications persistence + ERPNext import writes (M4-001/M4-005/M4-006)** — completes the M4 import pipeline (backend M4-002..M4-004 landed in PR #52):
+  - M4-001 — in-app notifications persistence: `apps/api` notifications controller/service read from DB; `apps/worker/src/jobs/notify.processor.ts` persists `NOTIFY` jobs (replacing the in-memory seed), with `notifications.service.spec.ts` + `notify.processor.spec.ts`.
+  - M4-005 — ERPNext import integration: `packages/erp/src/imports.ts` kind→doctype methods (feeds M4-004), two-tenant isolation suite `apps/api/src/imports/imports.isolation.spec.ts`; row-level ERP failure handling in `imports.processor.ts`.
+  - M4-006 — import web UX: 6-stage wizard at `/imports` for customers/items/suppliers/contacts/leads — template download (`GET /api/v1/imports/templates/:kind`), drag-and-drop CSV/XLSX upload with client-side type/size validation + server parsing preview, fuzzy auto-mapping (`import-mapping.ts`, 7 unit tests) with manual override + mode/key-field selection, row/cell-level validation with "show only errors", live import polling until the worker completes, and a summary with created/updated/skipped/failed/warnings counts, failed-rows download and rollback (undo).
+  - `apps/web/src/lib/imports.ts` typed client; `apps/web/src/components/imports/` wizard + jobs list; `/imports` route added to the sidebar ("Import data") and the setup wizard's import step links there.
+  - Fixed strict-mode TS error in `apps/worker/src/jobs/imports.processor.ts` (`rowErrors[0]` possibly undefined).
 - **Onboarding email pipeline (M3-007, PR #49)** — verify/reset/welcome emails end-to-end:
   - `packages/shared`: `schemas/mail.ts` — `MailTemplate` constants + zod `mailJobSchema` discriminated union (`verification`/`reset`/`welcome`) + `MailJob` type.
   - `apps/api`: `JobsModule` (BullMQ `mail` queue) + `MailService.enqueue()`; `AuthService` enqueues welcome + verification on production registration, and reset on `request-password-reset` (replacing the `TODO(M5)` stubs).

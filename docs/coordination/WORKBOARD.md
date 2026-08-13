@@ -76,13 +76,13 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| **M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback)** | M4 | — | planned | — | Epic umbrella; split into M4-002..M4-006. See PRODUCT_SPEC §5. |
-| M4-001 In-app notifications persistence (`Notification` model, notify processor) | M4 | agent-ui | planned | feat/M4/notifications | Swap in-memory seed → DB (worker persist + API read); contract unchanged |
+| **M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback)** | M4 | — | done | fix/pr52-sync | Epic umbrella; all subtasks done (M4-001..M4-006). See PRODUCT_SPEC §5. |
+| M4-001 In-app notifications persistence (`Notification` model, notify processor) | M4 | agent-ui | done | fix/pr52-sync | Swap in-memory seed → DB (worker persist + API read); contract unchanged. `notify.processor.ts` + notifications controller/service; isolation tests. |
 | M4-002 Import shared schemas (upload, mapping, validation, preview, envelopes) | M4 | agent-amni-01 | done | feat/M4/imports-notifications | `schemas/import.ts` extended + `import-engine.ts` (templates, mapping, validation); PR #52 |
 | M4-003 Import API module (`/api/v1/imports/*`: create/upload/mapping/validate/execute/summary/error-rows/rollback + templates) | M4 | agent-amni-01 | done | feat/M4/imports-notifications | Zod-validated, audited; CSV/XLSX parsing; PR #52 |
 | M4-004 Worker imports processor (parse/validate/batch/progress/summary/error rows) | M4 | agent-amni-01 | done | feat/M4/imports-notifications | `apps/worker/src/jobs/imports.processor.ts` implemented; enqueues NOTIFY jobs → M4-001; PR #52 |
-| M4-005 ERPNext import integration + tenant isolation tests | M4 | agent-ui | planned | — | kind→doctype mapping, `packages/erp` methods (feeds M4-004), two-tenant suite |
-| M4-006 Import web UX (6-stage wizard + templates) | M4 | agent-ui | planned | feat/M4/imports-ui | Per PRODUCT_SPEC §5; depends on M4-002/M4-003 contract |
+| M4-005 ERPNext import integration + tenant isolation tests | M4 | agent-ui | done | fix/pr52-sync | kind→doctype mapping, `packages/erp` methods (feeds M4-004), two-tenant suite (`imports.isolation.spec.ts`). |
+| M4-006 Import web UX (6-stage wizard + templates) | M4 | agent-ui | done | fix/pr52-sync | Per PRODUCT_SPEC §5; 6-stage wizard at `/imports` (template download, CSV/XLSX upload, auto-mapping, validation, live import, summary/rollback). |
 
 ---
 
