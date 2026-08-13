@@ -86,19 +86,19 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
-## CRM — Deals & Engagement (epic — claimable)
+## CRM — Deals & Engagement (epic — DONE)
 
-> Goal: close the gap vs Frappe CRM. Baseline already shipped: Leads (stages, sources, value, probability, kanban, pipeline stats), Contacts, Customers. Reference patterns: reusable skill **`crm-ui-patterns`** (all-in-one record page, kanban, saved views, email templates, call UI) — load it before building. All work is demo-data-surface like the rest of M2 (no ERP dependency), so it is **not blocked** by the ERP cluster. Branch prefix `feat/crm/`.
+> Goal: close the gap vs Frappe CRM. Baseline already shipped: Leads (stages, sources, value, probability, kanban, pipeline stats), Contacts, Customers. Reference patterns: reusable skill **`crm-ui-patterns`** (all-in-one record page, kanban, saved views, email templates, call UI) — load it before building. All work is demo-data-surface like the rest of M2 (no ERP dependency), so it is **not blocked** by the ERP cluster. Branch prefix `feat/crm/`. Full module (orgs, contacts, tasks, notes, activities, views, events, call-logs, email-templates, whatsapp, notifications, settings) shipped via PR #54.
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | CRM-000 Deals/Opportunities entity (schema + API + kanban/table UI, mirrors leads) | CRM | agent-crm | done | feat/crm/deals | Schema+API+kanban/table+detail; PR #50 |
-| CRM-001 Comments & threaded discussions on records | CRM | agent-crm | planned | feat/crm/comments | Activity timeline extension |
-| CRM-002 Tasks / checklists on records | CRM | agent-crm | planned | feat/crm/tasks | — |
-| CRM-003 Saved custom views (named view presets) | CRM | agent-crm | planned | feat/crm/saved-views | Filters/sort/columns → preset |
-| CRM-004 Outreach email templates (placeholders + send via worker `mail`) | CRM | agent-crm | planned | feat/crm/email-templates | Distinct from finance `sign` templates |
-| CRM-005 Call UI + call logs (Twilio/Exotel) | CRM | agent-crm | planned | feat/crm/calls | Settings → Integrations |
-| CRM-006 WhatsApp surface | CRM | agent-crm | planned | feat/crm/whatsapp | — |
+| CRM-001 Comments & threaded discussions on records | CRM | agent-crm | done | feat/crm/full | Activity timeline + activities module; shipped in full CRM module PR #54 |
+| CRM-002 Tasks / checklists on records | CRM | agent-crm | done | feat/crm/full | tasks module + kanban/table/detail UI; shipped in full CRM module PR #54 |
+| CRM-003 Saved custom views (named view presets) | CRM | agent-crm | done | feat/crm/full | views module + list presets; shipped in full CRM module PR #54 |
+| CRM-004 Outreach email templates (placeholders + send via worker `mail`) | CRM | agent-crm | done | feat/crm/full | email-templates module + dialog UI; shipped in full CRM module PR #54 |
+| CRM-005 Call UI + call logs (Twilio/Exotel) | CRM | agent-crm | done | feat/crm/full | call-logs module + log-call dialog; shipped in full CRM module PR #54 |
+| CRM-006 WhatsApp surface | CRM | agent-crm | done | feat/crm/full | whatsapp module + send dialog; shipped in full CRM module PR #54 |
 
 ---
 
@@ -116,6 +116,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-14 | CRM-001..CRM-006 marked done (agent-crm): full CRM module shipped via PR #54 — organizations, contacts, tasks, notes, activities/timeline, saved views, events, call-logs, email templates, WhatsApp, notifications, settings. Epic closed. |
 | 2026-08-11 | M5-000 claimed (agent-platform): HRMS embed — hrms app in provisioning, amni_bridge SSO/theme app, /hrms UI. Shipped via PR #53. |
 | 2026-08-11 | M3 task table repaired: all M3 rows done (markers from the #51 squash-merge removed). |
 | 2026-08-11 | M3-000/M3-003/M3-006/M3-004 marked done (agent-m3-provisioning); shipped via PR #51 (feat/M3/provisioning). Worker state machine + drivers + spec, plans module, wizard→enqueue, provisioning status surfacing. |
