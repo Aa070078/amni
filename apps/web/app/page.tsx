@@ -24,12 +24,12 @@ export default function HomePage() {
           Amni provisions a full-featured, isolated ERP for your company — accounting, sales,
           inventory and purchasing — so you can run the business, not the software.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button asChild size="lg">
             <Link href="/signup">Start free</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/signup">See how it works</Link>
+            <Link href="/login">Log in</Link>
           </Button>
         </div>
       </section>

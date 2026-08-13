@@ -103,7 +103,8 @@ export class ImportsProcessor extends WorkerHost {
       .catch(() => undefined);
 
     const failedCount = summary.failed;
-    const errorDetail = rowErrors.length > 0 ? ` (e.g. row ${rowErrors[0].row}: ${rowErrors[0].message})` : "";
+    const firstError = rowErrors[0];
+    const errorDetail = firstError ? ` (e.g. row ${firstError.row}: ${firstError.message})` : "";
 
     await this.notify.add("notify", {
       userId: importJob.initiatedById,
