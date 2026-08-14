@@ -102,13 +102,20 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
-## M5 — HRMS embed (backlog)
+## M5 — Market-ready ERP (epic — data wiring + HRMS embed)
 
-> Goal: Frappe HR (`hrms` app) installed per tenant + embedded in an Amni "HRMS" section via the `amni_bridge` SSO/theme app. Full feature set ships as the real Frappe HR desk; People (Contacts) lives inside HRMS.
+> Goal: make the platform market-ready by wiring every reference module to each tenant's **real ERPNext site** — the original "ERP gateway lands (M5)" plan — replacing in-memory demo data with live reads/writes, plus finishing the HRMS embed. Mandatory per module: `packages/erp` domain methods + tenant isolation tests + (where applicable) real-bench integration tests (TESTING.md §4). **Two parallel agent tracks own disjoint files so they never collide**: Track A owns `packages/erp/src/{sales,inventory}.ts` + sales/inventory API modules; Track B owns `packages/erp/src/{purchasing,finance}.ts` + purchasing/finance API modules. `mock-frappe-server.ts` is extended additively only. Contract shapes never change (frontend untouched except wiring).
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | M5-000 HRMS embed: hrms app install, amni_bridge SSO, /hrms UI | M5 | agent-platform | in-progress | feat/M5/hrms-embed | PR #53; desk iframe + SSO JWT + theme; ops: db:migrate + install-hrms.ps1 + HRMS_SSO_SECRET |
+| **M5-001 ERP data wiring — Sales & Inventory (Track A foundation)** | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | `packages/erp/src/sales.ts` (Customer/Lead/Contact/Quotation/SalesOrder/SalesInvoice/Payment doctype methods + field maps) + `inventory.ts` (Item/Warehouse/StockMovement); submit/cancel via client; 14 unit + 7 isolation tests. ALSO fixed pre-existing mock-frappe-server bug: URL path segments now decoded (doctype names with spaces like "Sales Order" 404'd before). Fixed pre-existing hrms.service.ts lint (`import type ConfigService`). |
+| M5-002 Sales & Inventory API wiring (replace seed → ERPNext reads/writes, same contract) | M5 | agent-m5-erp-sales-inv | planned | feat/M5/erp-sales-inv | customers, products, warehouses, stock movements, leads, deals, contacts, quotations, sales orders, sales invoices, record-payment; `createErpClientForTenant`-resolved; audit on mutations; isolation tests |
+| M5-003 Sales/Inventory dashboard KPIs + E2E sales journey | M5 | agent-m5-erp-sales-inv | planned | feat/M5/erp-sales-inv | revenue/AR/aging/low-stock KPIs from real ERP; Playwright signup→wizard→provision→customer→product→order→invoice→payment |
+| **M5-004 ERP data wiring — Purchasing & Finance (Track B foundation)** | M5 | agent-m5-erp-purch-fin | in-progress | feat/M5/erp-purch-fin | `packages/erp/src/purchasing.ts` (Supplier/PurchaseOrder/PurchaseInvoice) + `finance.ts` (ExpenseClaim/JournalEntry/Account/PaymentEntry); doctype field maps; unit + isolation tests. Implemented by agent-amni-01 (operator) |
+| M5-005 Purchasing & Finance API wiring (replace seed → ERPNext reads/writes, same contract) | M5 | agent-m5-erp-purch-fin | in-progress | feat/M5/erp-purch-fin | suppliers, purchase orders, purchase invoices, expenses, payments, finance (chart of accounts, journal entries, invoicing/credit notes/recurring), plan/billing surface; audit on mutations; isolation tests. Implemented by agent-amni-01 (operator) |
+| M5-006 Finance dashboard KPIs + E2E finance journey | M5 | agent-m5-erp-purch-fin | in-progress | feat/M5/erp-purch-fin | AP/cash/expense/reporting KPIs from real ERP. Implemented by agent-amni-01 (operator) |
+| M5-007 Real-bench integration test tier + CI gates | M5 | agent-m5-erp-purch-fin | in-progress | feat/M5/erp-integration-tier | TESTING.md §4: supertest vs frappe_docker test sites per tenant; CI runs integration + isolation on merge to `dev`, security scan on merge to `main`. Implemented by agent-amni-01 (operator) |
 
 ---
 
@@ -116,6 +123,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-14 | M5-004..M5-007 (Track B) claimed by agent-amni-01 (operator): purchasing/finance ERP data wiring on feat/M5/erp-purch-fin. COMMS M5-COMMS-002. |
 | 2026-08-14 | CRM-001..CRM-006 marked done (agent-crm): full CRM module shipped via PR #54 — organizations, contacts, tasks, notes, activities/timeline, saved views, events, call-logs, email templates, WhatsApp, notifications, settings. Epic closed. |
 | 2026-08-11 | M5-000 claimed (agent-platform): HRMS embed — hrms app in provisioning, amni_bridge SSO/theme app, /hrms UI. Shipped via PR #53. |
 | 2026-08-11 | M3 task table repaired: all M3 rows done (markers from the #51 squash-merge removed). |
