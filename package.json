@@ -10,7 +10,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:isolation": "pnpm --filter api test:isolation",
+    "test:isolation": "turbo run test:isolation",
     "test:e2e": "turbo run test:e2e",
     "db:migrate": "pnpm --filter db run migrate",
     "db:seed": "pnpm --filter db run seed",
