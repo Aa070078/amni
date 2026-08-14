@@ -102,13 +102,20 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
-## M5 — HRMS embed (backlog)
+## M5 — Market-ready ERP (epic — data wiring + HRMS embed)
 
-> Goal: Frappe HR (`hrms` app) installed per tenant + embedded in an Amni "HRMS" section via the `amni_bridge` SSO/theme app. Full feature set ships as the real Frappe HR desk; People (Contacts) lives inside HRMS.
+> Goal: make the platform market-ready by wiring every reference module to each tenant's **real ERPNext site** — the original "ERP gateway lands (M5)" plan — replacing in-memory demo data with live reads/writes, plus finishing the HRMS embed. Mandatory per module: `packages/erp` domain methods + tenant isolation tests + (where applicable) real-bench integration tests (TESTING.md §4). **Two parallel agent tracks own disjoint files so they never collide**: Track A owns `packages/erp/src/{sales,inventory}.ts` + sales/inventory API modules; Track B owns `packages/erp/src/{purchasing,finance}.ts` + purchasing/finance API modules. `mock-frappe-server.ts` is extended additively only. Contract shapes never change (frontend untouched except wiring).
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| M5-000 HRMS embed: hrms app install, amni_bridge SSO, /hrms UI | M5 | agent-platform | in-progress | feat/M5/hrms-embed | PR #53; desk iframe + SSO JWT + theme; ops: db:migrate + install-hrms.ps1 + HRMS_SSO_SECRET |
+| M5-000 HRMS embed: hrms app install, amni_bridge SSO, /hrms UI | M5 | agent-platform | done | feat/M5/hrms-embed | PR #53 (merged to dev, b8d849e); desk iframe + SSO JWT + theme; ops: db:migrate + install-hrms.ps1 + HRMS_SSO_SECRET |
+| **M5-001 ERP data wiring — Sales & Inventory (Track A foundation)** | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | `packages/erp/src/sales.ts` (Customer/Lead/Contact/Quotation/SalesOrder/SalesInvoice/Payment doctype methods + field maps) + `inventory.ts` (Item/Warehouse/StockMovement); submit/cancel via client; 14 unit + 7 isolation tests. ALSO fixed pre-existing mock-frappe-server bug: URL path segments now decoded (doctype names with spaces like "Sales Order" 404'd before). Fixed pre-existing hrms.service.ts lint (`import type ConfigService`). |
+| M5-002 Sales & Inventory API wiring (replace seed → ERPNext reads/writes, same contract) | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | All 10 sales/inventory modules ERP-backed (customers, products, warehouses, stock movements, leads, deals, contacts, quotations, sales orders, sales invoices, record-payment) via `ErpGatewayService` (scopeFor/audit/translateErpError); additive `Opportunity` support in `packages/erp` for deals; in-scope `code` schemas relaxed to `min(1).max(80)` (code = ERPNext doc name); 6 new per-module isolation specs (+24 tests) → 476 api tests green; COMMS M5-COMMS-003 |
+| **M5-003 Sales/Inventory dashboard KPIs + E2E sales journey** | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | revenue/AR/aging/low-stock KPIs from real ERP; Playwright signup→wizard→provision→customer→product→order→invoice→payment (apps/e2e) |
+| **M5-004 ERP data wiring — Purchasing & Finance (Track B foundation)** | M5 | agent-m5-erp-purch-fin | planned | feat/M5/erp-purch-fin | `packages/erp/src/purchasing.ts` (Supplier/PurchaseOrder/PurchaseInvoice) + `finance.ts` (ExpenseClaim/JournalEntry/Account/PaymentEntry); doctype field maps; unit + isolation tests |
+| M5-005 Purchasing & Finance API wiring (replace seed → ERPNext reads/writes, same contract) | M5 | agent-m5-erp-purch-fin | planned | feat/M5/erp-purch-fin | suppliers, purchase orders, purchase invoices, expenses, payments, finance (chart of accounts, journal entries, invoicing/credit notes/recurring), plan/billing surface; audit on mutations; isolation tests |
+| M5-006 Finance dashboard KPIs + E2E finance journey | M5 | agent-m5-erp-purch-fin | planned | feat/M5/erp-purch-fin | AP/cash/expense/reporting KPIs from real ERP |
+| M5-007 Real-bench integration test tier + CI gates | M5 | agent-m5-erp-purch-fin | planned | feat/M5/erp-integration-tier | TESTING.md §4: supertest vs frappe_docker test sites per tenant; CI runs integration + isolation on merge to `dev`, security scan on merge to `main` |
 
 ---
 
@@ -116,7 +123,12 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-14 | CI unblock (agent-m5-erp-sales-inv): removed broken `cache: pnpm` post-step from all 4 CI jobs — it failed every job repo-wide (`Path Validation Error` in actions/setup-node) while all real steps passed; added `.gitleaks.toml` allowlist for e2e test-only mock fixtures; fixed pre-existing worker spec `typeof import()` lint + root `nanoid@^3.3.18` audit override. COMMS M5-COMMS-005. |
+| 2026-08-14 | M5-000 marked done (agent-platform): PR #53 merged to dev (b8d849e) — HRMS embed live. M5-003 marked done (agent-m5-erp-sales-inv): ERP-backed dashboard KPIs + e2e suite landed on feat/M5/erp-sales-inv (PR #56); AP KPI remains deferred to Track B (M5-005). COMMS M5-COMMS-004. |
+| 2026-08-14 | M5-003 (agent-m5-erp-sales-inv): Playwright E2E suite added under apps/e2e (@amni/e2e) covering the critical journey signup→wizard→provision + seeded-owner customer→product→order→invoice→payment→dashboard KPIs; global-setup seeds a fresh tenant against an in-process mock Frappe server and skips gracefully when Postgres/Redis are down; onboarding spec requires Redis. Commits 4e975a7 (KPIs) + 0ebe101 (E2E). |
+| 2026-08-14 | M5-003 claimed (agent-m5-erp-sales-inv) and dashboard KPIs wired: overview/alerts/activity now read the tenant ERP site (Sales Invoice grand_total/outstanding_amount/due_date, Payment Entries, Bin/Item stock) via ErpGatewayService + new WarehousesService.stockSummary; same dashboard contract; AP KPI deferred to Track B (M5-005). 484 api tests green. |
 | 2026-08-14 | CRM-001..CRM-006 marked done (agent-crm): full CRM module shipped via PR #54 — organizations, contacts, tasks, notes, activities/timeline, saved views, events, call-logs, email templates, WhatsApp, notifications, settings. Epic closed. |
+| 2026-08-14 | M5-002 marked done (agent-m5-erp-sales-inv): all 10 sales/inventory modules ERP-backed via ErpGatewayService; deals backed by Opportunity (additive packages/erp); code schemas relaxed to min(1).max(80); 6 per-module isolation specs added (476 api tests green). COMMS M5-COMMS-003. |
 | 2026-08-11 | M5-000 claimed (agent-platform): HRMS embed — hrms app in provisioning, amni_bridge SSO/theme app, /hrms UI. Shipped via PR #53. |
 | 2026-08-11 | M3 task table repaired: all M3 rows done (markers from the #51 squash-merge removed). |
 | 2026-08-11 | M3-000/M3-003/M3-006/M3-004 marked done (agent-m3-provisioning); shipped via PR #51 (feat/M3/provisioning). Worker state machine + drivers + spec, plans module, wizard→enqueue, provisioning status surfacing. |

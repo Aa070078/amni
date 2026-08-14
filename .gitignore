@@ -40,6 +40,7 @@ packages/db/generated/
 # Playwright
 test-results/
 playwright-report/
+apps/e2e/playwright/.e2e-state.json
 
 # Turbo
 .turbo/

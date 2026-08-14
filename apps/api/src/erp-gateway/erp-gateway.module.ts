@@ -8,5 +8,6 @@ import { ErpGatewayService } from "./erp-gateway.service";
   imports: [AuthModule],
   controllers: [ErpGatewayController],
   providers: [ErpGatewayService],
+  exports: [ErpGatewayService],
 })
 export class ErpGatewayModule {}

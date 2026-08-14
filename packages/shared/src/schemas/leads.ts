@@ -50,7 +50,7 @@ export const LEAD_STAGE_PROBABILITY: Record<LeadStage, number> = {
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const leadSchema = z.object({
-  code: z.string().regex(/^LD-\d{4}$/),
+  code: z.string().min(1).max(80),
   company: z.string().min(1).max(120),
   contactName: z.string().min(1).max(120),
   contactEmail: emailSchema,

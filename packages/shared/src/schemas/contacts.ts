@@ -10,7 +10,7 @@ export const CONTACT_STATUSES = [
 ] as const;
 
 export const contactSchema = z.object({
-  code: z.string().regex(/^CON-\d{4}$/),
+  code: z.string().min(1).max(80),
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().max(80).optional(),
   email: emailSchema.optional(),

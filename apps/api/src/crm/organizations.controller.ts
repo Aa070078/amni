@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -20,7 +21,8 @@ import {
   type OrganizationListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmOrganizationsService } from "./organizations.service";
@@ -31,13 +33,13 @@ export class CrmOrganizationsController {
   constructor(private readonly organizations: CrmOrganizationsService) {}
 
   @Get()
-  list(@Query() query: unknown): OrganizationListResponse {
-    return this.organizations.list(organizationListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<OrganizationListResponse> {
+    return this.organizations.list(userFrom(req), metaFrom(req), organizationListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): OrganizationDetail {
-    return this.organizations.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<OrganizationDetail> {
+    return this.organizations.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()

@@ -57,7 +57,7 @@ export const DEAL_STAGE_PROBABILITY: Record<DealStage, number> = {
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const dealSchema = z.object({
-  code: z.string().regex(/^DL-\d{4}$/),
+  code: z.string().min(1).max(80),
   title: z.string().min(1).max(160),
   company: z.string().min(1).max(120),
   contactName: z.string().min(1).max(120),

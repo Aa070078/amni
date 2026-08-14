@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@amni/db";
 import { createErpClientForTenant } from "@amni/erp";
+import type * as ErpModule from "@amni/erp";
 import { ImportsProcessor } from "./imports.processor";
 
 vi.mock("@amni/db", () => ({
@@ -12,7 +13,7 @@ vi.mock("@amni/db", () => ({
 }));
 
 vi.mock("@amni/erp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@amni/erp")>();
+  const actual = await importOriginal<typeof ErpModule>();
   return {
     ...actual,
     createErpClientForTenant: vi.fn(async () => ({
