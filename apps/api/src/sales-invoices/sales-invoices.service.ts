@@ -3,7 +3,7 @@ import {
   INVENTORY_DOCTYPE,
   SALES_DOCTYPE,
   buildSalesInvoiceDoc,
-  recordPaymentEntry,
+  recordSalesPaymentEntry,
   type ErpClient,
   type ErpDocLine,
   type ErpSalesInvoiceDoc,
@@ -396,7 +396,7 @@ export class SalesInvoicesService {
       });
     }
 
-    await recordPaymentEntry(client, {
+    await recordSalesPaymentEntry(client, {
       party: current.customer,
       paidAmount: input.amount,
       method: input.method,

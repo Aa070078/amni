@@ -5,7 +5,7 @@ import {
   createErpClientForTenant,
   createSalesOrder,
   executeStockMovement,
-  recordPaymentEntry,
+  recordSalesPaymentEntry,
   findCustomerByName,
   findItemBySku,
 } from "@amni/erp";
@@ -148,7 +148,7 @@ describe("M5-001 sales & inventory domain methods — tenant isolation", () => {
       quantity: 5,
       toWarehouse: "WH-A-001",
     });
-    const payment = await recordPaymentEntry(client, { party: "Acme Corp", paidAmount: 100 });
+    const payment = await recordSalesPaymentEntry(client, { party: "Acme Corp", paidAmount: 100 });
 
     expect(payment.party_type).toBe("Customer");
     expect([...siteA.docs.values()].some((d) => d.stock_entry_type === "Material Receipt")).toBe(true);
