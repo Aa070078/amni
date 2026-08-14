@@ -461,3 +461,82 @@ export async function recordPaymentEntry(client: ErpClient, input: PaymentEntryI
   const created = await client.create<ErpPaymentEntryDoc>(SALES_DOCTYPE.paymentEntry, buildPaymentEntryDoc(input));
   return client.submit<ErpPaymentEntryDoc>(SALES_DOCTYPE.paymentEntry, created.name);
 }
+
+/**
+ * Deals are backed by the Opportunity doctype (the same one ERPNext derives
+ * from converted Leads), so the stage mapping stays congruent with `lead.ts`
+ * (won=Converted, lost=Lost). Note that Opportunity.status only offers
+ * Open / Quotation / Replied / Converted / Lost / Closed, so both in-flight
+ * platform stages map onto that vocabulary and there is no `Qualified` /
+ * `Opportunity` option here.
+ */
+export const OPPORTUNITY_DOCTYPE = "Opportunity" as const;
+
+/** Platform contract field -> Frappe field for the Opportunity doctype. */
+export const OpportunityFields = {
+  title: "title",
+  company: "customer_name",
+  contactName: "contact_display",
+  contactEmail: "contact_email",
+  contactPhone: "contact_mobile",
+  source: "source",
+  stage: "status",
+  expectedClose: "expected_closing",
+  owner: "opportunity_owner",
+  notes: "notes",
+} as const;
+
+export interface ErpOpportunityDoc {
+  name: string;
+  title?: string;
+  customer_name?: string;
+  lead_name?: string;
+  contact_display?: string;
+  contact_email?: string;
+  contact_mobile?: string;
+  source?: string;
+  status?: string;
+  expected_closing?: string | null;
+  opportunity_owner?: string;
+  notes?: string;
+  docstatus?: DocStatus;
+}
+
+export interface OpportunityInput {
+  title: string;
+  company: string;
+  contactName: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  source?: string;
+  stage?: string;
+  expectedClose?: string | null;
+  owner?: string;
+  notes?: string;
+}
+
+export interface OpportunityDefaults {
+  stage?: string;
+  source?: string;
+  owner?: string;
+}
+
+/**
+ * Maps a platform deal create-input onto an Opportunity doc. `defaults`
+ * supplies the ERP-level stage/status and owner that the platform leaves
+ * unset; explicit input values always win.
+ */
+export function buildOpportunityDoc(input: OpportunityInput, defaults: OpportunityDefaults = {}): Record<string, unknown> {
+  return {
+    [OpportunityFields.title]: input.title,
+    [OpportunityFields.company]: input.company,
+    [OpportunityFields.contactName]: input.contactName,
+    [OpportunityFields.contactEmail]: input.contactEmail,
+    [OpportunityFields.contactPhone]: input.contactPhone,
+    [OpportunityFields.source]: input.source ?? defaults.source,
+    [OpportunityFields.stage]: input.stage ?? defaults.stage,
+    [OpportunityFields.expectedClose]: input.expectedClose,
+    [OpportunityFields.owner]: input.owner ?? defaults.owner,
+    [OpportunityFields.notes]: input.notes,
+  };
+}

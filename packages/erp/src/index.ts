@@ -27,6 +27,8 @@ export {
   SALES_ORDER_FIELDS,
   SALES_INVOICE_FIELDS,
   PAYMENT_ENTRY_FIELDS,
+  OPPORTUNITY_DOCTYPE,
+  OpportunityFields,
   buildCustomerDoc,
   buildLeadDoc,
   buildContactDoc,
@@ -47,6 +49,7 @@ export {
   cancelSalesOrder,
   cancelSalesInvoice,
   recordPaymentEntry,
+  buildOpportunityDoc,
   type CustomerInput,
   type LeadInput,
   type ContactInput,
@@ -63,6 +66,9 @@ export {
   type ErpSalesOrderDoc,
   type ErpSalesInvoiceDoc,
   type ErpPaymentEntryDoc,
+  type OpportunityInput,
+  type OpportunityDefaults,
+  type ErpOpportunityDoc,
 } from "./sales.js";
 export {
   INVENTORY_DOCTYPE,
