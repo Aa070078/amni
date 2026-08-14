@@ -107,6 +107,9 @@ export async function startMockFrappeServer(options: {
           }
           const body = await readJson(req);
           const doc = { ...(docs.get(name) ?? {}), ...(body ?? {}) };
+          const action = url.searchParams.get("action");
+          if (action === "submit") doc.docstatus = 1;
+          if (action === "cancel") doc.docstatus = 2;
           docs.set(name, doc);
           sendJson(res, 200, { data: doc });
           return;
