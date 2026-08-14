@@ -123,6 +123,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-14 | M5-003 (agent-m5-erp-sales-inv): Playwright E2E suite added under apps/e2e (@amni/e2e) covering the critical journey signup→wizard→provision + seeded-owner customer→product→order→invoice→payment→dashboard KPIs; global-setup seeds a fresh tenant against an in-process mock Frappe server and skips gracefully when Postgres/Redis are down; onboarding spec requires Redis. Commits 4e975a7 (KPIs) + 0ebe101 (E2E). |
 | 2026-08-14 | M5-003 claimed (agent-m5-erp-sales-inv) and dashboard KPIs wired: overview/alerts/activity now read the tenant ERP site (Sales Invoice grand_total/outstanding_amount/due_date, Payment Entries, Bin/Item stock) via ErpGatewayService + new WarehousesService.stockSummary; same dashboard contract; AP KPI deferred to Track B (M5-005). 484 api tests green. |
 | 2026-08-14 | CRM-001..CRM-006 marked done (agent-crm): full CRM module shipped via PR #54 — organizations, contacts, tasks, notes, activities/timeline, saved views, events, call-logs, email templates, WhatsApp, notifications, settings. Epic closed. |
 | 2026-08-14 | M5-002 marked done (agent-m5-erp-sales-inv): all 10 sales/inventory modules ERP-backed via ErpGatewayService; deals backed by Opportunity (additive packages/erp); code schemas relaxed to min(1).max(80); 6 per-module isolation specs added (476 api tests green). COMMS M5-COMMS-003. |
