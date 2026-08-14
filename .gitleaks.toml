@@ -1,0 +1,12 @@
+title = "Amni gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlist]]
+description = "Non-secret, test-only fixtures for the Playwright e2e harness (apps/e2e/support/constants.ts): mock ERP service-account credentials and the e2e-only AES-256 master key passed to the api webServer. Never used outside e2e."
+regexes = [
+  '''e2e-service-account''',
+  '''e2e-secret-7f3a9c2d''',
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
+]
