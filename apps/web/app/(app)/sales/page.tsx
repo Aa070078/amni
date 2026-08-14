@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, PackageCheck, Receipt, Target, UserRound, Users } from "lucide-react";
+import { ArrowRight, ContactRound, FileText, PackageCheck, Receipt, Target, UserRound, Users } from "lucide-react";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@amni/ui";
 
 export const metadata: Metadata = { title: "Sales" };
@@ -12,6 +12,28 @@ export default function SalesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Sales</h1>
         <p className="mt-1 text-sm text-muted-foreground">Deals, leads, customers, quotations, orders, invoices</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ContactRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            CRM
+            <Badge variant="success">Live</Badge>
+          </CardTitle>
+          <CardDescription>
+            Organizations, contacts, tasks, notes, calls, events and outreach — the full engagement suite.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/sales/crm"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            Open CRM
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
