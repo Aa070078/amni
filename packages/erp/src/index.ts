@@ -21,6 +21,7 @@ export {
 export { createErpClientForTenant, resolveTenantErp } from "./tenant.js";
 export {
   PURCHASING_DOCTYPE,
+  CATALOG_DOCTYPE,
   SUPPLIER_FIELDS,
   PURCHASE_ORDER_FIELDS,
   PURCHASE_INVOICE_FIELDS,

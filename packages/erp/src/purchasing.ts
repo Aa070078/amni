@@ -19,6 +19,16 @@ export const PURCHASING_DOCTYPE = {
   purchaseInvoice: "Purchase Invoice",
 } as const;
 
+/**
+ * Product catalog doctype referenced by purchasing docs. Track A's inventory
+ * module owns the fuller Item surface (inventory.ts); this constant only
+ * exists so the purchasing services can point at the catalog without
+ * importing across track files.
+ */
+export const CATALOG_DOCTYPE = {
+  item: "Item",
+} as const;
+
 /** Platform contract field -> Frappe field for the Supplier doctype. */
 export const SUPPLIER_FIELDS = {
   name: "supplier_name",
@@ -71,6 +81,7 @@ export interface ErpSupplierDoc {
 export interface ErpPurchaseOrderDoc {
   name: string;
   supplier: string;
+  supplier_name?: string;
   transaction_date?: string;
   schedule_date?: string | null;
   currency?: string;
@@ -85,6 +96,7 @@ export interface ErpPurchaseOrderDoc {
 export interface ErpPurchaseInvoiceDoc {
   name: string;
   supplier: string;
+  supplier_name?: string;
   posting_date?: string;
   due_date?: string;
   currency?: string;
@@ -129,6 +141,7 @@ export interface DocLineInput {
 
 export interface PurchaseOrderInput {
   supplier: string;
+  supplierName?: string;
   date?: string;
   expectedDate?: string | null;
   currency?: string;
@@ -139,6 +152,7 @@ export interface PurchaseOrderInput {
 
 export interface PurchaseInvoiceInput {
   supplier: string;
+  supplierName?: string;
   date?: string;
   dueDate?: string;
   currency?: string;
@@ -181,6 +195,7 @@ export function buildPurchaseOrderDoc(input: PurchaseOrderInput): Record<string,
   const lines = input.items.map(toErpLine);
   return {
     [PURCHASE_ORDER_FIELDS.supplier]: input.supplier,
+    supplier_name: input.supplierName,
     [PURCHASE_ORDER_FIELDS.date]: input.date,
     [PURCHASE_ORDER_FIELDS.expectedDate]: input.expectedDate,
     [PURCHASE_ORDER_FIELDS.currency]: input.currency ?? "USD",
@@ -188,6 +203,7 @@ export function buildPurchaseOrderDoc(input: PurchaseOrderInput): Record<string,
     [PURCHASE_ORDER_FIELDS.owner]: input.owner,
     items: lines,
     grand_total: Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100,
+    docstatus: 0,
   };
 }
 
@@ -195,6 +211,7 @@ export function buildPurchaseInvoiceDoc(input: PurchaseInvoiceInput): Record<str
   const lines = input.items.map(toErpLine);
   return {
     [PURCHASE_INVOICE_FIELDS.supplier]: input.supplier,
+    supplier_name: input.supplierName,
     [PURCHASE_INVOICE_FIELDS.date]: input.date,
     [PURCHASE_INVOICE_FIELDS.dueDate]: input.dueDate,
     [PURCHASE_INVOICE_FIELDS.currency]: input.currency ?? "USD",
@@ -202,6 +219,7 @@ export function buildPurchaseInvoiceDoc(input: PurchaseInvoiceInput): Record<str
     [PURCHASE_INVOICE_FIELDS.notes]: input.notes,
     items: lines,
     grand_total: Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100,
+    docstatus: 0,
   };
 }
 
