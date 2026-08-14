@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Put, UseGuards } from "@nestjs/common";
 import {
   wizardSaveInputSchema,
+  wizardSubmitInputSchema,
   type WizardDraft,
   type WizardStatus,
 } from "@amni/shared";
@@ -27,12 +28,12 @@ export class WizardController {
   }
 
   @Post("submit")
-  submit(@CurrentUser() user: { id: string; email: string }): Promise<WizardStatus> {
-    return this.wizard.submit(user);
+  submit(@Body() body: unknown, @CurrentUser() user: { id: string; email: string }): Promise<WizardStatus> {
+    return this.wizard.submit(user, wizardSubmitInputSchema.parse(body ?? {}));
   }
 
   @Get("status")
-  status(): WizardStatus {
+  status(): Promise<WizardStatus> {
     return this.wizard.status();
   }
 }

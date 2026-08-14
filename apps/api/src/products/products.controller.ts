@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -19,7 +20,8 @@ import {
   type ProductListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ProductsService } from "./products.service";
@@ -30,29 +32,33 @@ export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
   @Get()
-  list(@Query() query: unknown): ProductListResponse {
-    return this.products.list(productListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<ProductListResponse> {
+    return this.products.list(userFrom(req), metaFrom(req), productListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): Product {
-    return this.products.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<Product> {
+    return this.products.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): Product {
-    return this.products.create(createProductInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<Product> {
+    return this.products.create(userFrom(req), metaFrom(req), createProductInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): Product {
-    return this.products.update(code, updateProductInputSchema.parse(body));
+  update(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Product> {
+    return this.products.update(userFrom(req), metaFrom(req), code, updateProductInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.products.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.products.remove(userFrom(req), metaFrom(req), code);
   }
 }

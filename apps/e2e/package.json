@@ -1,0 +1,26 @@
+{
+  "name": "@amni/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright end-to-end tests for the Amni critical journey",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amni/db": "workspace:*",
+    "@amni/erp": "workspace:*",
+    "@node-rs/argon2": "^2.0.2",
+    "@playwright/test": "^1.49.1"
+  },
+  "devDependencies": {
+    "@amni/api": "workspace:*",
+    "@amni/config": "workspace:*",
+    "@amni/web": "workspace:*",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.0"
+  }
+}

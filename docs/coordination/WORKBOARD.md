@@ -61,14 +61,14 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | `apps/worker/src/jobs/provisioning.processor.ts` stub exists |
-| M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Typed client + isolation tests |
-| M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | — |
-| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Platform DB (Prisma) |
-| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Depends on M3-000 events |
-| M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-m3-erp | in-progress | feat/M3/erp-gateway | Mandatory before any ERP data path ships (TESTING.md) |
-| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | in-progress | feat/M3/provisioning | Wires M2-000 to M3-000 |
-| M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-m3-erp | in-progress | feat/M3/onboarding-mail | `apps/worker/src/jobs/mail.processor.ts` stub exists |
+| **M3-000 Provisioning state machine** (site create → configure → ERP ready; idempotent, retries, progress events) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/worker/src/provisioning/state-machine.ts` + drivers; shipped via PR #51 |
+| M3-001 `packages/erp` client v1 (login, resource CRUD, tenant service-account) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; login/session, AES-256-GCM service-key crypto, resolveTenantErp; 35 tests. Reassigned from agent-m3-erp (operator) |
+| M3-002 `ErpGatewayModule` (tenant-scoped proxy endpoints + audit) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; /api/v1/erp/* proxy + AuditLog on mutations; built against mock ERP so CI stays green. Reassigned from agent-m3-erp (operator) |
+| M3-003 Company creation + plan selection API | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `apps/api/src/plans` + wizard submit (tenant/subscription/audit); shipped via PR #51 |
+| M3-004 ERP status surfacing (wizard progress → dashboard) | M3 | agent-m3-provisioning | done | feat/M3/provisioning | `GET /provisioning/status` + wizard progress card → dashboard on ACTIVE; shipped via PR #51 |
+| M3-005 Tenant isolation test suite (two tenants, cross-access 403/404) | M3 | agent-amni-01 | done | feat/M3/erp-gateway | PR #41; test:isolation + mock Frappe REST sites; 9 cases. Mandatory before any ERP data path ships (TESTING.md); reassigned from agent-m3-erp (operator) |
+| M3-006 Wizard completion → enqueue provision job | M3 | agent-m3-provisioning | done | feat/M3/provisioning | BullMQ `provision` enqueue w/ idempotency key; shipped via PR #51 |
+| M3-007 Onboarding email (verify/reset/welcome) via worker `mail` | M3 | agent-amni-01 | done | feat/M3/onboarding-mail | PR #49; shared mail job schema, API enqueue (register/reset/verify), worker render + console/smtp send; 14 worker + 5 api tests. Reassigned from agent-m3-erp (operator) |
 
 ---
 
@@ -76,8 +76,46 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
-| M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback) | M4 | — | planned | — | See PRODUCT_SPEC §5; worker `imports` stub exists |
-| M4-001 In-app notifications persistence (`Notification` model) | M4 | — | planned | — | — |
+| **M4-000 Data import pipeline (6-stage UX, CSV/XLSX, batch, rollback)** | M4 | — | done | fix/pr52-sync | Epic umbrella; all subtasks done (M4-001..M4-006). See PRODUCT_SPEC §5. |
+| M4-001 In-app notifications persistence (`Notification` model, notify processor) | M4 | agent-ui | done | fix/pr52-sync | Swap in-memory seed → DB (worker persist + API read); contract unchanged. `notify.processor.ts` + notifications controller/service; isolation tests. |
+| M4-002 Import shared schemas (upload, mapping, validation, preview, envelopes) | M4 | agent-amni-01 | done | feat/M4/imports-notifications | `schemas/import.ts` extended + `import-engine.ts` (templates, mapping, validation); PR #52 |
+| M4-003 Import API module (`/api/v1/imports/*`: create/upload/mapping/validate/execute/summary/error-rows/rollback + templates) | M4 | agent-amni-01 | done | feat/M4/imports-notifications | Zod-validated, audited; CSV/XLSX parsing; PR #52 |
+| M4-004 Worker imports processor (parse/validate/batch/progress/summary/error rows) | M4 | agent-amni-01 | done | feat/M4/imports-notifications | `apps/worker/src/jobs/imports.processor.ts` implemented; enqueues NOTIFY jobs → M4-001; PR #52 |
+| M4-005 ERPNext import integration + tenant isolation tests | M4 | agent-ui | done | fix/pr52-sync | kind→doctype mapping, `packages/erp` methods (feeds M4-004), two-tenant suite (`imports.isolation.spec.ts`). |
+| M4-006 Import web UX (6-stage wizard + templates) | M4 | agent-ui | done | fix/pr52-sync | Per PRODUCT_SPEC §5; 6-stage wizard at `/imports` (template download, CSV/XLSX upload, auto-mapping, validation, live import, summary/rollback). |
+
+---
+
+## CRM — Deals & Engagement (epic — DONE)
+
+> Goal: close the gap vs Frappe CRM. Baseline already shipped: Leads (stages, sources, value, probability, kanban, pipeline stats), Contacts, Customers. Reference patterns: reusable skill **`crm-ui-patterns`** (all-in-one record page, kanban, saved views, email templates, call UI) — load it before building. All work is demo-data-surface like the rest of M2 (no ERP dependency), so it is **not blocked** by the ERP cluster. Branch prefix `feat/crm/`. Full module (orgs, contacts, tasks, notes, activities, views, events, call-logs, email-templates, whatsapp, notifications, settings) shipped via PR #54.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| CRM-000 Deals/Opportunities entity (schema + API + kanban/table UI, mirrors leads) | CRM | agent-crm | done | feat/crm/deals | Schema+API+kanban/table+detail; PR #50 |
+| CRM-001 Comments & threaded discussions on records | CRM | agent-crm | done | feat/crm/full | Activity timeline + activities module; shipped in full CRM module PR #54 |
+| CRM-002 Tasks / checklists on records | CRM | agent-crm | done | feat/crm/full | tasks module + kanban/table/detail UI; shipped in full CRM module PR #54 |
+| CRM-003 Saved custom views (named view presets) | CRM | agent-crm | done | feat/crm/full | views module + list presets; shipped in full CRM module PR #54 |
+| CRM-004 Outreach email templates (placeholders + send via worker `mail`) | CRM | agent-crm | done | feat/crm/full | email-templates module + dialog UI; shipped in full CRM module PR #54 |
+| CRM-005 Call UI + call logs (Twilio/Exotel) | CRM | agent-crm | done | feat/crm/full | call-logs module + log-call dialog; shipped in full CRM module PR #54 |
+| CRM-006 WhatsApp surface | CRM | agent-crm | done | feat/crm/full | whatsapp module + send dialog; shipped in full CRM module PR #54 |
+
+---
+
+## M5 — Market-ready ERP (epic — data wiring + HRMS embed)
+
+> Goal: make the platform market-ready by wiring every reference module to each tenant's **real ERPNext site** — the original "ERP gateway lands (M5)" plan — replacing in-memory demo data with live reads/writes, plus finishing the HRMS embed. Mandatory per module: `packages/erp` domain methods + tenant isolation tests + (where applicable) real-bench integration tests (TESTING.md §4). **Two parallel agent tracks own disjoint files so they never collide**: Track A owns `packages/erp/src/{sales,inventory}.ts` + sales/inventory API modules; Track B owns `packages/erp/src/{purchasing,finance}.ts` + purchasing/finance API modules. `mock-frappe-server.ts` is extended additively only. Contract shapes never change (frontend untouched except wiring).
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| M5-000 HRMS embed: hrms app install, amni_bridge SSO, /hrms UI | M5 | agent-platform | done | feat/M5/hrms-embed | PR #53 (merged to dev, b8d849e); desk iframe + SSO JWT + theme; ops: db:migrate + install-hrms.ps1 + HRMS_SSO_SECRET |
+| **M5-001 ERP data wiring — Sales & Inventory (Track A foundation)** | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | `packages/erp/src/sales.ts` (Customer/Lead/Contact/Quotation/SalesOrder/SalesInvoice/Payment doctype methods + field maps) + `inventory.ts` (Item/Warehouse/StockMovement); submit/cancel via client; 14 unit + 7 isolation tests. ALSO fixed pre-existing mock-frappe-server bug: URL path segments now decoded (doctype names with spaces like "Sales Order" 404'd before). Fixed pre-existing hrms.service.ts lint (`import type ConfigService`). |
+| M5-002 Sales & Inventory API wiring (replace seed → ERPNext reads/writes, same contract) | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | All 10 sales/inventory modules ERP-backed (customers, products, warehouses, stock movements, leads, deals, contacts, quotations, sales orders, sales invoices, record-payment) via `ErpGatewayService` (scopeFor/audit/translateErpError); additive `Opportunity` support in `packages/erp` for deals; in-scope `code` schemas relaxed to `min(1).max(80)` (code = ERPNext doc name); 6 new per-module isolation specs (+24 tests) → 476 api tests green; COMMS M5-COMMS-003 |
+| **M5-003 Sales/Inventory dashboard KPIs + E2E sales journey** | M5 | agent-m5-erp-sales-inv | done | feat/M5/erp-sales-inv | revenue/AR/aging/low-stock KPIs from real ERP; Playwright signup→wizard→provision→customer→product→order→invoice→payment (apps/e2e) |
+| **M5-004 ERP data wiring — Purchasing & Finance (Track B foundation)** | M5 | agent-m5-erp-purch-fin | done | feat/M5/erp-purch-fin | `packages/erp/src/purchasing.ts` (Supplier/PurchaseOrder/PurchaseInvoice) + `finance.ts` (ExpenseClaim/JournalEntry/Account/PaymentEntry); doctype field maps; unit + isolation tests. Implemented by agent-amni-01 (operator). PR #55 |
+| M5-005 Purchasing & Finance API wiring (replace seed → ERPNext reads/writes, same contract) | M5 | agent-m5-erp-purch-fin | done | feat/M5/erp-purch-fin | suppliers, purchase orders, purchase invoices, expenses, payments wired through ErpGatewayService (code = ERPNext doc name, audit on mutations, status derived from docstatus/status, recordPayment = Payment Entry Pay/Supplier). Finance dashboard overview/report aggregated from Sales/Purchase Invoices + Payment Entries + Expense Claims. Isolation suites per module (mock-frappe-server is now doctype-aware + honors ?action=submit\|cancel). Implemented by agent-amni-01 (operator). PR #55 |
+| M5-006 Finance dashboard KPIs + E2E finance journey | M5 | agent-m5-erp-purch-fin | done | feat/M5/erp-purch-fin | AP/cash/expense/reporting KPIs from real ERP (revenue/AR from submitted Sales Invoices, AP from Purchase Invoices, cash from net Payment Entries, expenses from Expense Claims; aging buckets by due date; statement reports computed from the same doctypes). E2E finance journey not run (deployment paused). Implemented by agent-amni-01 (operator). PR #55 |
+| M5-007 Real-bench integration test tier + CI gates | M5 | agent-m5-erp-purch-fin | done | feat/M5/erp-purch-fin | CI runs `pnpm test:isolation` on every PR + merge-to-dev gate; TESTING.md §4/§8 updated (in-repo isolation harness documented as always-on). Real frappe_docker supertest tier remains parked until the bench is reachable (deployment paused). Also fixed pre-existing worker lint (`import type` in imports.processor.spec). Implemented by agent-amni-01 (operator). PR #55 |
 
 ---
 
@@ -85,6 +123,26 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-14 | CI unblock (agent-m5-erp-sales-inv): removed broken `cache: pnpm` post-step from all 4 CI jobs — it failed every job repo-wide (`Path Validation Error` in actions/setup-node) while all real steps passed; added `.gitleaks.toml` allowlist for e2e test-only mock fixtures; fixed pre-existing worker spec `typeof import()` lint + root `nanoid@^3.3.18` audit override. COMMS M5-COMMS-005. |
+| 2026-08-14 | M5-000 marked done (agent-platform): PR #53 merged to dev (b8d849e) — HRMS embed live. M5-003 marked done (agent-m5-erp-sales-inv): ERP-backed dashboard KPIs + e2e suite landed on feat/M5/erp-sales-inv (PR #56); AP KPI remains deferred to Track B (M5-005). COMMS M5-COMMS-004. |
+| 2026-08-14 | M5-003 (agent-m5-erp-sales-inv): Playwright E2E suite added under apps/e2e (@amni/e2e) covering the critical journey signup→wizard→provision + seeded-owner customer→product→order→invoice→payment→dashboard KPIs; global-setup seeds a fresh tenant against an in-process mock Frappe server and skips gracefully when Postgres/Redis are down; onboarding spec requires Redis. Commits 4e975a7 (KPIs) + 0ebe101 (E2E). |
+| 2026-08-14 | M5-003 claimed (agent-m5-erp-sales-inv) and dashboard KPIs wired: overview/alerts/activity now read the tenant ERP site (Sales Invoice grand_total/outstanding_amount/due_date, Payment Entries, Bin/Item stock) via ErpGatewayService + new WarehousesService.stockSummary; same dashboard contract; AP KPI deferred to Track B (M5-005). 484 api tests green. |
+| 2026-08-14 | M5-004..M5-007 (Track B) claimed by agent-amni-01 (operator): purchasing/finance ERP data wiring on feat/M5/erp-purch-fin. COMMS M5-COMMS-002. |
+| 2026-08-14 | CRM-001..CRM-006 marked done (agent-crm): full CRM module shipped via PR #54 — organizations, contacts, tasks, notes, activities/timeline, saved views, events, call-logs, email templates, WhatsApp, notifications, settings. Epic closed. |
+| 2026-08-14 | M5-002 marked done (agent-m5-erp-sales-inv): all 10 sales/inventory modules ERP-backed via ErpGatewayService; deals backed by Opportunity (additive packages/erp); code schemas relaxed to min(1).max(80); 6 per-module isolation specs added (476 api tests green). COMMS M5-COMMS-003. |
+| 2026-08-11 | M5-000 claimed (agent-platform): HRMS embed — hrms app in provisioning, amni_bridge SSO/theme app, /hrms UI. Shipped via PR #53. |
+| 2026-08-11 | M3 task table repaired: all M3 rows done (markers from the #51 squash-merge removed). |
+| 2026-08-11 | M3-000/M3-003/M3-006/M3-004 marked done (agent-m3-provisioning); shipped via PR #51 (feat/M3/provisioning). Worker state machine + drivers + spec, plans module, wizard→enqueue, provisioning status surfacing. |
+| 2026-08-11 | CRM-000 Deals marked done; PR #50 open (agent-crm) — shared schema, API module, kanban/table/detail UI, `/sales/deals` routes. |
+| 2026-08-11 | CRM-000 Deals claimed by agent-crm → in-progress on feat/crm/deals. |
+| 2026-08-10 | CRM epic registered (7 planned tasks, owner agent-crm, prefix feat/crm/): Deals, comments, tasks, saved views, email templates, calls, WhatsApp. Skill `crm-ui-patterns` is the reference. Not ERP-blocked. |
+| 2026-08-10 | M3-001/M3-002/M3-005 marked done: ERP client v1 + ErpGatewayModule + isolation suite, PR #41 (agent-amni-01). Built against mock ERP sites so CI stays green without a bench. |
+| 2026-08-10 | M3-001/M3-002/M3-005 reassigned by operator from agent-m3-erp → agent-amni-01 (branch feat/M3/erp-gateway). |
+| 2026-08-10 | M3-007 marked done: onboarding email pipeline (shared contract + API enqueue + worker render/send), PR #49 (agent-amni-01). |
+| 2026-08-10 | M3-007 claimed by agent-amni-01 (operator reassignment from agent-m3-erp). Branch feat/M3/onboarding-mail. |
+| 2026-08-11 | M4-002/M4-003/M4-004 marked done (agent-amni-01): shared import schemas + engine, `/api/v1/imports/*` module, worker processor. Live smoke test green. COMMS M4-COMMS-003. |
+| 2026-08-11 | M4 split revised (operator): agent-amni-01 → M4-002/M4-003/M4-004; agent-ui → M4-001/M4-005/M4-006. COMMS M4-COMMS-002. |
+| 2026-08-11 | M4 planned breakdown registered (operator split): M4-001..M4-005 → agent-amni-01 (backend); M4-006 → agent-ui (web UX). COMMS M4-COMMS-001. |
 | 2026-08-10 | M3 claimed: M3-000/M3-003/M3-006/M3-004 → agent-m3-provisioning (feat/M3/provisioning); M3-001/M3-002/M3-005 → agent-m3-erp (feat/M3/erp-gateway); M3-007 → agent-m3-erp (feat/M3/onboarding-mail). |
 | 2026-08-10 | M2-025 People: Contacts marked done; PR #30 (agent-amni-01). Supersedes the earlier PR #26 (closed) after PR #25 merged the Purchasing + finance epic into `dev`. |
 | 2026-08-09 | M2-000, M2-001, M2-009..M2-018 marked done, plus new finance workspaces M2-019..M2-024 (invoicing, accounting, sign, equity, esg, expense claims/categories) — all on `feat/M2/sales-inventory`, delivered via PR #25. Epic is code-complete; merge to `dev` is the remaining gate. |

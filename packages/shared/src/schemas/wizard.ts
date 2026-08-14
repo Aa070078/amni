@@ -29,7 +29,9 @@ export const wizardDraftSchema = onboardingWizardSchema.extend({
 
 export const wizardSaveInputSchema = wizardDraftSchema.partial();
 
-export const wizardSubmitInputSchema = wizardDraftSchema;
+export const wizardSubmitInputSchema = z.object({
+  planCode: z.string().min(1).max(40).optional(),
+});
 
 export const wizardStatusSchema = z.object({
   status: z.enum(["pending", "provisioning", "ready"]),

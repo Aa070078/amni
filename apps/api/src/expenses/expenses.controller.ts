@@ -35,6 +35,9 @@ import {
 } from "@amni/shared";
 
 import { AuthGuard } from "../auth/auth.guard";
+import { CurrentUser, ReqMeta } from "../auth/request.decorators";
+import type { RequestMeta } from "../auth/auth.service";
+import type { GatewayUser } from "../erp-gateway/erp-gateway.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ExpensesService } from "./expenses.service";
@@ -49,40 +52,58 @@ export class ExpensesController {
   constructor(private readonly expenses: ExpensesService) {}
 
   @Get("overview")
-  overview(): ExpensesOverview {
-    return this.expenses.overview();
+  overview(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<ExpensesOverview> {
+    return this.expenses.overview(user, meta);
   }
 
   @Get("claims")
-  listClaims(@Query() query: unknown): ExpenseClaimListResponse {
-    return this.expenses.listClaims(expenseClaimListQuerySchema.parse(query));
+  listClaims(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Query() query: unknown,
+  ): Promise<ExpenseClaimListResponse> {
+    return this.expenses.listClaims(user, meta, expenseClaimListQuerySchema.parse(query));
   }
 
   @Get("claims/:code")
-  claimDetail(@Param("code") code: string): ExpenseClaim {
-    return this.expenses.detailClaim(code);
+  claimDetail(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<ExpenseClaim> {
+    return this.expenses.detailClaim(user, meta, code);
   }
 
   @Post("claims")
   @HttpCode(HttpStatus.CREATED)
-  createClaim(@Body() body: unknown): ExpenseClaim {
-    return this.expenses.createClaim(createExpenseClaimInputSchema.parse(body));
+  createClaim(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Body() body: unknown,
+  ): Promise<ExpenseClaim> {
+    return this.expenses.createClaim(user, meta, createExpenseClaimInputSchema.parse(body));
   }
 
   @Patch("claims/:code/status")
-  changeClaimStatus(@Param("code") code: string, @Body() body: unknown): ExpenseClaim {
-    return this.expenses.changeClaimStatus(code, changeClaimStatusInputSchema.parse(body));
+  changeClaimStatus(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<ExpenseClaim> {
+    return this.expenses.changeClaimStatus(user, meta, code, changeClaimStatusInputSchema.parse(body));
   }
 
   @Patch("claims/:code")
-  updateClaim(@Param("code") code: string, @Body() body: unknown): ExpenseClaim {
-    return this.expenses.updateClaim(code, updateExpenseClaimInputSchema.parse(body));
+  updateClaim(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<ExpenseClaim> {
+    return this.expenses.updateClaim(user, meta, code, updateExpenseClaimInputSchema.parse(body));
   }
 
   @Delete("claims/:code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeClaim(@Param("code") code: string): void {
-    this.expenses.removeClaim(code);
+  removeClaim(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<void> {
+    return this.expenses.removeClaim(user, meta, code);
   }
 
   @Get("categories")
@@ -113,34 +134,48 @@ export class ExpensesController {
   }
 
   @Get()
-  list(@Query() query: unknown): ExpenseListResponse {
-    return this.expenses.list(expenseListQuerySchema.parse(query));
+  list(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Query() query: unknown,
+  ): Promise<ExpenseListResponse> {
+    return this.expenses.list(user, meta, expenseListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): Expense {
-    return this.expenses.detail(code);
+  detail(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<Expense> {
+    return this.expenses.detail(user, meta, code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): Expense {
-    return this.expenses.create(createExpenseInputSchema.parse(body));
+  create(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Body() body: unknown): Promise<Expense> {
+    return this.expenses.create(user, meta, createExpenseInputSchema.parse(body));
   }
 
   @Patch(":code/status")
-  changeStatus(@Param("code") code: string, @Body() body: unknown): Expense {
-    return this.expenses.changeStatus(code, changeExpenseStatusInputSchema.parse(body));
+  changeStatus(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Expense> {
+    return this.expenses.changeStatus(user, meta, code, changeExpenseStatusInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): Expense {
-    return this.expenses.update(code, updateExpenseInputSchema.parse(body));
+  update(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Expense> {
+    return this.expenses.update(user, meta, code, updateExpenseInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.expenses.remove(code);
+  remove(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<void> {
+    return this.expenses.remove(user, meta, code);
   }
 }

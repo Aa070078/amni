@@ -194,7 +194,18 @@ Failure states are terminal-but-retryable: a failed job can be requeued; every s
 
 ---
 
-## 9. Background jobs (Redis/BullMQ)
+## 9. HRMS (Frappe HR embed)
+
+- Frappe HR (`hrms` app, branch `version-16` to match the pinned `ERPNEXT_VERSION=v16.30.0`) is installed on every tenant site via provisioning (`ERPNEXT_INSTALL_APPS`, default `erpnext,hrms`); `Tenant.hrmsInstalled` records availability. Existing sites use `infra/erp/scripts/install-hrms.ps1`.
+- The platform embeds the tenant's **Frappe HR desk** in an iframe under `/hrms` — no native rebuild. People (Contacts) lives inside HRMS; the desk provides employees, leave, attendance, shifts, appraisals, recruitment, payroll.
+- **SSO**: `apps/api/src/hrms` mints a short-lived HS256 JWT (iss `amni-hrms`, aud = tenant site URL, signed with `HRMS_SSO_SECRET`) and redirects the browser to `/api/method/amni_bridge.api.login` on the tenant site. The tiny non-core `amni_bridge` app (in `infra/erp/apps/amni_bridge`) validates the token, logs the user into the desk (auto-creating a Desk User if the platform user has none), and redirects to `/app/hrms`.
+- **Same-site cookies**: tenants are subdomains of the platform domain, so the desk `sid` cookie is same-site inside the iframe — no third-party-cookie workaround needed.
+- Theming: `amni_bridge` ships `amni-theme.css` (Amni violet) injected via `app_include_css`/`web_include_css`.
+- **Rule:** the iframe is the only place the browser talks to ERP; everything else still flows through `apps/api`.
+
+---
+
+## 10. Background jobs (Redis/BullMQ)
 
 | Queue | Consumers | Examples |
 |---|---|---|
@@ -208,7 +219,7 @@ Failure states are terminal-but-retryable: a failed job can be requeued; every s
 
 ---
 
-## 10. Observability
+## 11. Observability
 
 - **Structured logs** (pino, JSON) on API + worker; correlated by `requestId` (API) / `jobId` (worker).
 - **Traceability across the critical path:** `User → Frontend → API (requestId) → Worker (jobId) → ERPNext (X-Frappe-Request-Id) → Result` — the platform logs the ERPNext request id for each outbound call.
@@ -220,7 +231,7 @@ Failure states are terminal-but-retryable: a failed job can be requeued; every s
 
 ---
 
-## 11. Security summary
+## 12. Security summary
 
 Full details in `SECURITY.md`. Highlights:
 - Tenant isolation at two layers (site DB + API-scoped service accounts).
@@ -232,7 +243,7 @@ Full details in `SECURITY.md`. Highlights:
 
 ---
 
-## 12. Backups, deployment, scaling, DR
+## 13. Backups, deployment, scaling, DR
 
 - **Platform DB:** scheduled pg_dump + point-in-time (WAL) on prod; restores tested.
 - **ERP cluster:** `bench --site <site> backup --with-files` per tenant on a schedule (frappe_docker backup cron or platform job); backups stored off-cluster; restore runbook in `DEPLOYMENT.md`.
@@ -242,7 +253,7 @@ Full details in `SECURITY.md`. Highlights:
 
 ---
 
-## 13. Future architecture evolution
+## 14. Future architecture evolution
 
 1. **Provisioning agent / Press** — replace docker-exec bench calls with the Press control plane (benches, release groups, site moves, resource caps, custom domains, auto-TLS).
 2. **Per-tenant benches / dedicated DBs** — premium tier: tenant gets own bench + MariaDB (or dedicated servers) via the same provisioning API.
@@ -253,7 +264,7 @@ Full details in `SECURITY.md`. Highlights:
 
 ---
 
-## 14. Architecture review checklist (run at each major phase)
+## 15. Architecture review checklist (run at each major phase)
 
 - Did we violate the architecture? (coupling frontend→ERP, tenant resolution from client, mixing stores)
 - Did we modify ERPNext core? (must be ADR-justified)

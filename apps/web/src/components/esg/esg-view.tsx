@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { FileBarChart, FileText, Gauge, Leaf, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, FileBarChart, FileText, Gauge, Leaf, ScrollText, ShieldCheck, Users } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -84,6 +84,13 @@ export function EsgView() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/finance"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        Finance
+      </Link>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">ESG</h1>
         <p className="mt-1 text-sm text-muted-foreground">

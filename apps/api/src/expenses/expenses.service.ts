@@ -1,5 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import {
+  EXPENSE_CLAIM_FIELDS,
+  ErpError,
+  FINANCE_DOCTYPE,
+  buildExpenseClaimDoc,
+} from "@amni/erp";
+import {
   ErrorCode,
   type CreateExpenseCategoryInput,
   type CreateExpenseClaimInput,
@@ -16,12 +22,17 @@ import {
   type ExpenseListQuery,
   type ExpenseListResponse,
   type ExpensesOverview,
+  type ExpenseStatus,
   type UpdateExpenseCategoryInput,
   type UpdateExpenseClaimInput,
   type UpdateExpenseInput,
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 
 const DAY_MS = 86_400_000;
 const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
@@ -41,63 +52,24 @@ const SORT_WHITELIST = new Set([
 
 const CLAIM_SORT_WHITELIST = new Set(["code", "employee", "department", "total", "status", "createdAt", "updatedAt"]);
 
-const SEED: Expense[] = [
-  { code: "EXP-0001", category: "rent", date: iso(30), description: "Office rent — South Bank, monthly", supplier: "Riverside Estates", amount: 4200, currency: "USD", vat: 0, status: "paid", claimedBy: "Amara Osei", paymentRef: "RENT-2026-07", createdAt: iso(32), updatedAt: iso(1) },
-  { code: "EXP-0002", category: "utilities", date: iso(22), description: "Electricity and water — July", supplier: "City Power & Water", amount: 640, currency: "USD", vat: 0, status: "approved", claimedBy: "Theo Lindqvist", createdAt: iso(23), updatedAt: iso(20) },
-  { code: "EXP-0003", category: "software", date: iso(18), description: "Design suite annual licence", supplier: "Lumen Software", amount: 1290, currency: "USD", vat: 258, status: "paid", claimedBy: "Amara Osei", paymentRef: "SW-25501", createdAt: iso(20), updatedAt: iso(15) },
-  { code: "EXP-0004", category: "travel", date: iso(12), description: "Client visit — Berlin trade show", supplier: "", amount: 1480, currency: "USD", vat: 0, status: "submitted", claimedBy: "Mina Delacroix", createdAt: iso(13), updatedAt: iso(12) },
-  { code: "EXP-0005", category: "marketing", date: iso(8), description: "Banner ads campaign — Q3 launch", supplier: "Brightline Media", amount: 2350, currency: "USD", vat: 470, status: "paid", claimedBy: "Amara Osei", createdAt: iso(9), updatedAt: iso(7) },
-  { code: "EXP-0006", category: "office", date: iso(5), description: "Stationery restock", supplier: "Comet Office Supply", amount: 185, currency: "USD", vat: 37, status: "draft", claimedBy: "Theo Lindqvist", createdAt: iso(6), updatedAt: iso(5) },
-  { code: "EXP-0007", category: "equipment", date: iso(3), description: "Conference room display unit", supplier: "Vertex Hardware", amount: 980, currency: "USD", vat: 196, status: "submitted", claimedBy: "Mina Delacroix", createdAt: iso(4), updatedAt: iso(3) },
-  { code: "EXP-0008", category: "professional_services", date: iso(1), description: "Audit preparation fees", supplier: "Bering & Co.", amount: 2150, currency: "USD", vat: 0, status: "rejected", claimedBy: "Theo Lindqvist", createdAt: iso(2), updatedAt: iso(1) },
-];
-
-const SEED_CLAIMS: ExpenseClaim[] = [
-  {
-    code: "CLM-0001",
-    employee: "Mina Delacroix",
-    department: "Sales",
-    purpose: "Berlin trade show — travel and accommodation",
-    items: [
-      { code: "L-0001", description: "Flights — return to Berlin", category: "travel", date: iso(12), amount: 820 },
-      { code: "L-0002", description: "Hotel — 3 nights", category: "travel", date: iso(11), amount: 460 },
-      { code: "L-0003", description: "Meals and incidentals", category: "travel", date: iso(10), amount: 200 },
-    ],
-    total: 1480,
-    currency: "USD",
-    status: "approved",
-    notes: "Approved per travel policy exception for the trade show.",
-    createdAt: iso(13),
-    updatedAt: iso(8),
-  },
-  {
-    code: "CLM-0002",
-    employee: "Theo Lindqvist",
-    department: "Operations",
-    purpose: "Office supplies and water cooler service",
-    items: [
-      { code: "L-0004", description: "Stationery restock", category: "office", date: iso(6), amount: 185 },
-      { code: "L-0005", description: "Water cooler service visit", category: "office", date: iso(6), amount: 120 },
-    ],
-    total: 305,
-    currency: "USD",
-    status: "submitted",
-    createdAt: iso(6),
-    updatedAt: iso(5),
-  },
-  {
-    code: "CLM-0003",
-    employee: "Amara Osei",
-    department: "Finance",
-    purpose: "Design suite annual licence",
-    items: [{ code: "L-0006", description: "Design suite annual licence", category: "software", date: iso(20), amount: 1290 }],
-    total: 1290,
-    currency: "USD",
-    status: "paid",
-    paidDate: iso(14),
-    createdAt: iso(20),
-    updatedAt: iso(14),
-  },
+const CLAIM_FIELDS = [
+  "name",
+  "employee",
+  "department",
+  "remarks",
+  "user_remark",
+  "expense_type",
+  "posting_date",
+  "supplier",
+  "grand_total",
+  "approval_status",
+  "expense_approver",
+  "payment_reference",
+  "status",
+  "docstatus",
+  "expenses",
+  "creation",
+  "modified",
 ];
 
 const SEED_CATEGORIES: ExpenseCategoryRecord[] = [
@@ -112,9 +84,73 @@ const SEED_CATEGORIES: ExpenseCategoryRecord[] = [
   { code: "CAT-0009", name: "Other", color: "zinc", status: "archived", createdAt: iso(300), updatedAt: iso(90) },
 ];
 
-function nextCode(records: { code: string }[], prefix: string): string {
-  const max = records.reduce((highest, record) => {
-    const number = Number(record.code.slice(prefix.length));
+/**
+ * Maps an ERPNext Expense Claim onto the platform statuses. ERPNext tracks the
+ * approval independently of docstatus; a filled payment_reference means the
+ * claim was reimbursed, and docstatus 2 (cancelled) is surfaced as rejected.
+ */
+function toStatus(doc: Record<string, unknown>): ExpenseStatus {
+  if (doc.payment_reference) return "paid";
+  const docstatus = Number(doc.docstatus ?? 0);
+  if (docstatus === 2) return "rejected";
+  if (docstatus === 0) return "draft";
+  const approval = String(doc.approval_status ?? "");
+  if (approval === "Approved") return "approved";
+  if (approval === "Rejected") return "rejected";
+  return "submitted";
+}
+
+function toExpense(doc: Record<string, unknown>): Expense {
+  const now = new Date().toISOString();
+  return {
+    code: String(doc.name),
+    category: String(doc.expense_type ?? "other") as Expense["category"],
+    date: doc.posting_date != null ? String(doc.posting_date) : now,
+    description: doc.remarks != null ? String(doc.remarks) : "",
+    supplier: doc.supplier != null ? String(doc.supplier) : undefined,
+    amount: Number(doc.grand_total ?? 0),
+    currency: "USD",
+    vat: 0,
+    status: toStatus(doc),
+    claimedBy: doc.expense_approver != null ? String(doc.expense_approver) : undefined,
+    paymentRef: doc.payment_reference != null ? String(doc.payment_reference) : undefined,
+    createdAt: doc.creation != null ? String(doc.creation) : now,
+    updatedAt: doc.modified != null ? String(doc.modified) : now,
+  };
+}
+
+function toClaim(doc: Record<string, unknown>): ExpenseClaim {
+  const now = new Date().toISOString();
+  const items = Array.isArray(doc.expenses)
+    ? (doc.expenses as Record<string, unknown>[]).map((line, index) => ({
+        code: `L-${String(index + 1).padStart(4, "0")}`,
+        description: line.description != null ? String(line.description) : "",
+        category: String(line.expense_type ?? "other") as ExpenseClaim["items"][number]["category"],
+        date: line.expense_date != null ? String(line.expense_date) : now,
+        amount: Number(line.amount ?? 0),
+      }))
+    : [];
+  const status = toStatus(doc);
+  return {
+    code: String(doc.name),
+    employee: doc.employee != null ? String(doc.employee) : "",
+    department: doc.department != null ? String(doc.department) : undefined,
+    purpose: doc.remarks != null ? String(doc.remarks) : "",
+    items,
+    total: Number(doc.grand_total ?? round2(items.reduce((sum, item) => sum + item.amount, 0))),
+    currency: "USD",
+    status,
+    paidDate: status === "paid" && doc.modified != null ? String(doc.modified) : undefined,
+    notes: doc.user_remark != null ? String(doc.user_remark) : undefined,
+    createdAt: doc.creation != null ? String(doc.creation) : now,
+    updatedAt: doc.modified != null ? String(doc.modified) : now,
+  };
+}
+
+function nextCode(names: string[], prefix: string): string {
+  const max = names.reduce((highest, name) => {
+    const match = new RegExp(`^${prefix}(\\d{4})$`).exec(name);
+    const number = match ? Number(match[1]) : 0;
     return number > highest ? number : highest;
   }, 0);
   return `${prefix}${String(max + 1).padStart(4, "0")}`;
@@ -142,19 +178,22 @@ function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; 
 }
 
 /**
- * Reference data for the Demo Co tenant. This module is the only expense
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Expense surfaces over the tenant's real ERPNext site (M5-005). Platform
+ * expenses (EXP-) and claims (CLM-) both live in the Expense Claim doctype,
+ * distinguished by their code prefix; categories stay platform configuration.
+ * Statuses map from approval_status/payment_reference/docstatus, and only the
+ * real ERPNext transitions are settable (submit, approve, reject, pay).
  */
 @Injectable()
 export class ExpensesService {
-  private records: Expense[] = structuredClone(SEED);
-  private claims: ExpenseClaim[] = structuredClone(SEED_CLAIMS);
   private categories: ExpenseCategoryRecord[] = structuredClone(SEED_CATEGORIES);
 
-  list(query: ExpenseListQuery): ExpenseListResponse {
+  constructor(private readonly gateway: ErpGatewayService) {}
+
+  async list(user: GatewayUser, meta: GatewayRequestMeta, query: ExpenseListQuery): Promise<ExpenseListResponse> {
+    const records = (await this.allClaims(user, meta)).filter((doc) => /^EXP-\d{4}$/.test(String(doc.name))).map(toExpense);
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((expense) => {
+    const filtered = records.filter((expense) => {
       if (query.category && expense.category !== query.category) return false;
       if (query.status && expense.status !== query.status) return false;
       if (!q) return true;
@@ -163,91 +202,79 @@ export class ExpensesService {
         .toLowerCase()
         .includes(q);
     });
-
     const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
     const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "desc");
     const { items, total } = paginate(sorted, query.page, query.pageSize);
     return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detail(code: string): Expense {
-    const expense = this.records.find((record) => record.code === code);
-    if (!expense) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense ${code} not found` });
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<Expense> {
+    return toExpense(await this.getClaim(user, meta, code, /^EXP-\d{4}$/, "Expense"));
+  }
+
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateExpenseInput): Promise<Expense> {
+    const code = await this.nextCode(user, meta, "EXP-");
+    const status = input.status ?? "draft";
+    const date = input.date ?? new Date().toISOString();
+    const doc = await this.gateway.create(user, meta, FINANCE_DOCTYPE.expenseClaim, {
+      name: code,
+      ...buildExpenseClaimDoc({
+        category: input.category,
+        date,
+        description: input.description,
+        supplier: input.supplier,
+        amount: input.amount,
+        claimedBy: input.claimedBy,
+        paymentRef: status === "paid" ? this.paymentRef(code) : undefined,
+      }),
+    });
+    if (status !== "draft") {
+      return toExpense(await this.applyTransition(user, meta, code, status));
     }
-    return expense;
+    return toExpense(doc);
   }
 
-  create(input: CreateExpenseInput): Expense {
-    const expense: Expense = {
-      code: nextCode(this.records, "EXP-"),
-      category: input.category,
-      date: input.date ?? new Date().toISOString(),
-      description: input.description,
-      supplier: input.supplier,
-      amount: input.amount,
-      currency: input.currency ?? "USD",
-      vat: input.vat ?? 0,
-      status: input.status ?? "draft",
-      claimedBy: input.claimedBy,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.records.push(expense);
-    return expense;
+  async update(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateExpenseInput): Promise<Expense> {
+    const doc = await this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, undefined, {
+      ...(input.category !== undefined ? { [EXPENSE_CLAIM_FIELDS.category]: input.category } : {}),
+      ...(input.date !== undefined ? { [EXPENSE_CLAIM_FIELDS.date]: input.date } : {}),
+      ...(input.description !== undefined ? { [EXPENSE_CLAIM_FIELDS.description]: input.description } : {}),
+      ...(input.supplier !== undefined ? { [EXPENSE_CLAIM_FIELDS.supplier]: input.supplier } : {}),
+      ...(input.amount !== undefined ? { [EXPENSE_CLAIM_FIELDS.amount]: input.amount } : {}),
+      ...(input.claimedBy !== undefined ? { [EXPENSE_CLAIM_FIELDS.claimedBy]: input.claimedBy } : {}),
+    });
+    return toExpense(doc);
   }
 
-  update(code: string, input: UpdateExpenseInput): Expense {
-    const expense = this.records.find((record) => record.code === code);
-    if (!expense) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense ${code} not found` });
-    }
-    if (input.category !== undefined) expense.category = input.category;
-    if (input.date !== undefined) expense.date = input.date;
-    if (input.description !== undefined) expense.description = input.description;
-    if (input.supplier !== undefined) expense.supplier = input.supplier;
-    if (input.amount !== undefined) expense.amount = input.amount;
-    if (input.currency !== undefined) expense.currency = input.currency;
-    if (input.vat !== undefined) expense.vat = input.vat;
-    if (input.claimedBy !== undefined) expense.claimedBy = input.claimedBy;
-    expense.updatedAt = new Date().toISOString();
-    return expense;
+  async changeStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: Expense["status"] }): Promise<Expense> {
+    return toExpense(await this.applyTransition(user, meta, code, input.status));
   }
 
-  changeStatus(code: string, input: { status: Expense["status"] }): Expense {
-    const expense = this.detail(code);
-    expense.status = input.status;
-    expense.updatedAt = new Date().toISOString();
-    return expense;
+  async remove(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    await this.getClaim(user, meta, code, /^EXP-\d{4}$/, "Expense");
+    await this.gateway.remove(user, meta, FINANCE_DOCTYPE.expenseClaim, code);
   }
 
-  remove(code: string): void {
-    const index = this.records.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense ${code} not found` });
-    }
-    this.records.splice(index, 1);
-  }
-
-  overview(): ExpensesOverview {
+  async overview(user: GatewayUser, meta: GatewayRequestMeta): Promise<ExpensesOverview> {
+    const docs = await this.allClaims(user, meta);
+    const expenses = docs.filter((doc) => /^EXP-\d{4}$/.test(String(doc.name))).map(toExpense);
+    const claims = docs.filter((doc) => /^CLM-\d{4}$/.test(String(doc.name))).map(toClaim);
     const now = new Date();
-    const monthSpent = this.records
+    const monthSpent = expenses
       .filter((expense) => {
         if (expense.status === "rejected") return false;
         const date = new Date(expense.date);
         return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
       })
       .reduce((sum, expense) => sum + expense.amount, 0);
-    const pendingApproval = this.records
+    const pendingApproval = expenses
       .filter((expense) => expense.status === "submitted" || expense.status === "approved")
       .reduce((sum, expense) => sum + expense.amount, 0);
-    const reimbursed = this.records
-      .filter((expense) => expense.status === "paid")
-      .reduce((sum, expense) => sum + expense.amount, 0);
-    const activeClaims = this.claims.filter((claim) => claim.status !== "paid" && claim.status !== "rejected").length;
+    const reimbursed = expenses.filter((expense) => expense.status === "paid").reduce((sum, expense) => sum + expense.amount, 0);
+    const activeClaims = claims.filter((claim) => claim.status !== "paid" && claim.status !== "rejected").length;
 
     const categoryTotals = new Map<string, { amount: number; count: number }>();
-    for (const expense of this.records) {
+    for (const expense of expenses) {
       const entry = categoryTotals.get(expense.category) ?? { amount: 0, count: 0 };
       entry.amount += expense.amount;
       entry.count += 1;
@@ -270,91 +297,75 @@ export class ExpensesService {
     };
   }
 
-  listClaims(query: ExpenseClaimListQuery): ExpenseClaimListResponse {
+  async listClaims(user: GatewayUser, meta: GatewayRequestMeta, query: ExpenseClaimListQuery): Promise<ExpenseClaimListResponse> {
+    const records = (await this.allClaims(user, meta)).filter((doc) => /^CLM-\d{4}$/.test(String(doc.name))).map(toClaim);
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.claims.filter((claim) => {
+    const filtered = records.filter((claim) => {
       if (query.status && claim.status !== query.status) return false;
       if (!q) return true;
       return [claim.code, claim.employee, claim.department ?? "", claim.purpose].join(" ").toLowerCase().includes(q);
     });
-
     const sortBy = query.sortBy && CLAIM_SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
     const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "desc");
     const { items, total } = paginate(sorted, query.page, query.pageSize);
     return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailClaim(code: string): ExpenseClaim {
-    const claim = this.claims.find((record) => record.code === code);
-    if (!claim) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense claim ${code} not found` });
-    }
-    return claim;
+  async detailClaim(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<ExpenseClaim> {
+    return toClaim(await this.getClaim(user, meta, code, /^CLM-\d{4}$/, "Expense claim"));
   }
 
-  createClaim(input: CreateExpenseClaimInput): ExpenseClaim {
+  async createClaim(user: GatewayUser, meta: GatewayRequestMeta, input: CreateExpenseClaimInput): Promise<ExpenseClaim> {
+    const code = await this.nextCode(user, meta, "CLM-");
     const now = new Date().toISOString();
-    const items = input.items.map((item, index) => ({
-      code: `L-${String(index + 1).padStart(4, "0")}`,
+    const expenses = input.items.map((item) => ({
+      expense_date: item.date,
+      expense_type: item.category,
       description: item.description,
-      category: item.category,
-      date: item.date,
       amount: item.amount,
     }));
-    const claim: ExpenseClaim = {
-      code: nextCode(this.claims, "CLM-"),
+    const doc = await this.gateway.create(user, meta, FINANCE_DOCTYPE.expenseClaim, {
+      name: code,
+      [EXPENSE_CLAIM_FIELDS.date]: now,
+      [EXPENSE_CLAIM_FIELDS.description]: input.purpose,
+      [EXPENSE_CLAIM_FIELDS.amount]: round2(input.items.reduce((sum, item) => sum + item.amount, 0)),
+      [EXPENSE_CLAIM_FIELDS.status]: undefined,
       employee: input.employee,
       department: input.department,
-      purpose: input.purpose,
-      items,
-      total: round2(items.reduce((sum, item) => sum + item.amount, 0)),
-      currency: input.currency ?? "USD",
-      status: "draft",
-      notes: input.notes,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.claims.push(claim);
-    return claim;
+      user_remark: input.notes,
+      expenses,
+    });
+    return toClaim(doc);
   }
 
-  updateClaim(code: string, input: UpdateExpenseClaimInput): ExpenseClaim {
-    const claim = this.detailClaim(code);
-    if (input.employee !== undefined) claim.employee = input.employee;
-    if (input.department !== undefined) claim.department = input.department;
-    if (input.purpose !== undefined) claim.purpose = input.purpose;
-    if (input.currency !== undefined) claim.currency = input.currency;
-    if (input.notes !== undefined) claim.notes = input.notes;
-    if (input.items !== undefined) {
-      claim.items = input.items.map((item, index) => ({
-        code: `L-${String(index + 1).padStart(4, "0")}`,
-        description: item.description,
-        category: item.category,
-        date: item.date,
-        amount: item.amount,
-      }));
-      claim.total = round2(claim.items.reduce((sum, item) => sum + item.amount, 0));
-    }
-    claim.updatedAt = new Date().toISOString();
-    return claim;
+  async updateClaim(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateExpenseClaimInput): Promise<ExpenseClaim> {
+    const doc = await this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, undefined, {
+      ...(input.employee !== undefined ? { employee: input.employee } : {}),
+      ...(input.department !== undefined ? { department: input.department } : {}),
+      ...(input.purpose !== undefined ? { [EXPENSE_CLAIM_FIELDS.description]: input.purpose } : {}),
+      ...(input.notes !== undefined ? { user_remark: input.notes } : {}),
+      ...(input.items !== undefined
+        ? {
+            [EXPENSE_CLAIM_FIELDS.amount]: round2(input.items.reduce((sum, item) => sum + item.amount, 0)),
+            expenses: input.items.map((item) => ({
+              expense_date: item.date,
+              expense_type: item.category,
+              description: item.description,
+              amount: item.amount,
+            })),
+          }
+        : {}),
+    });
+    return toClaim(doc);
   }
 
-  changeClaimStatus(code: string, input: { status: ExpenseClaimStatus }): ExpenseClaim {
-    const claim = this.detailClaim(code);
-    claim.status = input.status;
-    if (input.status === "paid" && !claim.paidDate) {
-      claim.paidDate = new Date().toISOString();
-    }
-    claim.updatedAt = new Date().toISOString();
-    return claim;
+  async changeClaimStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: ExpenseClaimStatus }): Promise<ExpenseClaim> {
+    return toClaim(await this.applyTransition(user, meta, code, input.status));
   }
 
-  removeClaim(code: string): void {
-    const index = this.claims.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense claim ${code} not found` });
-    }
-    this.claims.splice(index, 1);
+  async removeClaim(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    await this.getClaim(user, meta, code, /^CLM-\d{4}$/, "Expense claim");
+    await this.gateway.remove(user, meta, FINANCE_DOCTYPE.expenseClaim, code);
   }
 
   listCategories(query: ExpenseCategoryListQuery): ExpenseCategoryListResponse {
@@ -364,7 +375,6 @@ export class ExpensesService {
       if (!q) return true;
       return [category.code, category.name].join(" ").toLowerCase().includes(q);
     });
-
     const sortBy = query.sortBy ?? "code";
     const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "asc");
     const { items, total } = paginate(sorted, query.page, query.pageSize);
@@ -374,7 +384,7 @@ export class ExpensesService {
   createCategory(input: CreateExpenseCategoryInput): ExpenseCategoryRecord {
     const now = new Date().toISOString();
     const category: ExpenseCategoryRecord = {
-      code: nextCode(this.categories, "CAT-"),
+      code: nextCode(this.categories.map((record) => record.code), "CAT-"),
       name: input.name,
       color: input.color ?? "zinc",
       status: "active",
@@ -413,4 +423,76 @@ export class ExpensesService {
     }
     this.categories.splice(index, 1);
   }
+
+  private async allClaims(user: GatewayUser, meta: GatewayRequestMeta): Promise<Record<string, unknown>[]> {
+    const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, {
+      fields: CLAIM_FIELDS,
+      limitPageLength: 500,
+    });
+    return items;
+  }
+
+  private async getClaim(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+    pattern: RegExp,
+    label: string,
+  ): Promise<Record<string, unknown>> {
+    if (!pattern.test(code)) throw notFound(code, label);
+    try {
+      return await this.gateway.get(user, meta, FINANCE_DOCTYPE.expenseClaim, code);
+    } catch (err) {
+      if (err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND) throw notFound(code, label);
+      throw err;
+    }
+  }
+
+  private async nextCode(user: GatewayUser, meta: GatewayRequestMeta, prefix: string): Promise<string> {
+    const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, {
+      fields: ["name"],
+      limitPageLength: 500,
+    });
+    return nextCode(items.map((doc) => String(doc.name)), prefix);
+  }
+
+  /**
+   * Mirrors the transitions a real Expense Claim allows. The mock and real
+   * ERP both record them through the submit/cancel doc actions and the
+   * approval_status / payment_reference fields.
+   */
+  private async applyTransition(user: GatewayUser, meta: GatewayRequestMeta, code: string, status: ExpenseStatus): Promise<Record<string, unknown>> {
+    switch (status) {
+      case "submitted":
+        return this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, "submit", {});
+      case "approved":
+        return this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, undefined, {
+          [EXPENSE_CLAIM_FIELDS.status]: "Approved",
+        });
+      case "rejected":
+        return this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, undefined, {
+          [EXPENSE_CLAIM_FIELDS.status]: "Rejected",
+        });
+      case "paid": {
+        await this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, "submit", {});
+        return this.gateway.update(user, meta, FINANCE_DOCTYPE.expenseClaim, code, undefined, {
+          [EXPENSE_CLAIM_FIELDS.paymentRef]: this.paymentRef(code),
+        });
+      }
+      default:
+        throw new ApiException({
+          code: ErrorCode.VALIDATION,
+          status: 400,
+          message: "Expense status is derived from ERPNext; draft cannot be set after submission",
+        });
+    }
+  }
+
+  private paymentRef(code: string): string {
+    return `PAID-${code}-${Date.now()}`;
+  }
+}
+
+function notFound(code: string, label: string): ApiException {
+  return new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `${label} ${code} not found` });
 }

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { z } from "zod";
@@ -22,7 +23,8 @@ import {
   type SalesInvoiceListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { SalesInvoicesService } from "./sales-invoices.service";
@@ -36,49 +38,61 @@ export class SalesInvoicesController {
   constructor(private readonly salesInvoices: SalesInvoicesService) {}
 
   @Get("summary")
-  summary(): SalesInvoiceSummary {
-    return this.salesInvoices.summary();
+  summary(@Req() req: AuthenticatedRequest): Promise<SalesInvoiceSummary> {
+    return this.salesInvoices.summary(userFrom(req), metaFrom(req));
   }
 
   @Get("options")
-  options(): SalesInvoiceOptions {
-    return this.salesInvoices.options();
+  options(@Req() req: AuthenticatedRequest): Promise<SalesInvoiceOptions> {
+    return this.salesInvoices.options(userFrom(req), metaFrom(req));
   }
 
   @Get()
-  list(@Query() query: unknown): SalesInvoiceListResponse {
-    return this.salesInvoices.list(salesInvoiceListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<SalesInvoiceListResponse> {
+    return this.salesInvoices.list(userFrom(req), metaFrom(req), salesInvoiceListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): SalesInvoice {
-    return this.salesInvoices.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<SalesInvoice> {
+    return this.salesInvoices.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): SalesInvoice {
-    return this.salesInvoices.create(createSalesInvoiceInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<SalesInvoice> {
+    return this.salesInvoices.create(userFrom(req), metaFrom(req), createSalesInvoiceInputSchema.parse(body));
   }
 
   @Patch(":code/status")
-  changeStatus(@Param("code") code: string, @Body() body: unknown): SalesInvoice {
-    return this.salesInvoices.changeStatus(code, changeInvoiceStatusInputSchema.parse(body));
+  changeStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<SalesInvoice> {
+    return this.salesInvoices.changeStatus(userFrom(req), metaFrom(req), code, changeInvoiceStatusInputSchema.parse(body).status);
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): SalesInvoice {
-    return this.salesInvoices.update(code, updateSalesInvoiceInputSchema.parse(body));
+  update(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<SalesInvoice> {
+    return this.salesInvoices.update(userFrom(req), metaFrom(req), code, updateSalesInvoiceInputSchema.parse(body));
   }
 
   @Post(":code/payments")
-  recordPayment(@Param("code") code: string, @Body() body: unknown): SalesInvoice {
-    return this.salesInvoices.recordPayment(code, recordPaymentInputSchema.parse(body));
+  recordPayment(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<SalesInvoice> {
+    return this.salesInvoices.recordPayment(userFrom(req), metaFrom(req), code, recordPaymentInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.salesInvoices.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.salesInvoices.remove(userFrom(req), metaFrom(req), code);
   }
 }

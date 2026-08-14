@@ -22,6 +22,9 @@ import {
 } from "@amni/shared";
 
 import { AuthGuard } from "../auth/auth.guard";
+import { CurrentUser, ReqMeta } from "../auth/request.decorators";
+import type { RequestMeta } from "../auth/auth.service";
+import type { GatewayUser } from "../erp-gateway/erp-gateway.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PurchaseOrdersService } from "./purchase-orders.service";
@@ -35,39 +38,49 @@ export class PurchaseOrdersController {
   constructor(private readonly purchaseOrders: PurchaseOrdersService) {}
 
   @Get("options")
-  options(): PurchaseOrderOptions {
-    return this.purchaseOrders.options();
+  options(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<PurchaseOrderOptions> {
+    return this.purchaseOrders.options(user, meta);
   }
 
   @Get()
-  list(@Query() query: unknown): PurchaseOrderListResponse {
-    return this.purchaseOrders.list(purchaseOrderListQuerySchema.parse(query));
+  list(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Query() query: unknown): Promise<PurchaseOrderListResponse> {
+    return this.purchaseOrders.list(user, meta, purchaseOrderListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): PurchaseOrder {
-    return this.purchaseOrders.detail(code);
+  detail(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<PurchaseOrder> {
+    return this.purchaseOrders.detail(user, meta, code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): PurchaseOrder {
-    return this.purchaseOrders.create(createPurchaseOrderInputSchema.parse(body));
+  create(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Body() body: unknown): Promise<PurchaseOrder> {
+    return this.purchaseOrders.create(user, meta, createPurchaseOrderInputSchema.parse(body));
   }
 
   @Patch(":code/status")
-  changeStatus(@Param("code") code: string, @Body() body: unknown): PurchaseOrder {
-    return this.purchaseOrders.changeStatus(code, changePurchaseOrderStatusInputSchema.parse(body));
+  changeStatus(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<PurchaseOrder> {
+    return this.purchaseOrders.changeStatus(user, meta, code, changePurchaseOrderStatusInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): PurchaseOrder {
-    return this.purchaseOrders.update(code, updatePurchaseOrderInputSchema.parse(body));
+  update(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<PurchaseOrder> {
+    return this.purchaseOrders.update(user, meta, code, updatePurchaseOrderInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.purchaseOrders.remove(code);
+  remove(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<void> {
+    return this.purchaseOrders.remove(user, meta, code);
   }
 }
