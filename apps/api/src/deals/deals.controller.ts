@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -23,7 +24,8 @@ import {
   type DealPipeline,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { DealsService } from "./deals.service";
@@ -34,39 +36,43 @@ export class DealsController {
   constructor(private readonly deals: DealsService) {}
 
   @Get("pipeline")
-  pipeline(@Query() query: unknown): DealPipeline {
-    return this.deals.pipeline(dealPipelineQuerySchema.parse(query));
+  pipeline(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<DealPipeline> {
+    return this.deals.pipeline(userFrom(req), metaFrom(req), dealPipelineQuerySchema.parse(query));
   }
 
   @Get()
-  list(@Query() query: unknown): DealListResponse {
-    return this.deals.list(dealListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<DealListResponse> {
+    return this.deals.list(userFrom(req), metaFrom(req), dealListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): DealDetail {
-    return this.deals.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<DealDetail> {
+    return this.deals.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): Deal {
-    return this.deals.create(createDealInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<Deal> {
+    return this.deals.create(userFrom(req), metaFrom(req), createDealInputSchema.parse(body));
   }
 
   @Patch(":code/stage")
-  moveStage(@Param("code") code: string, @Body() body: unknown): Deal {
-    return this.deals.moveStage(code, moveDealStageInputSchema.parse(body));
+  moveStage(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<Deal> {
+    return this.deals.moveStage(userFrom(req), metaFrom(req), code, moveDealStageInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): Deal {
-    return this.deals.update(code, updateDealInputSchema.parse(body));
+  update(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Deal> {
+    return this.deals.update(userFrom(req), metaFrom(req), code, updateDealInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.deals.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.deals.remove(userFrom(req), metaFrom(req), code);
   }
 }

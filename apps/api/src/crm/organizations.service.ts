@@ -10,6 +10,7 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
+import { type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 import { iso, nextCode, paginate, sortRecords } from "./crm-common";
 import { type CrmContactsService } from "./contacts.service";
 import { type DealsService } from "../deals/deals.service";
@@ -40,7 +41,7 @@ export class CrmOrganizationsService {
     private readonly deals: DealsService,
   ) {}
 
-  list(query: OrganizationListQuery): OrganizationListResponse {
+  async list(user: GatewayUser, meta: GatewayRequestMeta, query: OrganizationListQuery): Promise<OrganizationListResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
     const filtered = this.records.filter((org) => {
       if (query.status && org.status !== query.status) return false;
@@ -61,16 +62,16 @@ export class CrmOrganizationsService {
       active: this.records.filter((org) => org.status === "active").length,
       leads: this.records.filter((org) => org.status === "lead").length,
       contacts: linkedCodes.size,
-      openDealValue: this.sumOpenDealValue(),
+      openDealValue: await this.sumOpenDealValue(user, meta),
     };
 
     return { items, meta: { total, page: query.page, pageSize: query.pageSize }, stats };
   }
 
-  detail(code: string): OrganizationDetail {
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<OrganizationDetail> {
     const org = this.find(code);
     const contacts = this.contacts.listForOrganizations().filter((contact) => contact.organizationCode === code);
-    const deals = this.dealsFor(org.name);
+    const deals = await this.dealsFor(org.name, user, meta);
     return {
       ...org,
       contactCount: contacts.length,
@@ -137,14 +138,15 @@ export class CrmOrganizationsService {
     return org;
   }
 
-  private dealsFor(name: string) {
-    return this.deals.list({ page: 1, pageSize: 100, q: name, sortDir: "asc" }).items;
+  private async dealsFor(name: string, user: GatewayUser, meta: GatewayRequestMeta) {
+    const { items } = await this.deals.list(user, meta, { page: 1, pageSize: 100, q: name, sortDir: "asc" });
+    return items;
   }
 
-  private sumOpenDealValue(): number {
+  private async sumOpenDealValue(user: GatewayUser, meta: GatewayRequestMeta): Promise<number> {
     let total = 0;
     for (const org of this.records) {
-      for (const deal of this.dealsFor(org.name)) {
+      for (const deal of await this.dealsFor(org.name, user, meta)) {
         if (OPEN_DEAL_STAGES.has(deal.stage)) total += deal.value;
       }
     }

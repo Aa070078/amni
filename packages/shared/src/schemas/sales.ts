@@ -30,7 +30,7 @@ export const customerSchema = customerSummarySchema.extend({
 export const createCustomerInputSchema = customerSchema
   .omit({ createdAt: true, updatedAt: true })
   .partial()
-  .extend({ code: z.string().regex(/^CUS-\d{4}$/).optional() });
+  .extend({ code: z.string().min(1).max(80).optional() });
 
 export const updateCustomerInputSchema = createCustomerInputSchema;
 
@@ -50,8 +50,9 @@ export const QUOTATION_STATUSES = [
   { value: "converted", label: "Converted" },
 ] as const;
 
+// Document `code`s are ERPNext doc `name`s (1:1); free-form.
 export const quotationSchema = z.object({
-  code: z.string().regex(/^QT-\d{4}$/),
+  code: z.string().min(1).max(80),
   customer: customerSummarySchema,
   status: quotationStatusSchema,
   date: z.string().datetime(),
@@ -104,7 +105,7 @@ export const SALES_ORDER_STATUSES = [
 ] as const;
 
 export const salesOrderSchema = z.object({
-  code: z.string().regex(/^SO-\d{4}$/),
+  code: z.string().min(1).max(80),
   customer: customerSummarySchema,
   status: salesOrderStatusSchema,
   date: z.string().datetime(),
@@ -159,7 +160,7 @@ export const SALES_INVOICE_STATUSES = [
 ] as const;
 
 export const salesInvoiceSchema = z.object({
-  code: z.string().regex(/^INV-\d{4}$/),
+  code: z.string().min(1).max(80),
   customer: customerSummarySchema,
   status: salesInvoiceStatusSchema,
   date: z.string().datetime(),

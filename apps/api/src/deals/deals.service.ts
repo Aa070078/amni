@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import {
   DEAL_STAGE_PROBABILITY,
   DEAL_STAGES,
-  ErrorCode,
   type CreateDealInput,
   type Deal,
   type DealActivity,
@@ -11,17 +10,18 @@ import {
   type DealListResponse,
   type DealPipeline,
   type DealPipelineQuery,
+  type DealSource,
   type DealStage,
   type MoveDealStageInput,
   type UpdateDealInput,
 } from "@amni/shared";
+import { OPPORTUNITY_DOCTYPE, OpportunityFields, buildOpportunityDoc, type ErpOpportunityDoc } from "@amni/erp";
 
-import { ApiException } from "../common/api.exception";
-
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
-const dateOnly = (offsetDays: number): string =>
-  new Date(Date.now() + offsetDays * DAY_MS).toISOString().slice(0, 10);
+import { toIso } from "../common/frappe";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
+import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "title",
@@ -34,23 +34,50 @@ const SORT_WHITELIST = new Set([
   "stage",
 ]);
 
-type SeedDeal = Omit<Deal, "probability"> & { stage: DealStage };
+const STAGE_TO_ERP: Record<DealStage, string> = {
+  qualification: "Open",
+  analysis: "Replied",
+  proposal: "Quotation",
+  negotiation: "Quotation",
+  won: "Converted",
+  lost: "Lost",
+};
 
-const SEED: SeedDeal[] = [
-  { code: "DL-0001", title: "Mission district office fit-out", company: "Serenity Interiors", contactName: "Maya Chen", contactEmail: "maya@serenityinteriors.com", contactPhone: "+1 415-555-0142", source: "referral", stage: "negotiation", value: 96_400, currency: "USD", expectedClose: dateOnly(12), owner: "Amara Osei", notes: "Proposal signed off on terms; awaiting final PO from the facilities team.", createdAt: iso(60), updatedAt: iso(1) },
-  { code: "DL-0002", title: "LED rollout across retail locations", company: "Lumina Supplies", contactName: "Dario Beltran", contactEmail: "dario@luminasupplies.com", contactPhone: "+1 312-555-0198", source: "trade_show", stage: "proposal", value: 47_000, currency: "USD", expectedClose: dateOnly(24), owner: "Amara Osei", notes: "Three-store pilot priced; volume discount locked in.", createdAt: iso(45), updatedAt: iso(2) },
-  { code: "DL-0003", title: "Warehouse shelving refresh", company: "Northwind Traders", contactName: "Jonas Weber", contactEmail: "jonas@northwind-traders.de", contactPhone: "+49 30 1234 5678", source: "cold_call", stage: "analysis", value: 16_800, currency: "USD", expectedClose: dateOnly(31), owner: "Theo Lindqvist", notes: "Walked through the two warehouses; needs load ratings per aisle.", createdAt: iso(33), updatedAt: iso(4) },
-  { code: "DL-0004", title: "Enterprise support tier, two offices", company: "Meridian Legal", contactName: "Sarah Whitfield", contactEmail: "sarah@meridianlegal.com", contactPhone: "+1 202-555-0188", source: "referral", stage: "won", value: 37_800, currency: "USD", expectedClose: dateOnly(-8), owner: "Theo Lindqvist", notes: "Closed at list price. Onboarding scheduled next Monday.", createdAt: iso(70), updatedAt: iso(8) },
-  { code: "DL-0005", title: "Lobby and suite furniture package", company: "Summit View Hotels", contactName: "Claire Beaumont", contactEmail: "claire@summitviewhotels.com", contactPhone: "+44 161 555 0190", source: "website", stage: "proposal", value: 77_200, currency: "USD", expectedClose: dateOnly(18), owner: "Amara Osei", notes: "Bespoke lobby pieces add 40%; comparing fabric swatches.", createdAt: iso(38), updatedAt: iso(1) },
-  { code: "DL-0006", title: "Pilot store rollout", company: "Aster Retail Group", contactName: "Sofia Novak", contactEmail: "sofia@asterretail.com", contactPhone: "+1 646-555-0118", source: "referral", stage: "qualification", value: 88_000, currency: "USD", expectedClose: dateOnly(41), owner: "Theo Lindqvist", notes: "Pilot across one store first; national rollout if it clears.", createdAt: iso(20), updatedAt: iso(3) },
-  { code: "DL-0007", title: "Implementation + training package", company: "Horizon Analytics", contactName: "Nadia Yusuf", contactEmail: "nadia@horizonanalytics.com", contactPhone: "+1 415-555-0171", source: "cold_call", stage: "won", value: 62_500, currency: "USD", expectedClose: dateOnly(-3), owner: "Amara Osei", notes: "Closed at list price. Implementation scheduled.", createdAt: iso(58), updatedAt: iso(3) },
-  { code: "DL-0008", title: "Enterprise support tier renewal", company: "Vantage Healthcare", contactName: "Dr. Lena Fischer", contactEmail: "lena@vantagehealthcare.com", contactPhone: "+1 617-555-0163", source: "trade_show", stage: "analysis", value: 19_500, currency: "USD", expectedClose: dateOnly(21), owner: "Amara Osei", notes: "Renewal at prior-year terms plus two extra seats.", createdAt: iso(25), updatedAt: iso(2) },
-  { code: "DL-0009", title: "Kitchen showroom partnership", company: "Fjord Kitchens", contactName: "Henrik Berg", contactEmail: "henrik@fjordkitchens.no", contactPhone: "+47 22 55 01 44", source: "partner", stage: "negotiation", value: 42_800, currency: "USD", expectedClose: dateOnly(15), owner: "Theo Lindqvist", notes: "Referred by Nordic Design Partners; margin split agreed.", createdAt: iso(50), updatedAt: iso(2) },
-  { code: "DL-0010", title: "On-site install add-on", company: "Copperwood Co.", contactName: "Mateo Alvarez", contactEmail: "mateo@copperwoodco.com", contactPhone: "+1 602-555-0144", source: "email", stage: "lost", value: 16_700, currency: "USD", expectedClose: null, owner: "Amara Osei", notes: "Went with an incumbent vendor. Revisit next fiscal year.", createdAt: iso(55), updatedAt: iso(16) },
-];
+const ERP_TO_STAGE: Record<string, DealStage> = {
+  Open: "qualification",
+  Replied: "analysis",
+  Quotation: "proposal",
+  Converted: "won",
+  Lost: "lost",
+};
 
-const toDeal = (seed: SeedDeal): Deal =>
-  ({ ...seed, probability: DEAL_STAGE_PROBABILITY[seed.stage] }) as Deal;
+type ErpOpportunityRaw = ErpOpportunityDoc & { creation?: string; modified?: string; opportunity_amount?: number; currency?: string };
+
+function stageFromErp(status?: string): DealStage {
+  return (status !== undefined && ERP_TO_STAGE[status]) || "qualification";
+}
+
+function toDeal(doc: ErpOpportunityRaw): Deal {
+  const stage = stageFromErp(doc.status);
+  return {
+    code: doc.name,
+    title: doc.title ?? "",
+    company: doc.customer_name ?? doc.lead_name ?? doc.name,
+    contactName: doc.contact_display ?? "",
+    contactEmail: doc.contact_email ?? "",
+    contactPhone: doc.contact_mobile,
+    source: (doc.source ?? "other") as DealSource,
+    stage,
+    value: doc.opportunity_amount ?? 0,
+    currency: doc.currency ?? "USD",
+    probability: DEAL_STAGE_PROBABILITY[stage],
+    expectedClose: doc.expected_closing ?? null,
+    owner: doc.opportunity_owner,
+    notes: doc.notes ?? "",
+    createdAt: toIso(doc.creation ?? doc.modified),
+    updatedAt: toIso(doc.modified ?? doc.creation),
+  };
+}
 
 function activitiesFor(deal: Deal): DealActivity[] {
   const items: DealActivity[] = [
@@ -76,36 +103,37 @@ function activitiesFor(deal: Deal): DealActivity[] {
   return items.sort((a, b) => (a.time < b.time ? 1 : -1));
 }
 
-function nextCode(records: Deal[]): string {
-  const max = records.reduce((highest, deal) => {
-    const number = Number(deal.code.slice(3));
-    return number > highest ? number : highest;
-  }, 0);
-  return `DL-${String(max + 1).padStart(4, "0")}`;
-}
-
 /**
- * Reference data for the Demo Co tenant. This module is the only deals
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Deals backed by the tenant's real ERPNext Opportunity doctype. Platform
+ * stages map to Opportunity statuses (qualification=Open, analysis=Replied,
+ * proposal/negotiation=Quotation, won=Converted, lost=Lost); Opportunity has
+ * no `Qualified`/`Opportunity` status, so both in-flight stages collapse onto
+ * `Quotation`. Unknown statuses map back to "qualification".
  */
 @Injectable()
 export class DealsService {
-  private records: Deal[] = SEED.map(toDeal);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  pipeline(query: DealPipelineQuery): DealPipeline {
+  async pipeline(user: GatewayUser, meta: GatewayRequestMeta, query: DealPipelineQuery): Promise<DealPipeline> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const { items: docs } = await client.list<ErpOpportunityRaw>(OPPORTUNITY_DOCTYPE, {
+      limitPageLength: 0,
+    });
+
     const q = (query.q ?? "").toLowerCase().trim();
-    const items = q
-      ? this.records.filter((deal) =>
-          [deal.title, deal.company, deal.contactName, deal.contactEmail, deal.contactPhone ?? "", deal.owner ?? ""]
-            .join(" ")
-            .toLowerCase()
-            .includes(q),
-        )
-      : this.records;
+    const records = q
+      ? docs
+          .map(toDeal)
+          .filter((deal) =>
+            [deal.title, deal.company, deal.contactName, deal.contactEmail, deal.contactPhone ?? "", deal.owner ?? ""]
+              .join(" ")
+              .toLowerCase()
+              .includes(q),
+          )
+      : docs.map(toDeal);
 
     const stats = DEAL_STAGES.map(({ value, label }) => {
-      const stageDeals = items.filter((deal) => deal.stage === value);
+      const stageDeals = records.filter((deal) => deal.stage === value);
       return {
         stage: value,
         label,
@@ -114,12 +142,17 @@ export class DealsService {
       };
     });
 
-    return { stats, items };
+    return { stats, items: records };
   }
 
-  list(query: DealListQuery): DealListResponse {
+  async list(user: GatewayUser, meta: GatewayRequestMeta, query: DealListQuery): Promise<DealListResponse> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const { items: docs } = await client.list<ErpOpportunityRaw>(OPPORTUNITY_DOCTYPE, {
+      limitPageLength: 0,
+    });
+
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((deal) => {
+    const filtered = docs.map(toDeal).filter((deal) => {
       if (query.stage && deal.stage !== query.stage) return false;
       if (!q) return true;
       return [deal.title, deal.company, deal.contactName, deal.contactEmail, deal.contactPhone ?? "", deal.owner ?? ""]
@@ -139,80 +172,119 @@ export class DealsService {
       return aValue < bValue ? -1 * sortDir : sortDir;
     });
 
-    const page = query.page;
-    const pageSize = query.pageSize;
-    const start = (page - 1) * pageSize;
+    const start = (query.page - 1) * query.pageSize;
     return {
-      items: sorted.slice(start, start + pageSize),
-      meta: { total: sorted.length, page, pageSize },
+      items: sorted.slice(start, start + query.pageSize),
+      meta: { total: sorted.length, page: query.page, pageSize: query.pageSize },
     };
   }
 
-  detail(code: string): DealDetail {
-    const deal = this.records.find((record) => record.code === code);
-    if (!deal) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Deal ${code} not found` });
-    }
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<DealDetail> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const doc = await client
+      .get<ErpOpportunityRaw>(OPPORTUNITY_DOCTYPE, code)
+      .catch((err) => translateErpError(err, "Deal"));
+    const deal = toDeal(doc);
     return { ...deal, activities: activitiesFor(deal) };
   }
 
-  create(input: CreateDealInput): Deal {
-    const deal: Deal = {
-      code: nextCode(this.records),
-      title: input.title,
-      company: input.company,
-      contactName: input.contactName,
-      contactEmail: input.contactEmail,
-      contactPhone: input.contactPhone,
-      source: input.source ?? "website",
-      stage: input.stage ?? "qualification",
-      value: input.value,
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateDealInput): Promise<Deal> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const created = await client.create<ErpOpportunityDoc>(OPPORTUNITY_DOCTYPE, {
+      ...buildOpportunityDoc({
+        title: input.title,
+        company: input.company,
+        contactName: input.contactName,
+        contactEmail: input.contactEmail,
+        contactPhone: input.contactPhone,
+        source: input.source,
+        stage: STAGE_TO_ERP[input.stage ?? "qualification"],
+        expectedClose: input.expectedClose,
+        owner: input.owner,
+        notes: input.notes,
+      }),
+      opportunity_amount: input.value,
       currency: input.currency ?? "USD",
-      probability: 0,
-      expectedClose: input.expectedClose ?? null,
-      owner: input.owner ?? "Amara Osei",
-      notes: input.notes ?? "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    deal.probability = DEAL_STAGE_PROBABILITY[deal.stage];
-    this.records.push(deal);
-    return deal;
+    });
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "deal.create",
+      resourceType: OPPORTUNITY_DOCTYPE,
+      resourceId: created.name,
+    });
+    return toDeal(created);
   }
 
-  update(code: string, input: UpdateDealInput): Deal {
-    const deal = this.records.find((record) => record.code === code);
-    if (!deal) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Deal ${code} not found` });
-    }
-    if (input.title !== undefined) deal.title = input.title;
-    if (input.company !== undefined) deal.company = input.company;
-    if (input.contactName !== undefined) deal.contactName = input.contactName;
-    if (input.contactEmail !== undefined) deal.contactEmail = input.contactEmail;
-    if (input.contactPhone !== undefined) deal.contactPhone = input.contactPhone;
-    if (input.source !== undefined) deal.source = input.source;
-    if (input.stage !== undefined) {
-      deal.stage = input.stage;
-      deal.probability = DEAL_STAGE_PROBABILITY[deal.stage];
-    }
-    if (input.value !== undefined) deal.value = input.value;
-    if (input.currency !== undefined) deal.currency = input.currency;
-    if (input.expectedClose !== undefined) deal.expectedClose = input.expectedClose;
-    if (input.owner !== undefined) deal.owner = input.owner;
-    if (input.notes !== undefined) deal.notes = input.notes;
-    deal.updatedAt = new Date().toISOString();
-    return deal;
+  async update(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+    input: UpdateDealInput,
+  ): Promise<Deal> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const patch: Record<string, unknown> = {};
+    if (input.title !== undefined) patch[OpportunityFields.title] = input.title;
+    if (input.company !== undefined) patch[OpportunityFields.company] = input.company;
+    if (input.contactName !== undefined) patch[OpportunityFields.contactName] = input.contactName;
+    if (input.contactEmail !== undefined) patch[OpportunityFields.contactEmail] = input.contactEmail;
+    if (input.contactPhone !== undefined) patch[OpportunityFields.contactPhone] = input.contactPhone;
+    if (input.source !== undefined) patch[OpportunityFields.source] = input.source;
+    if (input.stage !== undefined) patch[OpportunityFields.stage] = STAGE_TO_ERP[input.stage];
+    if (input.expectedClose !== undefined) patch[OpportunityFields.expectedClose] = input.expectedClose;
+    if (input.owner !== undefined) patch[OpportunityFields.owner] = input.owner;
+    if (input.notes !== undefined) patch[OpportunityFields.notes] = input.notes;
+    if (input.value !== undefined) patch.opportunity_amount = input.value;
+    if (input.currency !== undefined) patch.currency = input.currency;
+
+    const updated = await client
+      .update<ErpOpportunityDoc>(OPPORTUNITY_DOCTYPE, code, patch)
+      .catch((err) => translateErpError(err, "Deal"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "deal.update",
+      resourceType: OPPORTUNITY_DOCTYPE,
+      resourceId: code,
+    });
+    return toDeal(updated);
   }
 
-  moveStage(code: string, input: MoveDealStageInput): Deal {
-    return this.update(code, { stage: input.stage });
+  async moveStage(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+    input: MoveDealStageInput,
+  ): Promise<Deal> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const updated = await client
+      .update<ErpOpportunityDoc>(OPPORTUNITY_DOCTYPE, code, {
+        [OpportunityFields.stage]: STAGE_TO_ERP[input.stage],
+      })
+      .catch((err) => translateErpError(err, "Deal"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "deal.moveStage",
+      resourceType: OPPORTUNITY_DOCTYPE,
+      resourceId: code,
+    });
+    return toDeal(updated);
   }
 
-  remove(code: string): void {
-    const index = this.records.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Deal ${code} not found` });
-    }
-    this.records.splice(index, 1);
+  async remove(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    await client.delete(OPPORTUNITY_DOCTYPE, code).catch((err) => translateErpError(err, "Deal"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "deal.delete",
+      resourceType: OPPORTUNITY_DOCTYPE,
+      resourceId: code,
+    });
   }
 }

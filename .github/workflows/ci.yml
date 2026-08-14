@@ -15,7 +15,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
@@ -28,7 +27,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
@@ -56,7 +54,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --audit-level high
       - name: gitleaks
@@ -101,7 +98,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Migrate + generate client + seed
         run: pnpm --filter db run deploy && pnpm --filter db run generate && pnpm db:seed
