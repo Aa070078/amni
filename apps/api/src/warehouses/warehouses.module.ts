@@ -9,5 +9,6 @@ import { WarehousesService } from "./warehouses.service";
   imports: [AuthModule, ErpGatewayModule],
   controllers: [WarehousesController],
   providers: [WarehousesService],
+  exports: [WarehousesService],
 })
 export class WarehousesModule {}

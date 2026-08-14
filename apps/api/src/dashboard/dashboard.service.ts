@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   ProductRole,
+  type ActivityItem,
   type DashboardAlerts,
   type DashboardActivity,
   type DashboardArBucket,
@@ -9,6 +10,22 @@ import {
   type DashboardSeriesPoint,
   type QuickAction,
 } from "@amni/shared";
+import {
+  SALES_DOCTYPE,
+  type ErpCustomerDoc,
+  type ErpPaymentEntryDoc,
+  type ErpQuotationDoc,
+  type ErpSalesInvoiceDoc,
+  type ErpSalesOrderDoc,
+} from "@amni/erp";
+
+import { toIso } from "../common/frappe";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { WarehousesService } from "../warehouses/warehouses.service";
+import type { StockSummary } from "../warehouses/warehouses.service";
 
 const PRODUCT_ROLES = Object.values(ProductRole) as string[];
 
@@ -16,110 +33,15 @@ export function resolveProductRole(value: unknown): ProductRole | undefined {
   return PRODUCT_ROLES.find((role) => role === value) as ProductRole | undefined;
 }
 
-const KPIS: Record<string, DashboardKpi> = {
-  revenue: {
-    id: "revenue",
-    label: "Revenue",
-    value: 284_500,
-    format: "currency",
-    currency: "USD",
-    delta: 12.4,
-    deltaLabel: "vs last month",
-    trend: "up",
-    hint: "Invoiced this month",
-    sparkline: [232_000, 241_000, 238_500, 249_800, 255_200, 263_400, 258_900, 271_300, 268_400, 276_200, 279_800, 284_500],
-  },
-  ar: {
-    id: "ar",
-    label: "Accounts receivable",
-    value: 96_250,
-    format: "currency",
-    currency: "USD",
-    delta: 3.1,
-    deltaLabel: "vs last month",
-    trend: "up",
-    hint: "12 invoices outstanding",
-    sparkline: [84_100, 86_400, 85_200, 88_300, 87_100, 89_600, 91_200, 90_400, 92_800, 93_500, 95_100, 96_250],
-  },
-  ap: {
-    id: "ap",
-    label: "Accounts payable",
-    value: 41_800,
-    format: "currency",
-    currency: "USD",
-    delta: -1.8,
-    deltaLabel: "vs last month",
-    trend: "down",
-    hint: "9 bills due this month",
-    sparkline: [48_200, 47_100, 47_800, 46_500, 46_900, 45_800, 46_100, 44_900, 45_200, 43_800, 42_900, 41_800],
-  },
-  cash: {
-    id: "cash",
-    label: "Cash balance",
-    value: 512_400,
-    format: "currency",
-    currency: "USD",
-    delta: 4.2,
-    deltaLabel: "vs last month",
-    trend: "up",
-    hint: "Across 3 bank accounts",
-    sparkline: [438_000, 452_300, 447_800, 461_200, 473_900, 468_500, 481_400, 489_200, 496_100, 503_800, 508_600, 512_400],
-  },
-  inventory: {
-    id: "inventory",
-    label: "Inventory value",
-    value: 187_600,
-    format: "currency",
-    currency: "USD",
-    delta: -2.3,
-    deltaLabel: "vs last month",
-    trend: "down",
-    hint: "5 items low on stock",
-    sparkline: [208_300, 205_400, 207_100, 202_800, 204_200, 200_900, 202_300, 198_600, 200_100, 195_400, 190_800, 187_600],
-  },
-};
+const round2 = (value: number): number => Math.round(value * 100) / 100;
 
-const REVENUE_TREND: DashboardSeriesPoint[] = [
-  { label: "Jan", value: 232_000 },
-  { label: "Feb", value: 241_000 },
-  { label: "Mar", value: 238_500 },
-  { label: "Apr", value: 249_800 },
-  { label: "May", value: 255_200 },
-  { label: "Jun", value: 263_400 },
-  { label: "Jul", value: 258_900 },
-  { label: "Aug", value: 271_300 },
-  { label: "Sep", value: 268_400 },
-  { label: "Oct", value: 276_200 },
-  { label: "Nov", value: 279_800 },
-  { label: "Dec", value: 284_500 },
-];
-
-const CASH_TREND: DashboardSeriesPoint[] = [
-  { label: "Jan", value: 438_000 },
-  { label: "Feb", value: 452_300 },
-  { label: "Mar", value: 447_800 },
-  { label: "Apr", value: 461_200 },
-  { label: "May", value: 473_900 },
-  { label: "Jun", value: 468_500 },
-  { label: "Jul", value: 481_400 },
-  { label: "Aug", value: 489_200 },
-  { label: "Sep", value: 496_100 },
-  { label: "Oct", value: 503_800 },
-  { label: "Nov", value: 508_600 },
-  { label: "Dec", value: 512_400 },
-];
-
-const AR_AGING: DashboardArBucket[] = [
-  { label: "Current", value: 54_200 },
-  { label: "1–30 days", value: 21_300 },
-  { label: "31–60 days", value: 11_600 },
-  { label: "61–90 days", value: 6_900 },
-  { label: "90+ days", value: 2_250 },
-];
-
+/**
+ * Accounts payable is intentionally absent here: purchasing / finance is owned
+ * by Track B (agent-m5-erp-purch-fin) and will wire it once that lane lands.
+ */
 const ROLE_KPI_IDS: Record<ProductRole, string[]> = {
-  [ProductRole.ADMIN]: ["revenue", "ar", "ap", "cash", "inventory"],
-  [ProductRole.ACCOUNTANT]: ["revenue", "ar", "ap", "cash"],
+  [ProductRole.ADMIN]: ["revenue", "ar", "cash", "inventory"],
+  [ProductRole.ACCOUNTANT]: ["revenue", "ar", "cash"],
   [ProductRole.SALES]: ["revenue", "ar"],
   [ProductRole.INVENTORY]: ["inventory"],
   [ProductRole.MEMBER]: ["revenue"],
@@ -170,111 +92,309 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
 ];
 
-const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+type ErpInvoiceRaw = ErpSalesInvoiceDoc & { creation?: string; modified?: string; owner?: string };
+type ErpOrderRaw = ErpSalesOrderDoc & { creation?: string; modified?: string; owner?: string };
+type ErpQuotationRaw = ErpQuotationDoc & { creation?: string; modified?: string; owner?: string };
+type ErpCustomerRaw = ErpCustomerDoc & { creation?: string; modified?: string; owner?: string };
+type ErpPaymentRaw = Omit<ErpPaymentEntryDoc, "payment_type"> & { payment_type?: "Receive" | "Pay" };
+
+interface MonthPoint {
+  key: string;
+  label: string;
+}
+
+function lastTwelveMonths(now: Date = new Date()): MonthPoint[] {
+  const months: MonthPoint[] = [];
+  for (let i = 11; i >= 0; i -= 1) {
+    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`,
+      label: month.toLocaleString("en-US", { month: "short" }),
+    });
+  }
+  return months;
+}
+
+const monthOf = (date?: string): string | undefined => (date ? date.slice(0, 7) : undefined);
+
+const utcDay = (now: Date): number => Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+
+function buildRevenueKpi(invoices: ErpInvoiceRaw[], months: MonthPoint[]): DashboardKpi {
+  const byMonth = new Map<string, number>();
+  const current = months[months.length - 1]?.key ?? "";
+  const previous = months[months.length - 2]?.key ?? "";
+  let currentTotal = 0;
+  let previousTotal = 0;
+  for (const invoice of invoices) {
+    if (invoice.docstatus !== 1) continue;
+    const month = monthOf(invoice.posting_date);
+    if (!month) continue;
+    const total = invoice.grand_total ?? 0;
+    byMonth.set(month, (byMonth.get(month) ?? 0) + total);
+    if (month === current) currentTotal += total;
+    if (month === previous) previousTotal += total;
+  }
+  const delta = previousTotal > 0 ? round2(((currentTotal - previousTotal) / previousTotal) * 100) : 0;
+  return {
+    id: "revenue",
+    label: "Revenue",
+    value: round2(currentTotal),
+    format: "currency",
+    currency: "USD",
+    delta,
+    deltaLabel: "vs last month",
+    trend: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
+    hint: "Invoiced this month",
+    sparkline: months.map(({ key }) => round2(byMonth.get(key) ?? 0)),
+  };
+}
+
+function buildArKpi(invoices: ErpInvoiceRaw[], months: MonthPoint[]): DashboardKpi {
+  const byMonth = new Map<string, number>();
+  let outstanding = 0;
+  let count = 0;
+  for (const invoice of invoices) {
+    if (invoice.docstatus !== 1) continue;
+    const amount = invoice.outstanding_amount ?? 0;
+    outstanding += amount;
+    if (amount > 0) count += 1;
+    const month = monthOf(invoice.posting_date);
+    if (month) byMonth.set(month, (byMonth.get(month) ?? 0) + amount);
+  }
+  return {
+    id: "ar",
+    label: "Accounts receivable",
+    value: round2(outstanding),
+    format: "currency",
+    currency: "USD",
+    hint: `${count} ${count === 1 ? "invoice" : "invoices"} outstanding`,
+    sparkline: months.map(({ key }) => round2(byMonth.get(key) ?? 0)),
+  };
+}
+
+function buildCashKpi(payments: ErpPaymentRaw[], months: MonthPoint[]): DashboardKpi {
+  const byMonth = new Map<string, number>();
+  let entries = 0;
+  for (const payment of payments) {
+    if (payment.docstatus !== 1) continue;
+    entries += 1;
+    const month = monthOf(payment.posting_date);
+    if (!month) continue;
+    const amount = payment.paid_amount ?? 0;
+    byMonth.set(month, (byMonth.get(month) ?? 0) + (payment.payment_type === "Pay" ? -amount : amount));
+  }
+  const sparkline: number[] = [];
+  let running = 0;
+  for (const { key } of months) {
+    running += byMonth.get(key) ?? 0;
+    sparkline.push(round2(running));
+  }
+  const value = sparkline[sparkline.length - 1] ?? 0;
+  const previous = sparkline[sparkline.length - 2] ?? 0;
+  const delta = previous > 0 ? round2(((value - previous) / previous) * 100) : 0;
+  return {
+    id: "cash",
+    label: "Cash balance",
+    value,
+    format: "currency",
+    currency: "USD",
+    delta,
+    deltaLabel: "vs last month",
+    trend: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
+    hint: `${entries} payment entries`,
+    sparkline,
+  };
+}
+
+function buildInventoryKpi(stock: StockSummary): DashboardKpi {
+  const hint =
+    stock.lowStockCount === 0
+      ? "Stock levels healthy"
+      : `${stock.lowStockCount} ${stock.lowStockCount === 1 ? "item" : "items"} low on stock`;
+  return {
+    id: "inventory",
+    label: "Inventory value",
+    value: stock.value,
+    format: "currency",
+    currency: stock.currency,
+    hint,
+  };
+}
+
+function buildArAging(invoices: ErpInvoiceRaw[], now: Date = new Date()): DashboardArBucket[] {
+  const buckets: DashboardArBucket[] = [
+    { label: "Current", value: 0 },
+    { label: "1–30 days", value: 0 },
+    { label: "31–60 days", value: 0 },
+    { label: "61–90 days", value: 0 },
+    { label: "90+ days", value: 0 },
+  ];
+  const today = utcDay(now);
+  const [currentBucket, bucket30, bucket60, bucket90, bucket90Plus] = buckets as [
+    DashboardArBucket,
+    DashboardArBucket,
+    DashboardArBucket,
+    DashboardArBucket,
+    DashboardArBucket,
+  ];
+  for (const invoice of invoices) {
+    if (invoice.docstatus !== 1) continue;
+    const amount = invoice.outstanding_amount ?? 0;
+    if (amount <= 0) continue;
+    if (!invoice.due_date) {
+      currentBucket.value += amount;
+      continue;
+    }
+    const days = Math.floor((today - new Date(`${invoice.due_date}T00:00:00Z`).getTime()) / 86_400_000);
+    if (days <= 0) currentBucket.value += amount;
+    else if (days <= 30) bucket30.value += amount;
+    else if (days <= 60) bucket60.value += amount;
+    else if (days <= 90) bucket90.value += amount;
+    else bucket90Plus.value += amount;
+  }
+  return buckets.map((bucket) => ({ ...bucket, value: round2(bucket.value) }));
+}
 
 /**
- * Reference data for the Demo Co tenant. This module is the only dashboard
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERP site and keep the same contract.
+ * Dashboard reads are backed by the tenant's real ERPNext site: revenue and
+ * receivables come from submitted Sales Invoices, cash from Payment Entries,
+ * and inventory from the Bin / Item doctypes (via WarehousesService). The
+ * contract is unchanged from the earlier seed-based version.
  */
 @Injectable()
 export class DashboardService {
-  overview(role: ProductRole): DashboardOverview {
-    const kpiIds = ROLE_KPI_IDS[role];
-    const kpis = kpiIds.map((id) => KPIS[id]).filter((kpi): kpi is DashboardKpi => kpi !== undefined);
+  constructor(
+    private readonly gateway: ErpGatewayService,
+    private readonly warehouses: WarehousesService,
+  ) {}
+
+  async overview(user: GatewayUser, meta: GatewayRequestMeta, role: ProductRole): Promise<DashboardOverview> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const [{ items: invoiceDocs }, { items: paymentDocs }, stock] = await Promise.all([
+      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 0 }),
+      client.list<ErpPaymentRaw>(SALES_DOCTYPE.paymentEntry, { limitPageLength: 0 }),
+      this.warehouses.stockSummary(user, meta),
+    ]);
+
+    const months = lastTwelveMonths();
+    const revenue = buildRevenueKpi(invoiceDocs, months);
+    const ar = buildArKpi(invoiceDocs, months);
+    const cash = buildCashKpi(paymentDocs, months);
+    const inventory = buildInventoryKpi(stock);
+    const byId: Record<string, DashboardKpi> = { revenue, ar, cash, inventory };
+    const kpis = ROLE_KPI_IDS[role].map((id) => byId[id]).filter((kpi): kpi is DashboardKpi => kpi !== undefined);
     const quickActions = QUICK_ACTIONS.filter((action) => !action.roles || action.roles.includes(role));
+    const revenueTrend: DashboardSeriesPoint[] = months.map((month, index) => ({
+      label: month.label,
+      value: revenue.sparkline?.[index] ?? 0,
+    }));
+    const cashTrend: DashboardSeriesPoint[] = months.map((month, index) => ({
+      label: month.label,
+      value: cash.sparkline?.[index] ?? 0,
+    }));
 
     return {
       asOf: new Date().toISOString(),
       role,
       kpis,
       quickActions,
-      revenueTrend: REVENUE_TREND,
-      cashTrend: CASH_TREND,
-      arAging: AR_AGING,
+      revenueTrend,
+      cashTrend,
+      arAging: buildArAging(invoiceDocs),
     };
   }
 
-  alerts(): DashboardAlerts {
-    return {
-      alerts: [
-        {
-          id: "overdue-invoices",
-          severity: "critical",
-          title: "3 invoices are overdue",
-          description: "Totalling $18,240 — the oldest is SO-2041, 12 days late.",
-          href: "/finance",
-        },
-        {
-          id: "low-stock",
-          severity: "warning",
-          title: "5 items are low on stock",
-          description: "Nimbus LED Panel and 4 others need re-ordering.",
-          href: "/inventory",
-        },
-        {
-          id: "pending-po-approval",
-          severity: "info",
-          title: "2 purchase orders await approval",
-          description: "PO-0021 and PO-0022 are pending review.",
-          href: "/purchasing",
-        },
-      ],
-    };
+  async alerts(user: GatewayUser, meta: GatewayRequestMeta): Promise<DashboardAlerts> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const [{ items: invoiceDocs }, stock] = await Promise.all([
+      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 0 }),
+      this.warehouses.stockSummary(user, meta),
+    ]);
+
+    const today = utcDay(new Date());
+    const overdue = invoiceDocs
+      .filter((invoice) => invoice.docstatus === 1 && (invoice.outstanding_amount ?? 0) > 0 && invoice.due_date)
+      .map((invoice) => ({ invoice, due: new Date(`${invoice.due_date}T00:00:00Z`).getTime() }))
+      .filter(({ due }) => due < today)
+      .sort((a, b) => a.due - b.due);
+
+    const alerts: DashboardAlerts["alerts"] = [];
+    if (overdue.length > 0) {
+      const total = round2(overdue.reduce((sum, { invoice }) => sum + (invoice.outstanding_amount ?? 0), 0));
+      const oldest = overdue[0]!;
+      const days = Math.floor((today - oldest.due) / 86_400_000);
+      alerts.push({
+        id: "overdue-invoices",
+        severity: "critical",
+        title: `${overdue.length} ${overdue.length === 1 ? "invoice" : "invoices"} are overdue`,
+        description: `Totalling $${total.toLocaleString("en-US")} — the oldest is ${oldest.invoice.name}, ${days} days late.`,
+        href: "/finance",
+      });
+    }
+
+    if (stock.lowStockCount > 0) {
+      const label = stock.lowStock[0]?.name ?? stock.lowStock[0]?.code ?? "An item";
+      alerts.push({
+        id: "low-stock",
+        severity: "warning",
+        title: `${stock.lowStockCount} ${stock.lowStockCount === 1 ? "item" : "items"} are low on stock`,
+        description:
+          stock.lowStockCount === 1
+            ? `${label} needs re-ordering.`
+            : `${label} and ${stock.lowStockCount - 1} others need re-ordering.`,
+        href: "/inventory",
+      });
+    }
+
+    return { alerts };
   }
 
-  activity(): DashboardActivity {
-    return {
-      activity: [
-        {
-          id: "act-1",
-          action: "Created sales order",
-          target: "SO-2041",
-          href: "/sales",
-          actor: "Amara Osei",
-          time: minutesAgo(25),
-        },
-        {
-          id: "act-2",
-          action: "Recorded payment",
-          target: "P-0007 against INV-0003",
-          href: "/finance",
-          actor: "Amara Osei",
-          time: minutesAgo(70),
-        },
-        {
-          id: "act-3",
-          action: "Updated item",
-          target: "Nimbus LED Panel",
-          href: "/inventory",
-          actor: "Theo Lindqvist",
-          time: minutesAgo(190),
-        },
-        {
-          id: "act-4",
-          action: "Created invoice",
-          target: "INV-0003 for Serenity Interiors",
-          href: "/sales",
-          actor: "Amara Osei",
-          time: minutesAgo(300),
-        },
-        {
-          id: "act-5",
-          action: "Added customer",
-          target: "Serenity Interiors",
-          href: "/sales",
-          actor: "Amara Osei",
-          time: minutesAgo(1_600),
-        },
-        {
-          id: "act-6",
-          action: "Created purchase order",
-          target: "PO-0021 for Lumina Supplies",
-          href: "/purchasing",
-          actor: "Theo Lindqvist",
-          time: minutesAgo(2_900),
-        },
-      ],
-    };
+  async activity(user: GatewayUser, meta: GatewayRequestMeta): Promise<DashboardActivity> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const [{ items: invoices }, { items: orders }, { items: quotations }, { items: customers }] = await Promise.all([
+      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 100 }),
+      client.list<ErpOrderRaw>(SALES_DOCTYPE.salesOrder, { limitPageLength: 100 }),
+      client.list<ErpQuotationRaw>(SALES_DOCTYPE.quotation, { limitPageLength: 100 }),
+      client.list<ErpCustomerRaw>(SALES_DOCTYPE.customer, { limitPageLength: 100 }),
+    ]);
+
+    const activity: ActivityItem[] = [
+      ...invoices.map((doc) => ({
+        id: `sales-invoice:${doc.name}`,
+        action: doc.docstatus === 1 ? "Submitted invoice" : "Created invoice",
+        target: `${doc.name} for ${doc.customer}`,
+        href: "/sales",
+        actor: doc.owner,
+        time: toIso(doc.modified ?? doc.creation),
+      })),
+      ...orders.map((doc) => ({
+        id: `sales-order:${doc.name}`,
+        action: "Created sales order",
+        target: doc.name,
+        href: "/sales",
+        actor: doc.owner,
+        time: toIso(doc.modified ?? doc.creation),
+      })),
+      ...quotations.map((doc) => ({
+        id: `quotation:${doc.name}`,
+        action: "Created quotation",
+        target: doc.name,
+        href: "/sales",
+        actor: doc.owner,
+        time: toIso(doc.modified ?? doc.creation),
+      })),
+      ...customers.map((doc) => ({
+        id: `customer:${doc.name}`,
+        action: "Added customer",
+        target: doc.customer_name ?? doc.name,
+        href: "/sales",
+        actor: doc.owner,
+        time: toIso(doc.modified ?? doc.creation),
+      })),
+    ]
+      .sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0))
+      .slice(0, 8);
+
+    return { activity };
   }
 }

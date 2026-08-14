@@ -9,16 +9,20 @@ import {
   findCustomerByName,
   findItemBySku,
 } from "@amni/erp";
-import { ErrorCode } from "@amni/shared";
+import { ErrorCode, ProductRole } from "@amni/shared";
 
 import { startMockFrappeServer, type MockFrappeServer } from "../erp-gateway/mock-frappe-server";
+import { DashboardService } from "../dashboard/dashboard.service";
+import { WarehousesService } from "../warehouses/warehouses.service";
+import { ErpGatewayService } from "./erp-gateway.service";
 
 const mocks = vi.hoisted(() => ({
   eRPInstance: { findUnique: vi.fn(), findFirst: vi.fn() },
+  membership: { findFirst: vi.fn() },
 }));
 
 vi.mock("@amni/db", () => ({
-  prisma: { eRPInstance: mocks.eRPInstance },
+  prisma: { eRPInstance: mocks.eRPInstance, membership: mocks.membership },
 }));
 
 const HEX_KEY = Buffer.alloc(32, 1).toString("hex");
@@ -38,6 +42,7 @@ function cipher(apiKey: string, apiSecret: string): string {
 
 function mockTenant(tenantId: string, instance: { host: string; serviceKeyCipher: string | null }) {
   mocks.eRPInstance.findUnique.mockResolvedValue(instance);
+  mocks.eRPInstance.findFirst.mockResolvedValue(instance);
   return { tenantId };
 }
 
@@ -72,6 +77,8 @@ afterAll(async () => {
 beforeEach(() => {
   mocks.eRPInstance.findUnique.mockReset();
   mocks.eRPInstance.findFirst.mockReset();
+  mocks.membership.findFirst.mockReset();
+  mocks.membership.findFirst.mockResolvedValue({ companyId: "company-a" });
 });
 
 describe("M5-001 sales & inventory domain methods — tenant isolation", () => {
@@ -163,5 +170,38 @@ describe("M5-001 sales & inventory domain methods — tenant isolation", () => {
     await expect(createErpClientForTenant({ tenantId: "tenant-none" })).rejects.toMatchObject({
       code: ErrorCode.TENANT_NOT_READY,
     });
+  });
+});
+
+describe("M5-003 dashboard reads — tenant isolation", () => {
+  it("tenant A's dashboard KPIs are computed from tenant A's ERP site only", async () => {
+    mockTenant(TENANT_A, { host: siteA.url, serviceKeyCipher: cipher(KEY_A.apiKey, KEY_A.apiSecret) });
+    const bRequestsBefore = siteB.requests.length;
+
+    const service = new DashboardService(new ErpGatewayService(), new WarehousesService(new ErpGatewayService()));
+    const overview = await service.overview(
+      { id: "user-a", email: "a@acme.io", role: "USER" },
+      { ip: "10.0.0.1", requestId: "req-a" },
+      ProductRole.ADMIN,
+    );
+
+    const byId = Object.fromEntries(overview.kpis.map((kpi) => [kpi.id, kpi]));
+    expect(byId.revenue.value).toBe(0);
+    expect(byId.inventory.value).toBe(0);
+    expect(siteB.requests).toHaveLength(bRequestsBefore);
+    expect(siteA.requests.every((r) => r.authHeader === `token ${KEY_A.apiKey}:${KEY_A.apiSecret}`)).toBe(true);
+  });
+
+  it("tenant B's dashboard never reads tenant A's ERP site", async () => {
+    mockTenant(TENANT_B, { host: siteB.url, serviceKeyCipher: cipher(KEY_B.apiKey, KEY_B.apiSecret) });
+    const aRequestsBefore = siteA.requests.length;
+
+    const service = new DashboardService(new ErpGatewayService(), new WarehousesService(new ErpGatewayService()));
+    await service.activity(
+      { id: "user-b", email: "b@beta.io", role: "USER" },
+      { ip: "10.0.0.1", requestId: "req-b" },
+    );
+
+    expect(siteA.requests).toHaveLength(aRequestsBefore);
   });
 });

@@ -35,6 +35,14 @@ const SORT_WHITELIST = new Set([
 
 type ErpWarehouseRaw = ErpWarehouseDoc & { creation?: string; modified?: string };
 
+export interface StockSummary {
+  value: number;
+  lowStockCount: number;
+  warehouses: number;
+  currency: string;
+  lowStock: { code: string; name: string }[];
+}
+
 function toWarehouse(doc: ErpWarehouseRaw): Warehouse {
   return {
     code: doc.name,
@@ -133,6 +141,40 @@ export class WarehousesService {
     const stock = bins.map((bin) => toStockLevel(bin, reorderMap));
     const lowStock = stock.filter((row) => row.onHand < row.reorderLevel);
     return { ...toWarehouse(doc), stock, lowStock };
+  }
+
+  async stockSummary(user: GatewayUser, meta: GatewayRequestMeta): Promise<StockSummary> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const [{ items: binDocs }, { items: itemDocs }, { items: warehouseDocs }] = await Promise.all([
+      client.list<ErpBinDoc & { valuation_rate?: number }>(INVENTORY_DOCTYPE.bin, {
+        fields: ["name", "item_code", "warehouse", "actual_qty", "reserved_qty", "projected_qty", "valuation_rate"],
+        limitPageLength: 0,
+      }),
+      client.list<{ name: string; item_name?: string; reorder_level?: number }>(INVENTORY_DOCTYPE.item, {
+        fields: ["name", "item_name", "reorder_level"],
+        limitPageLength: 0,
+      }),
+      client.list<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, { limitPageLength: 0 }),
+    ]);
+
+    const itemMap = new Map(itemDocs.map((item) => [item.name, item]));
+    const lowStock = new Map<string, string>();
+    let value = 0;
+    for (const bin of binDocs) {
+      value += (bin.actual_qty ?? 0) * (bin.valuation_rate ?? 0);
+      const item = itemMap.get(bin.item_code);
+      if ((bin.actual_qty ?? 0) < (item?.reorder_level ?? 0) && !lowStock.has(bin.item_code)) {
+        lowStock.set(bin.item_code, item?.item_name ?? bin.item_code);
+      }
+    }
+
+    return {
+      value: Math.round(value * 100) / 100,
+      lowStockCount: lowStock.size,
+      warehouses: warehouseDocs.length,
+      currency: "USD",
+      lowStock: [...lowStock.entries()].map(([code, name]) => ({ code, name })),
+    };
   }
 
   async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateWarehouseInput): Promise<Warehouse> {

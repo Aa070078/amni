@@ -130,6 +130,45 @@ describe("WarehousesService", () => {
     });
   });
 
+  describe("stockSummary", () => {
+    it("computes inventory value, warehouse count and low stock from Bin/Item/Warehouse docs", async () => {
+      mocks.client.list.mockImplementation(async (doctype: string) => {
+        if (doctype === "Bin") {
+          return {
+            items: [
+              { name: "BIN-1", item_code: "PRD-0001", warehouse: "Main Store - ACME", actual_qty: 24, reserved_qty: 3, projected_qty: 21, valuation_rate: 10 },
+              { name: "BIN-2", item_code: "PRD-0003", warehouse: "Main Store - ACME", actual_qty: 2, reserved_qty: 0, projected_qty: 2, valuation_rate: 50 },
+            ],
+            hasMore: false,
+          };
+        }
+        if (doctype === "Item") {
+          return {
+            items: [
+              { name: "PRD-0001", item_name: "Widget", reorder_level: 10 },
+              { name: "PRD-0003", item_name: "Bolt", reorder_level: 5 },
+            ],
+            hasMore: false,
+          };
+        }
+        if (doctype === "Warehouse") return { items: WAREHOUSE_DOCS, hasMore: false };
+        return { items: [], hasMore: false };
+      });
+
+      const summary = await service.stockSummary(USER, META);
+
+      expect(summary.value).toBe(340);
+      expect(summary.warehouses).toBe(3);
+      expect(summary.currency).toBe("USD");
+      expect(summary.lowStockCount).toBe(1);
+      expect(summary.lowStock).toEqual([{ code: "PRD-0003", name: "Bolt" }]);
+      expect(mocks.client.list).toHaveBeenCalledWith(
+        "Bin",
+        expect.objectContaining({ fields: expect.arrayContaining(["valuation_rate"]) }),
+      );
+    });
+  });
+
   describe("create", () => {
     it("creates the Warehouse doc on the tenant site and audits", async () => {
       mocks.client.create.mockResolvedValue({ ...WAREHOUSE_DOCS[0], name: "New Store - ACME" });
