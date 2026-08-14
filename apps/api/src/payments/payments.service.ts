@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ErpError, FINANCE_DOCTYPE, buildPaymentEntryDoc } from "@amni/erp";
 import {
   ErrorCode,
   type CreatePaymentInput,
@@ -8,9 +9,10 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
-
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "code",
@@ -24,22 +26,56 @@ const SORT_WHITELIST = new Set([
   "invoiceCode",
 ]);
 
-const SEED: Payment[] = [
-  { code: "PAY-0001", type: "incoming", date: iso(2), party: "Serenity Interiors", reference: "STR-00441", invoiceCode: "INV-0003", amount: 5000, currency: "USD", method: "bank_transfer", status: "cleared", recordedBy: "Amara Osei" },
-  { code: "PAY-0002", type: "outgoing", date: iso(4), party: "Riverside Estates", reference: "RENT-2026-07", invoiceCode: "PINV-0001", amount: 4200, currency: "USD", method: "bank_transfer", status: "cleared", recordedBy: "Amara Osei" },
-  { code: "PAY-0003", type: "incoming", date: iso(6), party: "Copperwood Co.", reference: "CPW-1082", invoiceCode: "INV-0006", amount: 2000, currency: "USD", method: "bank_transfer", status: "cleared", recordedBy: "Theo Lindqvist" },
-  { code: "PAY-0004", type: "incoming", date: iso(9), party: "Bluepeak Logistics", reference: "BLP-5540", invoiceCode: "INV-0008", amount: 1000, currency: "USD", method: "card", status: "pending", recordedBy: "Theo Lindqvist" },
-  { code: "PAY-0005", type: "outgoing", date: iso(12), party: "Lumen Software", reference: "SW-25501", invoiceCode: "PINV-0003", amount: 1290, currency: "USD", method: "card", status: "cleared", recordedBy: "Amara Osei" },
-  { code: "PAY-0006", type: "incoming", date: iso(15), party: "Aster Retail Group", reference: "AST-7712", invoiceCode: "INV-0007", amount: 6810, currency: "USD", method: "bank_transfer", status: "cleared", recordedBy: "Amara Osei" },
-  { code: "PAY-0007", type: "outgoing", date: iso(20), party: "Hale Lighting Co.", reference: "HLC-2230", invoiceCode: "PINV-0004", amount: 1000, currency: "USD", method: "ach", status: "cleared", recordedBy: "Theo Lindqvist" },
+const LIST_FIELDS = [
+  "name",
+  "payment_type",
+  "party_type",
+  "party",
+  "posting_date",
+  "reference_no",
+  "bill_no",
+  "paid_amount",
+  "received_amount",
+  "mode_of_payment",
+  "status",
+  "docstatus",
+  "creation",
+  "modified",
 ];
 
-function nextCode(records: Payment[]): string {
-  const max = records.reduce((highest, payment) => {
-    const number = Number(payment.code.slice(4));
-    return number > highest ? number : highest;
-  }, 0);
-  return `PAY-${String(max + 1).padStart(4, "0")}`;
+function notFound(code: string): ApiException {
+  return new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Payment ${code} not found` });
+}
+
+/**
+ * Maps an ERPNext Payment Entry status onto the platform contract. docstatus 0
+ * is pending, 1 is cleared; a cancelled entry (docstatus 2) is surfaced as
+ * failed because the platform has no cancelled state.
+ */
+function toStatus(docstatus: unknown): Payment["status"] {
+  const status = Number(docstatus ?? 0);
+  if (status === 0) return "pending";
+  if (status === 2) return "failed";
+  return "cleared";
+}
+
+function toPayment(doc: Record<string, unknown>): Payment {
+  const now = new Date().toISOString();
+  const paymentType = String(doc.payment_type ?? "Pay");
+  const amount = Number(doc.received_amount ?? doc.paid_amount ?? 0);
+  return {
+    code: String(doc.name),
+    type: paymentType === "Receive" ? "incoming" : "outgoing",
+    date: doc.posting_date != null ? String(doc.posting_date) : now,
+    party: doc.party != null ? String(doc.party) : "",
+    reference: doc.reference_no != null ? String(doc.reference_no) : undefined,
+    invoiceCode: doc.bill_no != null ? String(doc.bill_no) : undefined,
+    amount,
+    currency: "USD",
+    method: (doc.mode_of_payment as Payment["method"]) ?? "bank_transfer",
+    status: toStatus(doc.docstatus),
+    recordedBy: doc.owner != null ? String(doc.owner) : undefined,
+  };
 }
 
 function sortValue(payment: Payment, sortBy: string): unknown {
@@ -47,17 +83,23 @@ function sortValue(payment: Payment, sortBy: string): unknown {
 }
 
 /**
- * Reference data for the Demo Co tenant. This module is the only payment
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Payments surface over the tenant's real ERPNext site (M5-005). Payments are
+ * Payment Entries: incoming maps to Receive/Customer, outgoing to Pay/Supplier.
+ * Codes are ERPNext doc names, the supplier invoice link uses Payment Entry's
+ * bill_no, and clearing is the submit action.
  */
 @Injectable()
 export class PaymentsService {
-  private records: Payment[] = structuredClone(SEED);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  list(query: PaymentListQuery): PaymentListResponse {
+  async list(user: GatewayUser, meta: GatewayRequestMeta, query: PaymentListQuery): Promise<PaymentListResponse> {
+    const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.paymentEntry, {
+      fields: LIST_FIELDS,
+      limitPageLength: 500,
+    });
+    const records = items.map(toPayment);
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((payment) => {
+    const filtered = records.filter((payment) => {
       if (query.type && payment.type !== query.type) return false;
       if (!q) return true;
       return [payment.code, payment.party, payment.reference ?? "", payment.invoiceCode ?? "", payment.recordedBy ?? ""]
@@ -65,7 +107,6 @@ export class PaymentsService {
         .toLowerCase()
         .includes(q);
     });
-
     const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "date";
     const sortDir = query.sortDir === "asc" ? 1 : -1;
     const sorted = [...filtered].sort((a, b) => {
@@ -76,7 +117,6 @@ export class PaymentsService {
       if (bValue == null) return -1;
       return aValue < bValue ? -1 * sortDir : sortDir;
     });
-
     const page = query.page;
     const pageSize = query.pageSize;
     const start = (page - 1) * pageSize;
@@ -86,29 +126,48 @@ export class PaymentsService {
     };
   }
 
-  detail(code: string): Payment {
-    const payment = this.records.find((record) => record.code === code);
-    if (!payment) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Payment ${code} not found` });
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<Payment> {
+    try {
+      return toPayment(await this.gateway.get(user, meta, FINANCE_DOCTYPE.paymentEntry, code));
+    } catch (err) {
+      if (err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND) throw notFound(code);
+      throw err;
     }
-    return payment;
   }
 
-  create(input: CreatePaymentInput): Payment {
-    const payment: Payment = {
-      code: nextCode(this.records),
-      type: input.type,
-      date: input.date ?? new Date().toISOString(),
-      party: input.party,
-      reference: input.reference,
-      invoiceCode: input.invoiceCode,
-      amount: input.amount,
-      currency: input.currency ?? "USD",
-      method: input.method ?? "bank_transfer",
-      status: "cleared",
-      recordedBy: "Amara Osei",
-    };
-    this.records.push(payment);
-    return payment;
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreatePaymentInput): Promise<Payment> {
+    const paymentType: "Pay" | "Receive" = input.type === "incoming" ? "Receive" : "Pay";
+    const partyType: "Supplier" | "Customer" = input.type === "incoming" ? "Customer" : "Supplier";
+    const code = await this.nextCode(user, meta);
+    const date = input.date ?? new Date().toISOString();
+    await this.gateway.create(user, meta, FINANCE_DOCTYPE.paymentEntry, {
+      name: code,
+      ...buildPaymentEntryDoc({
+        party: input.party,
+        partyType,
+        paymentType,
+        paidAmount: input.amount,
+        method: input.method ?? "bank_transfer",
+        date,
+        reference: input.reference,
+      }),
+      bill_no: input.invoiceCode,
+      owner: user.email,
+    });
+    const submitted = await this.gateway.update(user, meta, FINANCE_DOCTYPE.paymentEntry, code, "submit", {});
+    return toPayment(submitted);
+  }
+
+  private async nextCode(user: GatewayUser, meta: GatewayRequestMeta): Promise<string> {
+    const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.paymentEntry, {
+      fields: ["name"],
+      limitPageLength: 500,
+    });
+    const max = items.reduce((highest, doc) => {
+      const match = /^PAY-(\d{4})$/.exec(String(doc.name));
+      const number = match ? Number(match[1]) : 0;
+      return number > highest ? number : highest;
+    }, 0);
+    return `PAY-${String(max + 1).padStart(4, "0")}`;
   }
 }

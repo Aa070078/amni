@@ -5,16 +5,16 @@ import {
   ITEM_FIELDS,
   buildCustomerDoc,
   buildItemDoc,
-  buildPaymentEntryDoc,
   buildSalesInvoiceDoc,
   buildSalesOrderDoc,
+  buildSalesPaymentEntryDoc,
   buildStockEntryDoc,
   createCustomer,
   createSalesInvoice,
   createSalesOrder,
   executeStockMovement,
   findCustomerByName,
-  recordPaymentEntry,
+  recordSalesPaymentEntry,
   SALES_DOCTYPE,
   INVENTORY_DOCTYPE,
   STOCK_ENTRY_TYPE_BY_MOVEMENT,
@@ -104,7 +104,7 @@ describe("sales doc builders", () => {
   });
 
   it("builds a Payment Entry as a Customer Receive", () => {
-    const doc = buildPaymentEntryDoc({ party: "Acme Ltd", paidAmount: 250, method: "bank_transfer" });
+    const doc = buildSalesPaymentEntryDoc({ party: "Acme Ltd", paidAmount: 250, method: "bank_transfer" });
     expect(doc).toMatchObject({ party: "Acme Ltd", paid_amount: 250, party_type: "Customer", payment_type: "Receive" });
   });
 });
@@ -142,7 +142,7 @@ describe("sales client wrappers", () => {
   it("records a payment by creating and submitting a Payment Entry", async () => {
     const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PE-0001", party: "Acme Ltd" } }));
     const client = makeClient();
-    await recordPaymentEntry(client, { party: "Acme Ltd", paidAmount: 250 });
+    await recordSalesPaymentEntry(client, { party: "Acme Ltd", paidAmount: 250 });
     const finalUrl = decoded(lastUrl());
     expect(finalUrl).toContain(`/resource/${SALES_DOCTYPE.paymentEntry}`);
     expect(finalUrl).toContain("action=submit");

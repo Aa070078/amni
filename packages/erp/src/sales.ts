@@ -202,7 +202,7 @@ export interface ErpSalesInvoiceDoc {
   items: ErpDocLine[];
 }
 
-export interface ErpPaymentEntryDoc {
+export interface ErpSalesPaymentEntryDoc {
   name: string;
   party: string;
   party_type: "Customer";
@@ -378,7 +378,7 @@ export function buildSalesInvoiceDoc(input: SalesInvoiceInput): Record<string, u
   };
 }
 
-export interface PaymentEntryInput {
+export interface SalesPaymentEntryInput {
   party: string;
   paidAmount: number;
   method?: string;
@@ -387,7 +387,7 @@ export interface PaymentEntryInput {
   paidTo?: string;
 }
 
-export function buildPaymentEntryDoc(input: PaymentEntryInput): Record<string, unknown> {
+export function buildSalesPaymentEntryDoc(input: SalesPaymentEntryInput): Record<string, unknown> {
   return {
     [PAYMENT_ENTRY_FIELDS.party]: input.party,
     [PAYMENT_ENTRY_FIELDS.paidAmount]: input.paidAmount,
@@ -457,9 +457,9 @@ export async function cancelSalesInvoice(client: ErpClient, name: string): Promi
  * Records a payment against a customer. Creates and submits a Payment Entry
  * of type Receive so the receivable ledger updates immediately.
  */
-export async function recordPaymentEntry(client: ErpClient, input: PaymentEntryInput): Promise<ErpPaymentEntryDoc> {
-  const created = await client.create<ErpPaymentEntryDoc>(SALES_DOCTYPE.paymentEntry, buildPaymentEntryDoc(input));
-  return client.submit<ErpPaymentEntryDoc>(SALES_DOCTYPE.paymentEntry, created.name);
+export async function recordSalesPaymentEntry(client: ErpClient, input: SalesPaymentEntryInput): Promise<ErpSalesPaymentEntryDoc> {
+  const created = await client.create<ErpSalesPaymentEntryDoc>(SALES_DOCTYPE.paymentEntry, buildSalesPaymentEntryDoc(input));
+  return client.submit<ErpSalesPaymentEntryDoc>(SALES_DOCTYPE.paymentEntry, created.name);
 }
 
 /**

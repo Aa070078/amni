@@ -30,6 +30,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  # Tenant isolation suite (TESTING.md 5): in-repo harness (mock-frappe-server)
+  # that exercises cross-tenant 403/404 guarantees over a real HTTP client.
+  isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:isolation
+
   security-static:
     runs-on: ubuntu-latest
     steps:
@@ -48,10 +61,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Merge to dev/main gate: verify migrations + seed against a real Postgres, then run
-  # the full suite. ERPNext integration, tenant-isolation, and Playwright e2e
-  # (TESTING.md 4-6) are intentionally not wired yet: the harness
-  # (vitest.isolation.config.ts / Playwright / ERP cluster) does not exist in the repo
-  # and lands under WORKBOARD M3-005. They will slot in below when it does.
+  # the full suite (unit + the in-repo tenant isolation harness, TESTING.md 3-5).
+  # The ERPNext supertest tier against a real frappe_docker bench (TESTING.md 4)
+  # and the Playwright e2e suite (TESTING.md 6) are not wired yet: the bench is not
+  # reachable in CI (provisioning is paused). They slot in below once the cluster
+  # is available.
   integration:
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -88,5 +102,8 @@ jobs:
         run: pnpm --filter db run deploy && pnpm --filter db run generate && pnpm db:seed
       - name: Full suite
         run: pnpm test
-      # TODO(M3-005): ERPNext integration + isolation + e2e steps go here once the
-      # harness exists (see TESTING.md 4-6 and docs/coordination/WORKBOARD.md).
+      - name: Tenant isolation suite
+        run: pnpm test:isolation
+      # TODO(M5-007): ERPNext supertest integration against a frappe_docker bench
+      # (TESTING.md 4) and Playwright e2e (TESTING.md 6) go here once the cluster
+      # is reachable (see docs/coordination/WORKBOARD.md).

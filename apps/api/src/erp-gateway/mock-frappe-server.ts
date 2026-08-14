@@ -71,7 +71,12 @@ export async function startMockFrappeServer(options: {
             const limit = Number(url.searchParams.get("limit_page_length") ?? 20);
             const start = Number(url.searchParams.get("start") ?? 0);
             const filters = parseFilters(url.searchParams.get("filters"));
-            const all = [...docs.values()].filter((doc) => matchesFilters(doc, filters));
+            // Docs created through POST are tagged with their doctype; legacy
+            // seeded docs without a tag are returned for any doctype so older
+            // isolation fixtures keep working.
+            const all = [...docs.values()]
+              .filter((doc) => !doc.doctype || doc.doctype === doctype)
+              .filter((doc) => matchesFilters(doc, filters));
             sendJson(res, 200, { data: all.slice(start, start + limit) });
             return;
           }
@@ -86,7 +91,7 @@ export async function startMockFrappeServer(options: {
         case "POST": {
           const body = await readJson(req);
           const docName = String(body?.name ?? `${doctype}-${nextName++}`);
-          const doc = { name: docName, ...(body ?? {}) };
+          const doc = { name: docName, doctype, ...(body ?? {}) };
           docs.set(docName, doc);
           sendJson(res, 200, { data: doc });
           return;
@@ -102,6 +107,9 @@ export async function startMockFrappeServer(options: {
           }
           const body = await readJson(req);
           const doc = { ...(docs.get(name) ?? {}), ...(body ?? {}) };
+          const action = url.searchParams.get("action");
+          if (action === "submit") doc.docstatus = 1;
+          if (action === "cancel") doc.docstatus = 2;
           docs.set(name, doc);
           sendJson(res, 200, { data: doc });
           return;
