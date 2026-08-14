@@ -23,6 +23,9 @@ import {
 } from "@amni/shared";
 
 import { AuthGuard } from "../auth/auth.guard";
+import { CurrentUser, ReqMeta } from "../auth/request.decorators";
+import type { RequestMeta } from "../auth/auth.service";
+import type { GatewayUser } from "../erp-gateway/erp-gateway.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PurchaseInvoicesService } from "./purchase-invoices.service";
@@ -36,44 +39,71 @@ export class PurchaseInvoicesController {
   constructor(private readonly purchaseInvoices: PurchaseInvoicesService) {}
 
   @Get("options")
-  options(): PurchaseInvoiceOptions {
-    return this.purchaseInvoices.options();
+  options(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<PurchaseInvoiceOptions> {
+    return this.purchaseInvoices.options(user, meta);
   }
 
   @Get()
-  list(@Query() query: unknown): PurchaseInvoiceListResponse {
-    return this.purchaseInvoices.list(purchaseInvoiceListQuerySchema.parse(query));
+  list(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Query() query: unknown,
+  ): Promise<PurchaseInvoiceListResponse> {
+    return this.purchaseInvoices.list(user, meta, purchaseInvoiceListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): PurchaseInvoice {
-    return this.purchaseInvoices.detail(code);
+  detail(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+  ): Promise<PurchaseInvoice> {
+    return this.purchaseInvoices.detail(user, meta, code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): PurchaseInvoice {
-    return this.purchaseInvoices.create(createPurchaseInvoiceInputSchema.parse(body));
+  create(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Body() body: unknown,
+  ): Promise<PurchaseInvoice> {
+    return this.purchaseInvoices.create(user, meta, createPurchaseInvoiceInputSchema.parse(body));
   }
 
   @Patch(":code/status")
-  changeStatus(@Param("code") code: string, @Body() body: unknown): PurchaseInvoice {
-    return this.purchaseInvoices.changeStatus(code, changePurchaseInvoiceStatusInputSchema.parse(body));
+  changeStatus(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<PurchaseInvoice> {
+    return this.purchaseInvoices.changeStatus(user, meta, code, changePurchaseInvoiceStatusInputSchema.parse(body));
   }
 
   @Patch(":code/pay")
-  recordPayment(@Param("code") code: string, @Body() body: unknown): PurchaseInvoice {
-    return this.purchaseInvoices.recordPayment(code, recordPaymentInputSchema.parse(body));
+  recordPayment(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<PurchaseInvoice> {
+    return this.purchaseInvoices.recordPayment(user, meta, code, recordPaymentInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): PurchaseInvoice {
-    return this.purchaseInvoices.update(code, updatePurchaseInvoiceInputSchema.parse(body));
+  update(
+    @CurrentUser() user: GatewayUser,
+    @ReqMeta() meta: RequestMeta,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<PurchaseInvoice> {
+    return this.purchaseInvoices.update(user, meta, code, updatePurchaseInvoiceInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.purchaseInvoices.remove(code);
+  remove(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<void> {
+    return this.purchaseInvoices.remove(user, meta, code);
   }
 }
