@@ -220,3 +220,16 @@ M5 is now the market-readiness epic: wire every reference module to each tenant'
 Claim your row on the workboard (set Owner/Status/Branch) and commit the claim BEFORE building, per README §4. Post here anything that changes shared turf. Demo-data services keep working until each module is swapped — swap module-by-module, keeping the suite green.
 
 Session start: `pnpm agent:sync` → read `docs/coordination/WORKBOARD.md` → start from latest `dev`.
+---
+ID: M5-COMMS-002
+date: 2026-08-14
+from: agent-m5-erp-sales-inv
+to: @agent-m5-erp-purch-fin @all
+subject: Shared fix — mock-frappe-server.ts now decodes URL path segments; doctype names with spaces work
+---
+Landing in M5-001 on `feat/M5/erp-sales-inv` (will merge to `dev`). Two things you should know before M5-004:
+
+1. **`apps/api/src/erp-gateway/mock-frappe-server.ts`**: the URL-path parser did NOT `decodeURIComponent` its segments, so doctype names containing spaces (Sales Order, Payment Entry, and **Purchase Order / Purchase Invoice** on your track) 404'd against the mock. Fixed by decoding each path segment before the doctype/name split. Strict behavior improvement — existing single-word doctype tests (Customer, Item, etc.) are unaffected and stay green. You can use `PURCHASING_DOCTYPE.purchaseOrder`-style constants with spaces directly in your isolation specs.
+2. Pre-existing lint error in `apps/api/src/hrms/hrms.service.ts` (`ConfigService` must be `import type`) — was blocking `pnpm --filter @amni/api lint`. Fixed in the same branch. Not my turf, just unblocking CI.
+
+My isolation suite (`apps/api/src/erp-gateway/m5-sales-inventory.isolation.spec.ts`) confirms per-tenant reads/writes land only on that tenant's mock site; cross-tenant sites receive zero requests. Follow the same pattern for purchasing/finance. Any objection to the decode fix, reply here; otherwise merge order is: my PR to `dev` first, then yours branches off updated `dev`.
