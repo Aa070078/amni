@@ -20,14 +20,12 @@ import {
   erpListQuerySchema,
   erpMethodSchema,
   erpUpdateQuerySchema,
-  ErrorCode,
   type ErpListResponse,
 } from "@amni/shared";
-import type { Response } from "express";
 
-import { ApiException } from "../common/api.exception";
+import { metaFrom, userFrom } from "../common/request-context";
 import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
-import type { GatewayRequestMeta, GatewayUser } from "./erp-gateway.service";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "./erp-gateway.service";
 
@@ -40,7 +38,6 @@ export class ErpGatewayController {
   list(@Req() req: AuthenticatedRequest, @Param("doctype") doctype: string, @Query() query: unknown): Promise<ErpListResponse> {
     return this.gateway.list(userFrom(req), metaFrom(req), erpDoctypeSchema.parse(doctype), erpListQuerySchema.parse(query));
   }
-
   @Get("resource/:doctype/:name")
   get(
     @Req() req: AuthenticatedRequest,
@@ -109,16 +106,4 @@ export class ErpGatewayController {
   ): Promise<unknown> {
     return this.gateway.call(userFrom(req), metaFrom(req), erpMethodSchema.parse(method), erpCallArgsSchema.parse(body));
   }
-}
-
-function userFrom(req: AuthenticatedRequest): GatewayUser {
-  if (!req.user) {
-    throw new ApiException({ code: ErrorCode.UNAUTHORIZED, status: 401, message: "Authentication required" });
-  }
-  return req.user;
-}
-
-function metaFrom(req: AuthenticatedRequest): GatewayRequestMeta {
-  const locals = (req.res as Response | undefined)?.locals as { requestId?: string } | undefined;
-  return { ip: req.ip, requestId: locals?.requestId };
 }

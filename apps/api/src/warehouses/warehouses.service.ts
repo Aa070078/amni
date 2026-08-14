@@ -1,6 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import {
-  ErrorCode,
+  BIN_FIELDS,
+  INVENTORY_DOCTYPE,
+  WAREHOUSE_FIELDS,
+  buildWarehouseDoc,
+  type ErpBinDoc,
+  type ErpWarehouseDoc,
+} from "@amni/erp";
+import {
   type CreateWarehouseInput,
   type StockLevel,
   type UpdateWarehouseInput,
@@ -10,10 +17,11 @@ import {
   type WarehouseListResponse,
 } from "@amni/shared";
 
-import { ApiException } from "../common/api.exception";
-
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+import { toIso } from "../common/frappe";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
+import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "name",
@@ -25,182 +33,71 @@ const SORT_WHITELIST = new Set([
   "updatedAt",
 ]);
 
-function stockRow(
-  warehouseCode: string,
-  productCode: string,
-  onHand: number,
-  reserved: number,
-  reorderLevel: number,
-): StockLevel {
+type ErpWarehouseRaw = ErpWarehouseDoc & { creation?: string; modified?: string };
+
+function toWarehouse(doc: ErpWarehouseRaw): Warehouse {
   return {
-    productCode,
-    warehouseCode,
-    onHand,
-    reserved,
-    available: Math.max(0, onHand - reserved),
-    reorderLevel,
+    code: doc.name,
+    name: doc.warehouse_name ?? doc.name,
+    status: doc.disabled === 1 ? "inactive" : "active",
+    isDefault: false,
+    createdAt: toIso(doc.creation ?? doc.modified),
+    updatedAt: toIso(doc.modified ?? doc.creation),
   };
 }
 
-type SeedWarehouse = Omit<Warehouse, "createdAt" | "updatedAt"> & {
-  createdAt: string;
-  updatedAt: string;
-  stock: StockLevel[];
-};
-
-const SEED: SeedWarehouse[] = [
-  {
-    code: "WH-0001",
-    name: "Main Store",
-    location: "450 Market St, San Francisco, CA",
-    manager: "Amara Osei",
-    status: "active",
-    isDefault: true,
-    createdAt: iso(240),
-    updatedAt: iso(6),
-    stock: [
-      stockRow("WH-0001", "PRD-0001", 24, 3, 10),
-      stockRow("WH-0001", "PRD-0003", 6, 2, 8),
-      stockRow("WH-0001", "PRD-0004", 40, 5, 20),
-      stockRow("WH-0001", "PRD-0005", 18, 0, 12),
-      stockRow("WH-0001", "PRD-0006", 12, 1, 10),
-      stockRow("WH-0001", "PRD-0007", 30, 4, 15),
-    ],
-  },
-  {
-    code: "WH-0002",
-    name: "Regional Warehouse",
-    location: "900 Harbor Bay Pkwy, Oakland, CA",
-    manager: "Theo Lindqvist",
-    status: "active",
-    isDefault: false,
-    createdAt: iso(200),
-    updatedAt: iso(9),
-    stock: [
-      stockRow("WH-0002", "PRD-0001", 160, 22, 60),
-      stockRow("WH-0002", "PRD-0002", 24, 4, 12),
-      stockRow("WH-0002", "PRD-0003", 85, 15, 40),
-      stockRow("WH-0002", "PRD-0004", 210, 30, 100),
-      stockRow("WH-0002", "PRD-0008", 55, 0, 40),
-      stockRow("WH-0002", "PRD-0009", 300, 0, 200),
-      stockRow("WH-0002", "PRD-0010", 40, 0, 60),
-    ],
-  },
-  {
-    code: "WH-0003",
-    name: "Workshop",
-    location: "1200 Folsom St, San Francisco, CA",
-    manager: "Grace Liu",
-    status: "active",
-    isDefault: false,
-    createdAt: iso(150),
-    updatedAt: iso(4),
-    stock: [
-      stockRow("WH-0003", "PRD-0001", 12, 6, 10),
-      stockRow("WH-0003", "PRD-0002", 4, 2, 6),
-      stockRow("WH-0003", "PRD-0003", 9, 3, 8),
-      stockRow("WH-0003", "PRD-0011", 18, 0, 10),
-      stockRow("WH-0003", "PRD-0012", 22, 5, 12),
-    ],
-  },
-  {
-    code: "WH-0004",
-    name: "Returns Center",
-    location: "7800 Raley Blvd, Sacramento, CA",
-    manager: "Elena Vasquez",
-    status: "inactive",
-    isDefault: false,
-    createdAt: iso(90),
-    updatedAt: iso(30),
-    stock: [
-      stockRow("WH-0004", "PRD-0001", 8, 0, 15),
-      stockRow("WH-0004", "PRD-0004", 25, 0, 20),
-      stockRow("WH-0004", "PRD-0005", 6, 0, 8),
-      stockRow("WH-0004", "PRD-0006", 3, 0, 6),
-    ],
-  },
-  {
-    code: "WH-0005",
-    name: "E-Commerce Fulfillment",
-    location: "1701 Automation Pkwy, San Jose, CA",
-    manager: "Dario Beltran",
-    status: "active",
-    isDefault: false,
-    createdAt: iso(45),
-    updatedAt: iso(3),
-    stock: [
-      stockRow("WH-0005", "PRD-0001", 96, 14, 50),
-      stockRow("WH-0005", "PRD-0004", 140, 18, 80),
-      stockRow("WH-0005", "PRD-0005", 60, 8, 30),
-      stockRow("WH-0005", "PRD-0006", 44, 6, 24),
-      stockRow("WH-0005", "PRD-0007", 120, 12, 60),
-      stockRow("WH-0005", "PRD-0008", 12, 0, 20),
-      stockRow("WH-0005", "PRD-0009", 80, 0, 100),
-      stockRow("WH-0005", "PRD-0010", 30, 0, 40),
-    ],
-  },
-  {
-    code: "WH-0006",
-    name: "Showroom",
-    location: "280 University Ave, Palo Alto, CA",
-    manager: "Priya Raman",
-    status: "active",
-    isDefault: false,
-    createdAt: iso(10),
-    updatedAt: iso(2),
-    stock: [
-      stockRow("WH-0006", "PRD-0001", 4, 0, 5),
-      stockRow("WH-0006", "PRD-0002", 2, 0, 3),
-      stockRow("WH-0006", "PRD-0005", 6, 0, 4),
-      stockRow("WH-0006", "PRD-0011", 5, 0, 4),
-      stockRow("WH-0006", "PRD-0012", 3, 1, 4),
-    ],
-  },
-];
-
-const toWarehouse = (seed: SeedWarehouse): Warehouse => ({
-  code: seed.code,
-  name: seed.name,
-  location: seed.location,
-  manager: seed.manager,
-  status: seed.status,
-  isDefault: seed.isDefault,
-  createdAt: seed.createdAt,
-  updatedAt: seed.updatedAt,
-});
-
-function nextCode(records: Warehouse[]): string {
-  const max = records.reduce((highest, warehouse) => {
-    const number = Number(warehouse.code.slice(3));
-    return number > highest ? number : highest;
-  }, 0);
-  return `WH-${String(max + 1).padStart(4, "0")}`;
+function toStockLevel(bin: ErpBinDoc, reorderMap: Map<string, number>): StockLevel {
+  const onHand = bin.actual_qty;
+  const reserved = bin.reserved_qty ?? 0;
+  return {
+    productCode: bin.item_code,
+    warehouseCode: bin.warehouse,
+    onHand,
+    reserved,
+    available: bin.projected_qty ?? Math.max(0, onHand - reserved),
+    reorderLevel: reorderMap.get(bin.item_code) ?? 0,
+  };
 }
 
 /**
- * Reference data for the Demo Co tenant. This module is the only inventory
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Warehouses backed by the tenant's real ERPNext Warehouse doctype. Stock on
+ * the detail view is read from the Bin doctype. `location` / `manager` /
+ * `isDefault` have no native ERPNext field, so they are not persisted
+ * (reported as absent / false).
  */
 @Injectable()
 export class WarehousesService {
-  private records: Warehouse[] = SEED.map(toWarehouse);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  list(query: WarehouseListQuery): WarehouseListResponse {
-    const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((warehouse) => {
-      if (query.status && warehouse.status !== query.status) return false;
-      if (!q) return true;
-      return [warehouse.code, warehouse.name, warehouse.location ?? "", warehouse.manager ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
+  async list(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    query: WarehouseListQuery,
+  ): Promise<WarehouseListResponse> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const { items: docs } = await client.list<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, {
+      limitPageLength: 0,
     });
+
+    let records = docs.map(toWarehouse);
+    if (query.status) {
+      records = records.filter((warehouse) => warehouse.status === query.status);
+    }
+
+    const q = (query.q ?? "").toLowerCase().trim();
+    if (q) {
+      records = records.filter((warehouse) =>
+        [warehouse.code, warehouse.name, warehouse.location ?? "", warehouse.manager ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      );
+    }
 
     const whitelisted = query.sortBy !== undefined && SORT_WHITELIST.has(query.sortBy);
     const sortBy = whitelisted ? query.sortBy : "createdAt";
     const sortDir = whitelisted && query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = [...records].sort((a, b) => {
       const aValue = a[sortBy as keyof Warehouse];
       const bValue = b[sortBy as keyof Warehouse];
       if (aValue === bValue) return 0;
@@ -209,72 +106,89 @@ export class WarehousesService {
       return aValue < bValue ? -1 * sortDir : sortDir;
     });
 
-    const page = query.page;
-    const pageSize = query.pageSize;
-    const start = (page - 1) * pageSize;
+    const start = (query.page - 1) * query.pageSize;
     return {
-      items: sorted.slice(start, start + pageSize),
-      meta: { total: sorted.length, page, pageSize },
+      items: sorted.slice(start, start + query.pageSize),
+      meta: { total: sorted.length, page: query.page, pageSize: query.pageSize },
     };
   }
 
-  detail(code: string): WarehouseDetail {
-    const warehouse = this.records.find((record) => record.code === code);
-    if (!warehouse) {
-      throw new ApiException({
-        code: ErrorCode.NOT_FOUND,
-        status: 404,
-        message: `Warehouse ${code} not found`,
-      });
-    }
-    const seed = SEED.find((record) => record.code === code);
-    const stock = seed ? seed.stock : [];
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<WarehouseDetail> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const doc = await client
+      .get<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, code)
+      .catch((err) => translateErpError(err, "Warehouse"));
+
+    const { items: bins } = await client.list<ErpBinDoc>(INVENTORY_DOCTYPE.bin, {
+      filters: { [BIN_FIELDS.warehouseCode]: code },
+      fields: ["name", "item_code", "warehouse", "actual_qty", "reserved_qty", "projected_qty"],
+      limitPageLength: 0,
+    });
+    const { items: items } = await client.list<{ name: string; reorder_level?: number }>(
+      INVENTORY_DOCTYPE.item,
+      { fields: ["name", "reorder_level"], limitPageLength: 0 },
+    );
+    const reorderMap = new Map(items.map((item) => [item.name, item.reorder_level ?? 0]));
+
+    const stock = bins.map((bin) => toStockLevel(bin, reorderMap));
     const lowStock = stock.filter((row) => row.onHand < row.reorderLevel);
-    return { ...warehouse, stock, lowStock };
+    return { ...toWarehouse(doc), stock, lowStock };
   }
 
-  create(input: CreateWarehouseInput): Warehouse {
-    const warehouse: Warehouse = {
-      code: nextCode(this.records),
-      name: input.name,
-      location: input.location,
-      manager: input.manager,
-      status: input.status ?? "active",
-      isDefault: input.isDefault ?? false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.records.push(warehouse);
-    return warehouse;
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateWarehouseInput): Promise<Warehouse> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const created = await client.create<ErpWarehouseRaw>(
+      INVENTORY_DOCTYPE.warehouse,
+      buildWarehouseDoc({ name: input.name, status: input.status }),
+    );
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "warehouse.create",
+      resourceType: INVENTORY_DOCTYPE.warehouse,
+      resourceId: created.name,
+    });
+    return toWarehouse(created);
   }
 
-  update(code: string, input: UpdateWarehouseInput): Warehouse {
-    const warehouse = this.records.find((record) => record.code === code);
-    if (!warehouse) {
-      throw new ApiException({
-        code: ErrorCode.NOT_FOUND,
-        status: 404,
-        message: `Warehouse ${code} not found`,
-      });
-    }
-    if (input.name !== undefined) warehouse.name = input.name;
-    if (input.location !== undefined) warehouse.location = input.location;
-    if (input.manager !== undefined) warehouse.manager = input.manager;
-    if (input.status !== undefined) warehouse.status = input.status;
-    if (input.isDefault !== undefined) warehouse.isDefault = input.isDefault;
-    warehouse.updatedAt = new Date().toISOString();
-    return warehouse;
+  async update(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+    input: UpdateWarehouseInput,
+  ): Promise<Warehouse> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const patch: Record<string, unknown> = {};
+    if (input.name !== undefined) patch[WAREHOUSE_FIELDS.name] = input.name;
+    if (input.status !== undefined) patch[WAREHOUSE_FIELDS.status] = input.status === "inactive" ? 1 : 0;
+
+    const updated = await client
+      .update<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, code, patch)
+      .catch((err) => translateErpError(err, "Warehouse"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "warehouse.update",
+      resourceType: INVENTORY_DOCTYPE.warehouse,
+      resourceId: code,
+    });
+    return toWarehouse(updated);
   }
 
-  remove(code: string): void {
-    const index = this.records.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({
-        code: ErrorCode.NOT_FOUND,
-        status: 404,
-        message: `Warehouse ${code} not found`,
-      });
-    }
-    this.records.splice(index, 1);
+  async remove(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    await client
+      .delete(INVENTORY_DOCTYPE.warehouse, code)
+      .catch((err) => translateErpError(err, "Warehouse"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "warehouse.delete",
+      resourceType: INVENTORY_DOCTYPE.warehouse,
+      resourceId: code,
+    });
   }
 }

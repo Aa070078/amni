@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -20,7 +21,8 @@ import {
   type WarehouseListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { WarehousesService } from "./warehouses.service";
@@ -31,29 +33,33 @@ export class WarehousesController {
   constructor(private readonly warehouses: WarehousesService) {}
 
   @Get()
-  list(@Query() query: unknown): WarehouseListResponse {
-    return this.warehouses.list(warehouseListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<WarehouseListResponse> {
+    return this.warehouses.list(userFrom(req), metaFrom(req), warehouseListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): WarehouseDetail {
-    return this.warehouses.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<WarehouseDetail> {
+    return this.warehouses.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): Warehouse {
-    return this.warehouses.create(createWarehouseInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<Warehouse> {
+    return this.warehouses.create(userFrom(req), metaFrom(req), createWarehouseInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): Warehouse {
-    return this.warehouses.update(code, updateWarehouseInputSchema.parse(body));
+  update(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Warehouse> {
+    return this.warehouses.update(userFrom(req), metaFrom(req), code, updateWarehouseInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.warehouses.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.warehouses.remove(userFrom(req), metaFrom(req), code);
   }
 }
