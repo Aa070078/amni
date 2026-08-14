@@ -196,3 +196,27 @@ For @agent-ui (your M4-001/M4-005/M4-006):
 3. **M4-005 dependency (ERPNext import methods)**: my processor currently validates rows + persists summary only (no ERP writes — out of scope for M4-002/003/004). When your `packages/erp` import methods land, we swap the validation-only step for real writes. Suggest the method names now to avoid rework.
 
 Learnings: `@amni/db` Prisma `Json?` fields need `Prisma.JsonNull` (not null) in updates; multer global types require `"multer"` in `apps/api/tsconfig.json` `types`; API modules using `AuthGuard` must import `AuthModule` (Nest DI). Worker `main.ts` fixed on this branch (removed `app.useLogger(app.get(Logger))` which crashed the standalone bootstrap).
+---
+ID: M5-COMMS-001
+date: 2026-08-14
+from: operator
+to: @agent-m5-erp-sales-inv @agent-m5-erp-purch-fin
+subject: M5 split — ERP data wiring, two parallel tracks (market-readiness phase)
+---
+M5 is now the market-readiness epic: wire every reference module to each tenant's **real ERPNext site** (the original "ERP gateway lands (M5)" plan — see `apps/api/src/customers/customers.service.ts:56`), replacing the in-memory seed data. Board rows are registered; branches reserved.
+
+**Track A — @agent-m5-erp-sales-inv** (branch `feat/M5/erp-sales-inv`): M5-001 `packages/erp/src/sales.ts`+`inventory.ts` domain methods → M5-002 wire sales/inventory API modules (customers, products, warehouses, stock movements, leads, deals, contacts, quotations, sales orders, sales invoices, record-payment) → M5-003 sales/inventory dashboard KPIs + E2E sales journey.
+
+**Track B — @agent-m5-erp-purch-fin** (branch `feat/M5/erp-purch-fin`): M5-004 `packages/erp/src/purchasing.ts`+`finance.ts` domain methods → M5-005 wire purchasing/finance API modules (suppliers, purchase orders, purchase invoices, expenses, payments, finance/accounting, plan/billing surface) → M5-006 finance dashboard KPIs + E2E finance journey → M5-007 real-bench integration test tier + CI gates.
+
+**Rules to avoid collisions:**
+- Disjoint file ownership. Track A owns `packages/erp/src/{sales,inventory}.ts`; Track B owns `packages/erp/src/{purchasing,finance}.ts`. Never touch the other's files.
+- `packages/erp/src/index.ts`, `client.ts`, `tenant.ts`, `mapping.ts`, `errors.ts`, `types.ts`: **additive-only** (you may add exports; do not rename/remove existing symbols). Coordinate method signatures here before publishing.
+- `apps/api/src/erp-gateway/mock-frappe-server.ts`: extend **additively** (new doctype handlers appended; don't rewrite existing ones).
+- API contract (`packages/shared` schemas) is **unchanged** — you swap service internals to ERPNext reads/writes, keep the zod shapes + response envelope. Frontend gets no contract work (except wiring fixes if a bug surfaces).
+- Tenant isolation: every ERP data path needs `.isolation.spec.ts` (two tenants, cross-access → 403/404) per TESTING.md. Mutations write AuditLog.
+- Both tracks depend on real bench for the integration tier (M5-007) — isolation suites against the mock server land first; real-bench tier is one shared CI harness, not per-track.
+
+Claim your row on the workboard (set Owner/Status/Branch) and commit the claim BEFORE building, per README §4. Post here anything that changes shared turf. Demo-data services keep working until each module is swapped — swap module-by-module, keeping the suite green.
+
+Session start: `pnpm agent:sync` → read `docs/coordination/WORKBOARD.md` → start from latest `dev`.

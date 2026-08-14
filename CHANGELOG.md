@@ -5,6 +5,7 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **M5 split registered (ERP data wiring, market-readiness)** — M5 is now the market-readiness epic: replace in-memory seed data in every reference module with live reads/writes to each tenant's real ERPNext site (the original "ERP gateway lands (M5)" plan). Two parallel agent tracks own disjoint files: Track A = `packages/erp/src/{sales,inventory}.ts` + sales/inventory API modules (M5-001..003); Track B = `packages/erp/src/{purchasing,finance}.ts` + purchasing/finance API modules + real-bench integration tier + CI gates (M5-004..007). Contract shapes unchanged (frontend untouched); isolation tests per module; COMMS M5-COMMS-001 posted.
 - **Import web UX + notifications persistence + ERPNext import writes (M4-001/M4-005/M4-006)** — completes the M4 import pipeline (backend M4-002..M4-004 landed in PR #52):
   - M4-001 — in-app notifications persistence: `apps/api` notifications controller/service read from DB; `apps/worker/src/jobs/notify.processor.ts` persists `NOTIFY` jobs (replacing the in-memory seed), with `notifications.service.spec.ts` + `notify.processor.spec.ts`.
   - M4-005 — ERPNext import integration: `packages/erp/src/imports.ts` kind→doctype methods (feeds M4-004), two-tenant isolation suite `apps/api/src/imports/imports.isolation.spec.ts`; row-level ERP failure handling in `imports.processor.ts`.
