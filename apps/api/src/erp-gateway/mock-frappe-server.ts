@@ -49,7 +49,11 @@ export async function startMockFrappeServer(options: {
     }
 
     const resource = url.pathname.startsWith(RESOURCE_PREFIX)
-      ? url.pathname.slice(RESOURCE_PREFIX.length).split("/").filter(Boolean)
+      ? url.pathname
+          .slice(RESOURCE_PREFIX.length)
+          .split("/")
+          .filter(Boolean)
+          .map((segment) => decodeURIComponent(segment))
       : [];
 
     if (resource.length === 0) {
