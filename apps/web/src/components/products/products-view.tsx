@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Boxes, CheckCircle2, Package, PackageSearch, Search, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Boxes, CheckCircle2, LayoutGrid, List, Package, PackageSearch, Search, TriangleAlert } from "lucide-react";
 import { type Product } from "@amni/shared";
 import {
   Button,
@@ -21,6 +21,7 @@ import {
 import { formatCurrency } from "@/src/lib/format";
 import { productsClient } from "@/src/lib/products";
 import { NewProductDialog } from "./new-product-dialog";
+import { ProductsBoard } from "./products-board";
 import { PRODUCT_CATEGORIES, ProductStatusBadge } from "./product-status";
 
 const PAGE_SIZE = 100;
@@ -50,6 +51,7 @@ export function ProductsView() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [view, setView] = useState<"table" | "board">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createdProduct, setCreatedProduct] = useState<Product | null>(null);
 
@@ -84,6 +86,14 @@ export function ProductsView() {
     },
   });
 
+  const updateProductCategory = useMutation({
+    mutationFn: ({ code, category }: { code: string; category: string }) =>
+      productsClient.update(code, { category }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["products", "list"] });
+    },
+  });
+
   const products = listQuery.data?.items ?? [];
 
   const stats = useMemo(() => {
@@ -103,6 +113,14 @@ export function ProductsView() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/inventory"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        Inventory
+      </Link>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
@@ -110,11 +128,39 @@ export function ProductsView() {
             Manage the items you buy, sell and stock across your business.
           </p>
         </div>
-        <NewProductDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onCreate={(product) => createProduct.mutate(product)}
-        />
+        <div className="flex items-center gap-2">
+          <div
+            role="group"
+            aria-label="View mode"
+            className="inline-flex items-center rounded-md border bg-muted/50 p-0.5"
+          >
+            <Button
+              variant={view === "table" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setView("table")}
+              aria-pressed={view === "table"}
+            >
+              <List className="h-3.5 w-3.5" aria-hidden="true" />
+              List
+            </Button>
+            <Button
+              variant={view === "board" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setView("board")}
+              aria-pressed={view === "board"}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+              Board
+            </Button>
+          </div>
+          <NewProductDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onCreate={(product) => createProduct.mutate(product)}
+          />
+        </div>
       </div>
 
       {createdProduct ? (
@@ -186,7 +232,7 @@ export function ProductsView() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative">
+            <div className="relative flex-1 sm:max-w-sm">
               <Search
                 className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden="true"
@@ -197,109 +243,120 @@ export function ProductsView() {
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search products…"
                 aria-label="Search products"
-                className="h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-sm"
+                className="h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-full sm:w-48" aria-label="Filter by category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {PRODUCT_CATEGORIES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value[0]?.toUpperCase()}
-                    {value.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {view === "table" ? (
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-full sm:w-48" aria-label="Filter by category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {PRODUCT_CATEGORIES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value[0]?.toUpperCase()}
+                      {value.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
 
-          <DataTable
-            columns={[
-              {
-                accessorKey: "name",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
-                cell: ({ row }) => {
-                  const product = row.original;
-                  return (
-                    <div className="flex flex-col">
-                      <Link
-                        href={`/inventory/products/${product.code}`}
-                        className="font-medium text-foreground hover:text-primary hover:underline"
-                      >
-                        {product.name}
-                      </Link>
-                      <span className="text-xs tabular-nums text-muted-foreground">{product.code}</span>
-                    </div>
-                  );
+          {view === "board" ? (
+            <ProductsBoard
+              products={products}
+              onCategoryChange={(code, newCategory) =>
+                updateProductCategory.mutate({ code, category: newCategory })
+              }
+            />
+          ) : (
+            <DataTable
+              columns={[
+                {
+                  accessorKey: "name",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+                  cell: ({ row }) => {
+                    const product = row.original;
+                    return (
+                      <div className="flex flex-col">
+                        <Link
+                          href={`/inventory/products/${product.code}`}
+                          className="font-medium text-foreground hover:text-primary hover:underline"
+                        >
+                          {product.name}
+                        </Link>
+                        <span className="text-xs tabular-nums text-muted-foreground">{product.code}</span>
+                      </div>
+                    );
+                  },
                 },
-              },
-              {
-                accessorKey: "category",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
-                cell: ({ row }) => <span className="text-muted-foreground">{row.original.category}</span>,
-              },
-              {
-                accessorKey: "unit",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Unit" />,
-                cell: ({ row }) => <span className="text-muted-foreground">{row.original.unit}</span>,
-              },
-              {
-                accessorKey: "price",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
-                cell: ({ row }) => (
-                  <span className="font-medium tabular-nums text-foreground">
-                    {formatCurrency(row.original.price, row.original.currency)}
-                  </span>
+                {
+                  accessorKey: "category",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
+                  cell: ({ row }) => <span className="text-muted-foreground capitalize">{row.original.category}</span>,
+                },
+                {
+                  accessorKey: "unit",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Unit" />,
+                  cell: ({ row }) => <span className="text-muted-foreground">{row.original.unit}</span>,
+                },
+                {
+                  accessorKey: "price",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
+                  cell: ({ row }) => (
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatCurrency(row.original.price, row.original.currency)}
+                    </span>
+                  ),
+                },
+                {
+                  accessorKey: "cost",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" />,
+                  cell: ({ row }) => (
+                    <span className="tabular-nums text-muted-foreground">
+                      {formatCurrency(row.original.cost, row.original.currency)}
+                    </span>
+                  ),
+                },
+                {
+                  accessorKey: "status",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+                  cell: ({ row }) => <ProductStatusBadge status={row.original.status} />,
+                },
+                {
+                  accessorKey: "reorderLevel",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Reorder level" />,
+                  cell: ({ row }) => (
+                    <span className="tabular-nums text-muted-foreground">{row.original.reorderLevel}</span>
+                  ),
+                },
+              ]}
+              data={products}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearFilters}
+              getRowId={(product) => (product as Product).code}
+              initialSorting={[{ id: "name", desc: false }]}
+              pageSizeOptions={[10, 20, 50]}
+              emptyState={{
+                icon: <Boxes className="h-8 w-8 text-muted-foreground" aria-hidden="true" />,
+                title: "No products yet",
+                description: "Create your first product to start building your catalog.",
+                action: (
+                  <Button onClick={() => setDialogOpen(true)}>
+                    <Package className="mr-2 h-4 w-4" aria-hidden="true" />
+                    New product
+                  </Button>
                 ),
-              },
-              {
-                accessorKey: "cost",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Cost" />,
-                cell: ({ row }) => (
-                  <span className="tabular-nums text-muted-foreground">
-                    {formatCurrency(row.original.cost, row.original.currency)}
-                  </span>
-                ),
-              },
-              {
-                accessorKey: "status",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-                cell: ({ row }) => <ProductStatusBadge status={row.original.status} />,
-              },
-              {
-                accessorKey: "reorderLevel",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Reorder level" />,
-                cell: ({ row }) => (
-                  <span className="tabular-nums text-muted-foreground">{row.original.reorderLevel}</span>
-                ),
-              },
-            ]}
-            data={products}
-            hasActiveFilters={hasActiveFilters}
-            onClearFilters={clearFilters}
-            getRowId={(product) => (product as Product).code}
-            initialSorting={[{ id: "name", desc: false }]}
-            pageSizeOptions={[10, 20, 50]}
-            emptyState={{
-              icon: <Boxes className="h-8 w-8 text-muted-foreground" aria-hidden="true" />,
-              title: "No products yet",
-              description: "Create your first product to start building your catalog.",
-              action: (
-                <Button onClick={() => setDialogOpen(true)}>
-                  <Package className="mr-2 h-4 w-4" aria-hidden="true" />
-                  New product
-                </Button>
-              ),
-            }}
-            noResultsState={{
-              icon: <TriangleAlert className="h-8 w-8 text-muted-foreground" aria-hidden="true" />,
-              title: "No matching products",
-              description: "Try adjusting your search or clearing the filters.",
-            }}
-          />
+              }}
+              noResultsState={{
+                icon: <TriangleAlert className="h-8 w-8 text-muted-foreground" aria-hidden="true" />,
+                title: "No matching products",
+                description: "Try adjusting your search or clearing the filters.",
+              }}
+            />
+          )}
         </>
       )}
     </div>

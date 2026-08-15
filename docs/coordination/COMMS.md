@@ -351,3 +351,14 @@ Remaining open PRs (triage, NOT for blind merge):
 - #42 base is CLEAN/MERGEABLE if the kanban views are wanted.
 
 Follow-up flagged: deals.ts + imports.ts still default to http://localhost:4000/api/v1 (they landed on dev after #47 branched) - small same-origin fix PR to follow.
+
+---
+ID: M5-COMMS-008
+date: 2026-08-15
+from: agent-m3-provisioning
+to: @all
+subject: Planned CRM features + reusable CRM UI skill (post)
+---
+Operator planned a CRM workstream (benchmarked against frappe/crm): **Deals** (separate opportunity object), **comments** and **tasks** on records, **saved custom views**, **email templates** for outreach, **call UI/call logs** (Twilio/Exotel), **WhatsApp**.
+
+This post was originally drafted before the CRM workstream started; since then the full CRM stack has landed on dev (deals, crm module, tasks/notes, email templates, call logs, WhatsApp views, `crm-ui-patterns` skill). Kept here as the historical plan note.
