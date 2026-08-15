@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import {
-  ErrorCode,
+  CONTACT_FIELDS,
+  SALES_DOCTYPE,
+  buildContactDoc,
+  type ErpContactDoc,
+} from "@amni/erp";
+import {
   type Contact,
   type ContactListQuery,
   type ContactListResponse,
@@ -8,10 +13,11 @@ import {
   type UpdateContactInput,
 } from "@amni/shared";
 
-import { ApiException } from "../common/api.exception";
-
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+import { toIso } from "../common/frappe";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
+import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "code",
@@ -26,25 +32,24 @@ const SORT_WHITELIST = new Set([
   "updatedAt",
 ]);
 
-const SEED: Contact[] = [
-  { code: "CON-0001", firstName: "Amira", lastName: "Haddad", email: "amira.haddad@democo.io", phone: "+20 2 456 1100", jobTitle: "Chief Executive Officer", department: "Executive", company: "Demo Co", address: "10 Innovation Drive, Cairo", notes: "Primary decision maker.", status: "active", createdAt: iso(120), updatedAt: iso(4) },
-  { code: "CON-0002", firstName: "Daniel", lastName: "Osei", email: "daniel.osei@democo.io", phone: "+233 30 274 9901", jobTitle: "Head of Sales", department: "Sales", company: "Demo Co", status: "active", createdAt: iso(112), updatedAt: iso(6) },
-  { code: "CON-0003", firstName: "Lena", lastName: "Fischer", email: "lena.fischer@democo.io", phone: "+49 30 901 204", jobTitle: "Operations Manager", department: "Operations", company: "Demo Co", status: "active", createdAt: iso(104), updatedAt: iso(3) },
-  { code: "CON-0004", firstName: "Omar", lastName: "Khalil", email: "omar.khalil@democo.io", phone: "+20 2 456 1120", jobTitle: "Procurement Lead", department: "Purchasing", company: "Demo Co", notes: "Approves supplier onboarding.", status: "active", createdAt: iso(96), updatedAt: iso(9) },
-  { code: "CON-0005", firstName: "Priya", lastName: "Nair", email: "priya.nair@democo.io", phone: "+91 80 4661 3300", jobTitle: "Finance Manager", department: "Finance", company: "Demo Co", status: "active", createdAt: iso(88), updatedAt: iso(5) },
-  { code: "CON-0006", firstName: "Sofia", lastName: "Rossi", email: "sofia.rossi@democo.io", phone: "+39 02 3490 8810", jobTitle: "Marketing Lead", department: "Marketing", company: "Demo Co", status: "active", createdAt: iso(80), updatedAt: iso(11) },
-  { code: "CON-0007", firstName: "Tomás", lastName: "Silva", email: "tomas.silva@democo.io", phone: "+351 21 456 2300", jobTitle: "IT Administrator", department: "IT", company: "Demo Co", status: "active", createdAt: iso(72), updatedAt: iso(7) },
-  { code: "CON-0008", firstName: "Emma", lastName: "Lindqvist", email: "emma.lindqvist@democo.io", phone: "+46 8 556 887 00", jobTitle: "Customer Success", department: "Customer Success", company: "Demo Co", status: "active", createdAt: iso(64), updatedAt: iso(2) },
-  { code: "CON-0009", firstName: "James", lastName: "Carter", email: "james.carter@baker-sterling.com", phone: "+44 20 7946 0234", jobTitle: "External Auditor", department: "External", company: "Baker & Sterling", address: "12 Finance Row, London", notes: "Year-end audit contact.", status: "inactive", createdAt: iso(50), updatedAt: iso(16) },
-  { code: "CON-0010", firstName: "Aisha", lastName: "Bello", email: "aisha.bello@belloandpartners.ng", phone: "+234 1 270 3344", jobTitle: "Legal Counsel", department: "Legal", company: "Bello & Partners", status: "active", createdAt: iso(38), updatedAt: iso(10) },
-];
+type ErpContactRaw = ErpContactDoc & { creation?: string; modified?: string };
 
-function nextCode(records: Contact[]): string {
-  const max = records.reduce((highest, contact) => {
-    const number = Number(contact.code.slice(4));
-    return number > highest ? number : highest;
-  }, 0);
-  return `CON-${String(max + 1).padStart(4, "0")}`;
+function toContact(doc: ErpContactRaw): Contact {
+  return {
+    code: doc.name,
+    firstName: doc.first_name ?? "",
+    lastName: doc.last_name,
+    email: doc.email_id,
+    phone: doc.mobile_no,
+    jobTitle: doc.designation,
+    department: doc.department,
+    company: doc.company_name,
+    address: undefined,
+    notes: undefined,
+    status: "active",
+    createdAt: toIso(doc.creation ?? doc.modified),
+    updatedAt: toIso(doc.modified ?? doc.creation),
+  };
 }
 
 function sortValue(contact: Contact, sortBy: string): unknown {
@@ -52,36 +57,50 @@ function sortValue(contact: Contact, sortBy: string): unknown {
 }
 
 /**
- * Reference data for the Demo Co tenant. This module is the only contacts
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Contacts backed by the tenant's real ERPNext Contact doctype. ERPNext has no
+ * address / notes / disabled flag on the Contact doctype, so address and notes
+ * are always absent and status is always "active".
  */
 @Injectable()
 export class ContactsService {
-  private records: Contact[] = structuredClone(SEED);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  list(query: ContactListQuery): ContactListResponse {
-    const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((contact) => {
-      if (query.status && contact.status !== query.status) return false;
-      if (!q) return true;
-      return [
-        contact.code,
-        contact.firstName,
-        contact.lastName ?? "",
-        contact.email ?? "",
-        contact.jobTitle ?? "",
-        contact.department ?? "",
-        contact.company ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
+  async list(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    query: ContactListQuery,
+  ): Promise<ContactListResponse> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const { items: docs } = await client.list<ErpContactRaw>(SALES_DOCTYPE.contact, {
+      limitPageLength: 0,
     });
+
+    let records = docs.map(toContact);
+    if (query.status) {
+      records = records.filter((contact) => contact.status === query.status);
+    }
+
+    const q = (query.q ?? "").toLowerCase().trim();
+    if (q) {
+      records = records.filter((contact) =>
+        [
+          contact.code,
+          contact.firstName,
+          contact.lastName ?? "",
+          contact.email ?? "",
+          contact.jobTitle ?? "",
+          contact.department ?? "",
+          contact.company ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      );
+    }
 
     const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
     const sortDir = query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = [...records].sort((a, b) => {
       const aValue = sortValue(a, sortBy);
       const bValue = sortValue(b, sortBy);
       if (aValue === bValue) return 0;
@@ -90,67 +109,86 @@ export class ContactsService {
       return aValue < bValue ? -1 * sortDir : sortDir;
     });
 
-    const page = query.page;
-    const pageSize = query.pageSize;
-    const start = (page - 1) * pageSize;
+    const start = (query.page - 1) * query.pageSize;
     return {
-      items: sorted.slice(start, start + pageSize),
-      meta: { total: sorted.length, page, pageSize },
+      items: sorted.slice(start, start + query.pageSize),
+      meta: { total: sorted.length, page: query.page, pageSize: query.pageSize },
     };
   }
 
-  detail(code: string): Contact {
-    const contact = this.records.find((record) => record.code === code);
-    if (!contact) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Contact ${code} not found` });
-    }
-    return contact;
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<Contact> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const doc = await client
+      .get<ErpContactRaw>(SALES_DOCTYPE.contact, code)
+      .catch((err) => translateErpError(err, "Contact"));
+    return toContact(doc);
   }
 
-  create(input: CreateContactInput): Contact {
-    const contact: Contact = {
-      code: nextCode(this.records),
-      firstName: input.firstName ?? "Untitled contact",
-      lastName: input.lastName,
-      email: input.email,
-      phone: input.phone,
-      jobTitle: input.jobTitle,
-      department: input.department,
-      company: input.company,
-      address: input.address,
-      notes: input.notes,
-      status: input.status ?? "active",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.records.push(contact);
-    return contact;
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateContactInput): Promise<Contact> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const created = await client.create<ErpContactDoc>(
+      SALES_DOCTYPE.contact,
+      buildContactDoc({
+        firstName: input.firstName ?? "Untitled contact",
+        lastName: input.lastName,
+        email: input.email,
+        mobileNo: input.phone,
+        companyName: input.company,
+        department: input.department,
+        jobTitle: input.jobTitle,
+      }),
+    );
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "contact.create",
+      resourceType: SALES_DOCTYPE.contact,
+      resourceId: created.name,
+    });
+    return toContact(created);
   }
 
-  update(code: string, input: UpdateContactInput): Contact {
-    const contact = this.records.find((record) => record.code === code);
-    if (!contact) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Contact ${code} not found` });
-    }
-    if (input.firstName !== undefined) contact.firstName = input.firstName;
-    if (input.lastName !== undefined) contact.lastName = input.lastName;
-    if (input.email !== undefined) contact.email = input.email;
-    if (input.phone !== undefined) contact.phone = input.phone;
-    if (input.jobTitle !== undefined) contact.jobTitle = input.jobTitle;
-    if (input.department !== undefined) contact.department = input.department;
-    if (input.company !== undefined) contact.company = input.company;
-    if (input.address !== undefined) contact.address = input.address;
-    if (input.notes !== undefined) contact.notes = input.notes;
-    if (input.status !== undefined) contact.status = input.status;
-    contact.updatedAt = new Date().toISOString();
-    return contact;
+  async update(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+    input: UpdateContactInput,
+  ): Promise<Contact> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const patch: Record<string, unknown> = {};
+    if (input.firstName !== undefined) patch[CONTACT_FIELDS.firstName] = input.firstName;
+    if (input.lastName !== undefined) patch[CONTACT_FIELDS.lastName] = input.lastName;
+    if (input.email !== undefined) patch[CONTACT_FIELDS.email] = input.email;
+    if (input.phone !== undefined) patch[CONTACT_FIELDS.mobileNo] = input.phone;
+    if (input.jobTitle !== undefined) patch[CONTACT_FIELDS.jobTitle] = input.jobTitle;
+    if (input.department !== undefined) patch[CONTACT_FIELDS.department] = input.department;
+    if (input.company !== undefined) patch[CONTACT_FIELDS.companyName] = input.company;
+
+    const updated = await client
+      .update<ErpContactDoc>(SALES_DOCTYPE.contact, code, patch)
+      .catch((err) => translateErpError(err, "Contact"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "contact.update",
+      resourceType: SALES_DOCTYPE.contact,
+      resourceId: code,
+    });
+    return toContact(updated);
   }
 
-  remove(code: string): void {
-    const index = this.records.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Contact ${code} not found` });
-    }
-    this.records.splice(index, 1);
+  async remove(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
+    await client.delete(SALES_DOCTYPE.contact, code).catch((err) => translateErpError(err, "Contact"));
+    await this.gateway.audit({
+      user,
+      meta,
+      companyId,
+      action: "contact.delete",
+      resourceType: SALES_DOCTYPE.contact,
+      resourceId: code,
+    });
   }
 }

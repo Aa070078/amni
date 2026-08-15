@@ -8,6 +8,8 @@ import type {
 import { AmniApiError, apiRequest, toQueryString } from "./client";
 
 export class ProductsApiError extends AmniApiError {}
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+const CSRF_COOKIE = "amni_csrf";
 
 const DEMO_PRODUCTS: Product[] = [
   { code: "PRD-0001", sku: "NIM-LED-2000", name: "Nimbus LED Panel", category: "lighting", unit: "pcs", price: 149, cost: 89, currency: "USD", status: "active", description: "Recessed panel luminaire, 4000K, sized for office ceilings.", reorderLevel: 25, isStockItem: true, isSalesItem: true, isPurchaseItem: false, vatRate: 20, createdAt: "2026-07-01T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" },

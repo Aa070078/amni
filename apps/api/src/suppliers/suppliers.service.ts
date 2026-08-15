@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PURCHASING_DOCTYPE, SUPPLIER_FIELDS, buildSupplierDoc, ErpError } from "@amni/erp";
 import {
   ErrorCode,
   type CreateSupplierInput,
@@ -9,9 +10,10 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
-
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "code",
@@ -25,41 +27,75 @@ const SORT_WHITELIST = new Set([
   "updatedAt",
 ]);
 
-const SEED: Supplier[] = [
-  { code: "SUP-0001", name: "Nordic Timberworks", group: "Raw Materials", email: "sales@nordictimberworks.se", phone: "+46 8 556 120 30", currency: "EUR", paymentTerms: "Net 30", taxId: "SE556123456701", status: "active", outstanding: 0, totalPurchases: 8240, createdAt: iso(110), updatedAt: iso(3) },
-  { code: "SUP-0002", name: "Fleetline Metals", group: "Raw Materials", email: "orders@fleetlinemetals.com", phone: "+44 121 555 0134", currency: "GBP", paymentTerms: "Net 30", taxId: "GB123456789", status: "active", outstanding: 1460, totalPurchases: 9120, createdAt: iso(104), updatedAt: iso(8) },
-  { code: "SUP-0003", name: "Comet Office Supply", group: "Office", email: "accounts@cometoffice.co.uk", phone: "+44 161 832 4410", currency: "GBP", paymentTerms: "14 days", taxId: "GB987654321", status: "active", outstanding: 0, totalPurchases: 3240, createdAt: iso(98), updatedAt: iso(12) },
-  { code: "SUP-0004", name: "Hale Lighting Co.", group: "Lighting", email: "trade@halelighting.com", phone: "+44 207 946 0915", currency: "GBP", paymentTerms: "Net 30", taxId: "GB192837465", status: "active", outstanding: 980, totalPurchases: 6780, createdAt: iso(92), updatedAt: iso(5) },
-  { code: "SUP-0005", name: "PackRight Logistics", group: "Logistics", email: "ops@packrightlogistics.com", phone: "+44 113 233 7809", currency: "GBP", paymentTerms: "Net 45", status: "active", outstanding: 0, totalPurchases: 5180, createdAt: iso(86), updatedAt: iso(2) },
-  { code: "SUP-0006", name: "Beacon Textiles", group: "Raw Materials", email: "hello@beacontextiles.be", phone: "+32 2 456 7890", currency: "EUR", paymentTerms: "Net 30", status: "active", outstanding: 750, totalPurchases: 4320, createdAt: iso(78), updatedAt: iso(6) },
-  { code: "SUP-0007", name: "Vertex Hardware", group: "Hardware", email: "sales@vertexhardware.de", phone: "+49 30 911 302 25", currency: "EUR", paymentTerms: "Net 30", taxId: "DE123456789", status: "active", outstanding: 0, totalPurchases: 2960, createdAt: iso(70), updatedAt: iso(9) },
-  { code: "SUP-0008", name: "Paper & Press", group: "Office", email: "billing@paperandpress.co.uk", phone: "+44 161 203 5671", currency: "GBP", paymentTerms: "7 days", status: "inactive", outstanding: 0, totalPurchases: 850, createdAt: iso(55), updatedAt: iso(15) },
+const LIST_FIELDS = [
+  "name",
+  SUPPLIER_FIELDS.name,
+  SUPPLIER_FIELDS.group,
+  SUPPLIER_FIELDS.email,
+  SUPPLIER_FIELDS.phone,
+  SUPPLIER_FIELDS.currency,
+  SUPPLIER_FIELDS.paymentTerms,
+  SUPPLIER_FIELDS.taxId,
+  SUPPLIER_FIELDS.status,
+  SUPPLIER_FIELDS.outstanding,
+  SUPPLIER_FIELDS.totalPurchases,
+  "creation",
+  "modified",
 ];
 
-function nextCode(records: Supplier[]): string {
-  const max = records.reduce((highest, supplier) => {
-    const number = Number(supplier.code.slice(4));
-    return number > highest ? number : highest;
-  }, 0);
-  return `SUP-${String(max + 1).padStart(4, "0")}`;
+function toSupplier(doc: Record<string, unknown>): Supplier {
+  const now = new Date().toISOString();
+  return {
+    code: String(doc.name),
+    name: String(doc[SUPPLIER_FIELDS.name] ?? doc.name),
+    group: String(doc[SUPPLIER_FIELDS.group] ?? "General"),
+    email: doc[SUPPLIER_FIELDS.email] != null ? String(doc[SUPPLIER_FIELDS.email]) : undefined,
+    phone: doc[SUPPLIER_FIELDS.phone] != null ? String(doc[SUPPLIER_FIELDS.phone]) : undefined,
+    currency: String(doc[SUPPLIER_FIELDS.currency] ?? "USD"),
+    paymentTerms: doc[SUPPLIER_FIELDS.paymentTerms] != null ? String(doc[SUPPLIER_FIELDS.paymentTerms]) : undefined,
+    taxId: doc[SUPPLIER_FIELDS.taxId] != null ? String(doc[SUPPLIER_FIELDS.taxId]) : undefined,
+    status: Number(doc[SUPPLIER_FIELDS.status]) === 1 ? "inactive" : "active",
+    outstanding: Number(doc[SUPPLIER_FIELDS.outstanding] ?? 0),
+    totalPurchases: Number(doc[SUPPLIER_FIELDS.totalPurchases] ?? 0),
+    createdAt: doc.creation != null ? String(doc.creation) : now,
+    updatedAt: doc.modified != null ? String(doc.modified) : now,
+  };
 }
 
 function sortValue(supplier: Supplier, sortBy: string): unknown {
   return supplier[sortBy as keyof Supplier];
 }
 
+function notFound(code: string): ApiException {
+  return new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
+}
+
 /**
- * Reference data for the Demo Co tenant. This module is the only supplier
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Suppliers surface over the tenant's real ERPNext site (M5-005). Reads and
+ * writes go through ErpGatewayService, which resolves the tenant from the
+ * authenticated Membership, decrypts the per-tenant service account, and
+ * audits every mutation. The platform code IS the ERPNext doc name, so no
+ * separate code registry exists.
+ *
+ * Search/sort/pagination run in the service because the Frappe list API does
+ * not return a total count; the tenant-side data set is small enough that
+ * fetching the doctype list and paging locally keeps the shared contract
+ * exact. If a tenant outgrows this, M5-007's integration tier can push the
+ * predicates down to Frappe filters.
  */
 @Injectable()
 export class SuppliersService {
-  private records: Supplier[] = structuredClone(SEED);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  list(query: SupplierListQuery): SupplierListResponse {
+  async list(user: GatewayUser, meta: GatewayRequestMeta, query: SupplierListQuery): Promise<SupplierListResponse> {
+    const { items } = await this.gateway.list(user, meta, PURCHASING_DOCTYPE.supplier, {
+      fields: LIST_FIELDS,
+      limitPageLength: 500,
+    });
+    const records = items.map(toSupplier);
+
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((supplier) => {
+    const filtered = records.filter((supplier) => {
       if (query.status && supplier.status !== query.status) return false;
       if (!q) return true;
       return [supplier.code, supplier.name, supplier.group, supplier.email ?? "", supplier.taxId ?? ""]
@@ -88,58 +124,62 @@ export class SuppliersService {
     };
   }
 
-  detail(code: string): Supplier {
-    const supplier = this.records.find((record) => record.code === code);
-    if (!supplier) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<Supplier> {
+    try {
+      const doc = await this.gateway.get(user, meta, PURCHASING_DOCTYPE.supplier, code);
+      return toSupplier(doc);
+    } catch (err) {
+      if (err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND) throw notFound(code);
+      throw err;
     }
-    return supplier;
   }
 
-  create(input: CreateSupplierInput): Supplier {
-    const supplier: Supplier = {
-      code: nextCode(this.records),
-      name: input.name ?? "Untitled supplier",
-      group: input.group ?? "General",
-      email: input.email,
-      phone: input.phone,
-      currency: input.currency ?? "USD",
-      paymentTerms: input.paymentTerms,
-      taxId: input.taxId,
-      status: input.status ?? "active",
-      outstanding: input.outstanding ?? 0,
-      totalPurchases: input.totalPurchases ?? 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.records.push(supplier);
-    return supplier;
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateSupplierInput): Promise<Supplier> {
+    const code = await this.nextCode(user, meta);
+    const doc = await this.gateway.create(user, meta, PURCHASING_DOCTYPE.supplier, {
+      name: code,
+      ...buildSupplierDoc({
+        name: input.name ?? "Untitled supplier",
+        group: input.group,
+        email: input.email,
+        phone: input.phone,
+        currency: input.currency,
+        paymentTerms: input.paymentTerms,
+        taxId: input.taxId,
+        status: input.status,
+      }),
+    });
+    return toSupplier(doc);
   }
 
-  update(code: string, input: UpdateSupplierInput): Supplier {
-    const supplier = this.records.find((record) => record.code === code);
-    if (!supplier) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
-    }
-    if (input.name !== undefined) supplier.name = input.name;
-    if (input.group !== undefined) supplier.group = input.group;
-    if (input.email !== undefined) supplier.email = input.email;
-    if (input.phone !== undefined) supplier.phone = input.phone;
-    if (input.currency !== undefined) supplier.currency = input.currency;
-    if (input.paymentTerms !== undefined) supplier.paymentTerms = input.paymentTerms;
-    if (input.taxId !== undefined) supplier.taxId = input.taxId;
-    if (input.status !== undefined) supplier.status = input.status;
-    if (input.outstanding !== undefined) supplier.outstanding = input.outstanding;
-    if (input.totalPurchases !== undefined) supplier.totalPurchases = input.totalPurchases;
-    supplier.updatedAt = new Date().toISOString();
-    return supplier;
+  async update(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateSupplierInput): Promise<Supplier> {
+    const doc = await this.gateway.update(user, meta, PURCHASING_DOCTYPE.supplier, code, undefined, {
+      ...(input.name !== undefined ? { [SUPPLIER_FIELDS.name]: input.name } : {}),
+      ...(input.group !== undefined ? { [SUPPLIER_FIELDS.group]: input.group } : {}),
+      ...(input.email !== undefined ? { [SUPPLIER_FIELDS.email]: input.email } : {}),
+      ...(input.phone !== undefined ? { [SUPPLIER_FIELDS.phone]: input.phone } : {}),
+      ...(input.currency !== undefined ? { [SUPPLIER_FIELDS.currency]: input.currency } : {}),
+      ...(input.paymentTerms !== undefined ? { [SUPPLIER_FIELDS.paymentTerms]: input.paymentTerms } : {}),
+      ...(input.taxId !== undefined ? { [SUPPLIER_FIELDS.taxId]: input.taxId } : {}),
+      ...(input.status !== undefined ? { [SUPPLIER_FIELDS.status]: input.status === "inactive" ? 1 : 0 } : {}),
+    });
+    return toSupplier(doc);
   }
 
-  remove(code: string): void {
-    const index = this.records.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
-    }
-    this.records.splice(index, 1);
+  async remove(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    await this.gateway.remove(user, meta, PURCHASING_DOCTYPE.supplier, code);
+  }
+
+  private async nextCode(user: GatewayUser, meta: GatewayRequestMeta): Promise<string> {
+    const { items } = await this.gateway.list(user, meta, PURCHASING_DOCTYPE.supplier, {
+      fields: ["name"],
+      limitPageLength: 500,
+    });
+    const max = items.reduce((highest, doc) => {
+      const match = /^SUP-(\d{4})$/.exec(String(doc.name));
+      const number = match ? Number(match[1]) : 0;
+      return number > highest ? number : highest;
+    }, 0);
+    return `SUP-${String(max + 1).padStart(4, "0")}`;
   }
 }

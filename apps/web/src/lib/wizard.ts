@@ -1,4 +1,4 @@
-import type { GlobalSearchResponse, WizardDraft, WizardSaveInput, WizardStatus } from "@amni/shared";
+import type { GlobalSearchResponse, ProvisioningStatus, WizardDraft, WizardSaveInput, WizardStatus } from "@amni/shared";
 
 import { apiRequest } from "./client";
 
@@ -20,5 +20,11 @@ export const wizardClient = {
   },
   status(): Promise<WizardStatus> {
     return apiRequest<WizardStatus>("/wizard", "/status");
+  },
+};
+
+export const provisioningClient = {
+  status(): Promise<ProvisioningStatus> {
+    return apiRequest<ProvisioningStatus>("/provisioning", "/status");
   },
 };

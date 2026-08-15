@@ -10,8 +10,10 @@ export const PRODUCT_STATUSES = [
   { value: "disabled", label: "Disabled" },
 ] as const;
 
+// `code` is the ERPNext doc `name` (1:1), so it is free-form; seed-era
+// synthetic codes (PRD-0001) were only valid for the in-memory demo data.
 export const productSchema = z.object({
-  code: z.string().regex(/^PRD-\d{4}$/),
+  code: z.string().min(1).max(80),
   sku: z.string().min(1).max(64),
   name: z.string().min(1).max(200),
   category: z.string().min(1).max(80),
@@ -84,7 +86,7 @@ export const WAREHOUSE_STATUSES = [
 ] as const;
 
 export const warehouseSchema = z.object({
-  code: z.string().regex(/^WH-\d{4}$/),
+  code: z.string().min(1).max(80),
   name: z.string().min(1).max(120),
   location: z.string().max(200).optional(),
   manager: z.string().max(120).optional(),
@@ -136,7 +138,7 @@ export const MOVEMENT_TYPES = [
 ] as const;
 
 export const stockMovementSchema = z.object({
-  code: z.string().regex(/^MOV-\d{4}$/),
+  code: z.string().min(1).max(80),
   type: movementTypeSchema,
   productCode: z.string().min(1).max(40),
   productName: z.string().min(1).max(200),

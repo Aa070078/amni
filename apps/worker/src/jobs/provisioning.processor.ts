@@ -3,6 +3,9 @@ import { Logger } from "@nestjs/common";
 import { BullQueue } from "@amni/shared";
 import type { Job } from "bullmq";
 
+import { createProvisioningDriver } from "../provisioning/drivers/driver";
+import { runProvisioningJob } from "../provisioning/state-machine";
+
 export interface ProvisioningJobPayload {
   jobId: string;
   tenantId: string;
@@ -16,8 +19,8 @@ export class ProvisioningProcessor extends WorkerHost {
   async process(job: Job<ProvisioningJobPayload>) {
     const { jobId, tenantId } = job.data;
     this.logger.log(`provisioning job ${jobId} for tenant ${tenantId} (attempt ${job.attemptsMade + 1})`);
-    // M2: drive the provisioning state machine (site create -> configure ->
-    // service account -> tenant admins -> validate). See ARCHITECTURE.md sec 6.
-    throw new Error("provisioning processor not implemented");
+
+    const driver = createProvisioningDriver();
+    return runProvisioningJob({ jobId, tenantId, driver, logger: this.logger });
   }
 }

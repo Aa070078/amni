@@ -40,6 +40,11 @@ export interface ErpListResult<T> {
   hasMore: boolean;
 }
 
+export interface ErpLoginResult {
+  sid: string;
+  loggedUser: string;
+}
+
 /** Official REST API route prefixes (see https://docs.frappe.dev/api/rest). */
 export const ERP_API_PREFIX = "/api/v1";
 

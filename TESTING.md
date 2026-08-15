@@ -32,6 +32,7 @@ Testing strategy, tools, and the required test matrix. A beautiful UI with broke
 - Requires a running frappe_docker bench with a **test site per test tenant** (`<x>.localhost`).
 - Coverage: `packages/erp` CRUD + submit/cancel, company setup (create Company, defaults), service-account creation + key auth, tenant-admin creation + role bundle, data import template/preview/import, reports, webhook receipt.
 - Provisioning steps are integration-tested end-to-end against the real bench (idempotency: re-running a step must not duplicate).
+- **In-repo stand-in (always runs, no bench needed):** the tenant isolation harness in `apps/api/src/erp-gateway/mock-frappe-server.ts` simulates a tenant site (service-account auth + a doctype-scoped doc store, `?action=submit|cancel` transitions) and is exercised by every `*.isolation.spec.ts` suite. Run it with `pnpm test:isolation`. The supertest tier against a real bench lands under M5-007 when the cluster is reachable.
 
 ## 5. Tenant isolation tests (mandatory)
 
@@ -63,8 +64,8 @@ Also covered: password reset, onboarding resume (draft), import flow (templateâ†
 
 ## 8. CI testing
 
-- **Every PR**: lint, typecheck, unit, static security, `pnpm audit`.
-- **Merge to `dev`**: + API integration, ERPNext integration, isolation suite, e2e.
+- **Every PR**: lint, typecheck, unit, tenant isolation suite (`pnpm test:isolation`), static security, `pnpm audit`.
+- **Merge to `dev`**: + API integration, ERPNext integration, e2e.
 - **Merge to `main` (release)**: everything + secret scan + dependency scan.
 - Nightly: full ERPNext integration + isolation + e2e against a fresh provisioned stack.
 

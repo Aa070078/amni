@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { z } from "zod";
@@ -21,7 +22,8 @@ import {
   type QuotationListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { QuotationsService } from "./quotations.service";
@@ -34,39 +36,47 @@ export class QuotationsController {
   constructor(private readonly quotations: QuotationsService) {}
 
   @Get("options")
-  options(): ReturnType<QuotationsService["options"]> {
-    return this.quotations.options();
+  options(@Req() req: AuthenticatedRequest): ReturnType<QuotationsService["options"]> {
+    return this.quotations.options(userFrom(req), metaFrom(req));
   }
 
   @Get()
-  list(@Query() query: unknown): QuotationListResponse {
-    return this.quotations.list(quotationListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<QuotationListResponse> {
+    return this.quotations.list(userFrom(req), metaFrom(req), quotationListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): Quotation {
-    return this.quotations.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<Quotation> {
+    return this.quotations.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): Quotation {
-    return this.quotations.create(createQuotationInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<Quotation> {
+    return this.quotations.create(userFrom(req), metaFrom(req), createQuotationInputSchema.parse(body));
   }
 
   @Patch(":code/status")
-  changeStatus(@Param("code") code: string, @Body() body: unknown): Quotation {
-    return this.quotations.changeStatus(code, changeQuotationStatusSchema.parse(body).status);
+  changeStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Quotation> {
+    return this.quotations.changeStatus(userFrom(req), metaFrom(req), code, changeQuotationStatusSchema.parse(body).status);
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): Quotation {
-    return this.quotations.update(code, updateQuotationInputSchema.parse(body));
+  update(
+    @Req() req: AuthenticatedRequest,
+    @Param("code") code: string,
+    @Body() body: unknown,
+  ): Promise<Quotation> {
+    return this.quotations.update(userFrom(req), metaFrom(req), code, updateQuotationInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.quotations.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.quotations.remove(userFrom(req), metaFrom(req), code);
   }
 }
