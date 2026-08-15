@@ -3,7 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@amni
 import { LoginForm } from "./login-form";
 import { QuickLogin } from "./quick-login";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ next?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const raw = params?.next;
+  const next =
+    typeof raw === "string" && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
+
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
@@ -12,8 +21,8 @@ export default function LoginPage() {
           <CardDescription>Welcome back to Amni.</CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm />
-          <QuickLogin />
+          <LoginForm next={next} />
+          <QuickLogin next={next} />
           <p className="mt-4 text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link href="/signup" className="font-medium text-primary hover:underline">

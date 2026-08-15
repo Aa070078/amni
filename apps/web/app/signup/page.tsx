@@ -8,7 +8,10 @@ export default function SignupPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Create your workspace</CardTitle>
-          <CardDescription>Your isolated ERP is provisioned in the background.</CardDescription>
+          <CardDescription>
+            We&apos;ll provision your isolated ERP as you complete a quick setup — usually in under a
+            minute.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <SignupForm />
