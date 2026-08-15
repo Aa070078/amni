@@ -10,7 +10,7 @@ const DEMO_ACCOUNTS = [
   { label: "Demo Member", email: "member@amni.dev", password: "member12345", role: "Member" },
 ] as const;
 
-export function QuickLogin() {
+export function QuickLogin({ next = "/dashboard" }: { next?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function QuickLogin() {
     setError(null);
     try {
       await api("/auth/login", { method: "POST", body: { email: account.email, password: account.password } });
-      router.push("/dashboard");
+      router.push(next);
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Quick login failed. Please try again.");

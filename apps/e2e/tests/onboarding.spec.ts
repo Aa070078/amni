@@ -21,13 +21,12 @@ test.describe("Onboarding journey", () => {
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Create account", exact: true }).click();
 
-    // Signup auto-verifies the email in dev/test and lands on the app dashboard.
-    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-
-    // Run the setup wizard. Company profile is step 1 of 6.
-    await page.goto("/setup");
+    // Signup auto-verifies the email in dev/test and routes straight into the
+    // setup wizard (provisioning happens on wizard submit, not at signup).
+    await expect(page).toHaveURL(/\/setup$/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
+
+    // Company profile is step 1 of 6.
     await expect(page.getByText("Step 1 of 6")).toBeVisible();
     await page.getByLabel("Company name").fill(companyName);
 
