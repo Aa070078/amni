@@ -119,10 +119,25 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M6 — Onboarding gaps + Platform Admin console (SaaS)
+
+> Goal: close the onboarding gaps surfaced in the userflow review — (1) signup copy promised background provisioning that never happened, (2) the setup wizard was unreachable except via ⌘K, (3) no server-side route guard — and ship the missing **platform admin dashboard** so the operator sees every tenant with its status, plan, subscription, provisioning job trail, members and ERP instance. Decision (operator, 2026-08-15): provisioning stays at wizard submit (honest copy + route new signups through the wizard), matching PRODUCT_SPEC + SECURITY.md email-verify-before-provision.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| M6-001 Server-side route guard (Next.js middleware; no session cookie → `/login`) + login `next` param | M6 | agent-amni-01 | in-progress | fix/onboarding-gaps | `apps/web/middleware.ts`; one-directional (no cookie→skip-login redirect) to avoid httpOnly-cookie redirect loops |
+| M6-002 Onboarding flow fix (honest signup copy + new signups land on `/setup` wizard; e2e updated) | M6 | agent-amni-01 | in-progress | fix/onboarding-gaps | provisioning stays at wizard submit (SECURITY.md email-verify gate) |
+| M6-003 Platform admin identity: `User.isPlatformAdmin` + migration + seed flags | M6 | agent-amni-01 | planned | feat/admin-dashboard | `demo@amni.dev` + `admin@amni.dev` flagged platform admins |
+| M6-004 Admin API (`/admin/summary`, `/admin/tenants`, `/admin/tenants/:id`) + AdminGuard + shared schemas | M6 | agent-amni-01 | planned | feat/admin-dashboard | 403 for non-admins; unit tests |
+| M6-005 Admin console web UI (`/admin` shell, summary cards, tenants table, tenant detail w/ provisioning timeline) | M6 | agent-amni-01 | planned | feat/admin-dashboard | `/auth/me` returns `isPlatformAdmin`; user-menu entry |
+
+---
+
 ## Change log of the board itself
 
 | Date | Change |
 |---|---|
+| 2026-08-15 | M6 registered + claimed (agent-amni-01): onboarding gaps (route guard, signup→wizard flow) on `fix/onboarding-gaps`; platform admin console (identity, API, web UI) on `feat/admin-dashboard`. Decision: provisioning stays at wizard submit. |
 | 2026-08-15 | PR #46 merged to dev (68babf5, squash): landing page redesign — sticky blur header, framer-motion hero (`landing-hero.tsx`), feature cards (`landing-features.tsx`), footer. Branch `feat/landing-redesign` synced onto latest dev before merge (conflict resolved in `apps/web/app/page.tsx`, dev's hero tweaks superseded by the new `LandingHero`). |
 | 2026-08-15 | PR #47 merged to dev (80f21d0, squash): web API clients default to same-origin `/api/v1` when `NEXT_PUBLIC_API_BASE_URL` is unset (preview-tunnel fix). Follow-up noted: `deals.ts` + `imports.ts` still carry the old localhost default (added to dev after #47 branched). |
 | 2026-08-15 | **EPIC M5 complete** — PR #55 merged to dev (c923a33, squash): M5-004..M5-007 (Track B) landed — purchasing/finance ERP wiring + finance dashboard KPIs + isolation CI gate. Combined with Track A (PR #56), the M5 market-readiness epic is now done. Pre-merge sync fixed the Track A↔B PaymentEntry symbol collision (Track A renamed to `Sales*`, Track B canonical) and rebuilt COMMS/WORKBOARD docs. COMMS M5-COMMS-006/007. |
