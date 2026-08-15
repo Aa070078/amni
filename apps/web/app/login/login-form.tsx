@@ -18,11 +18,11 @@ export function LoginForm({ next = "/dashboard" }: { next?: string }) {
 
     const form = new FormData(event.currentTarget);
     try {
-      await api<{ data: { user: MeUser } }>("/auth/login", {
+      const data = await api<{ data: { user: MeUser } }>("/auth/login", {
         method: "POST",
         body: { email: form.get("email"), password: form.get("password") },
       });
-      router.push(next);
+      router.push(data.data.user.isPlatformAdmin ? "/admin" : next);
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");

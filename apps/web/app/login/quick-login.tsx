@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@amni/ui";
 import { api, ApiError } from "@/src/lib/api";
+import type { MeUser } from "@/src/hooks/use-me";
 
 const DEMO_ACCOUNTS = [
-  { label: "Demo Admin", email: "demo@amni.dev", password: "demo12345", role: "Owner" },
-  { label: "Demo Member", email: "member@amni.dev", password: "member12345", role: "Member" },
+  { label: "SaaS Admin", email: "owner@amni.com", password: "owner12345", role: "Platform admin" },
+  { label: "Company Admin", email: "admin@demo.amni", password: "admin12345", role: "Owner" },
+  { label: "Company Member", email: "member@demo.amni", password: "member12345", role: "Member" },
 ] as const;
 
 export function QuickLogin({ next = "/dashboard" }: { next?: string }) {
@@ -21,8 +23,11 @@ export function QuickLogin({ next = "/dashboard" }: { next?: string }) {
     setPending(account.email);
     setError(null);
     try {
-      await api("/auth/login", { method: "POST", body: { email: account.email, password: account.password } });
-      router.push(next);
+      const data = await api<{ data: { user: MeUser } }>("/auth/login", {
+        method: "POST",
+        body: { email: account.email, password: account.password },
+      });
+      router.push(data.data.user.isPlatformAdmin ? "/admin" : next);
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Quick login failed. Please try again.");
