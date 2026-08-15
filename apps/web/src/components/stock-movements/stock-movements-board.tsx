@@ -2,7 +2,7 @@
 
 import { ArrowRight, Calendar, User } from "lucide-react";
 import { MOVEMENT_TYPES, type MovementType, type StockMovement } from "@amni/shared";
-import { Card, CardContent, cn } from "@amni/ui";
+import { Card, CardContent } from "@amni/ui";
 import { formatNumber } from "@/src/lib/format";
 import { formatMovementDate } from "@/src/lib/stock-movements";
 import { MovementTypeBadge } from "./movement-type";

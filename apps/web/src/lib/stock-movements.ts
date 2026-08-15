@@ -27,7 +27,7 @@ const DEMO_MOVEMENTS: StockMovement[] = [
   { code: "MOV-0016", type: "adjust", productCode: "PRD-0001", productName: "Nimbus LED Panel", uom: "pcs", quantity: 4, fromWarehouse: "WH-0001", toWarehouse: undefined, reason: "Cycle count variance", reference: "INV-0014", createdBy: "Amara Osei", date: "2026-08-08T10:10:00.000Z" },
 ];
 
-let localMovementsStore: StockMovement[] = [...DEMO_MOVEMENTS];
+const localMovementsStore: StockMovement[] = [...DEMO_MOVEMENTS];
 
 function filterDemoMovements(query: Partial<StockMovementListQuery>): StockMovementListResponse {
   const { page = 1, pageSize = 20, q, type, productCode } = query;
