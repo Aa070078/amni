@@ -41,3 +41,4 @@ export * from "./schemas/crm/settings.js";
 export * from "./schemas/hrms.js";
 export * from "./schemas/mail.js";
 export * from "./schemas/erp-gateway.js";
+export * from "./schemas/admin.js";

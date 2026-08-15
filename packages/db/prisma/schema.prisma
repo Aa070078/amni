@@ -22,6 +22,7 @@ model User {
   status           UserStatus         @default(ACTIVE)
   isEmailVerified  Boolean            @default(false)
   emailVerifiedAt  DateTime?          @db.Timestamptz(3)
+  isPlatformAdmin  Boolean            @default(false)
   failedLoginCount Int                @default(0)
   lockedUntil      DateTime?          @db.Timestamptz(3)
   lastLoginAt      DateTime?          @db.Timestamptz(3)

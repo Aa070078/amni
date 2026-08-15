@@ -39,6 +39,7 @@ export interface PublicUser {
   lastName: string | null;
   status: string;
   isEmailVerified: boolean;
+  isPlatformAdmin: boolean;
 }
 
 const USER_PUBLIC_FIELDS = {
@@ -48,6 +49,7 @@ const USER_PUBLIC_FIELDS = {
   lastName: true,
   status: true,
   isEmailVerified: true,
+  isPlatformAdmin: true,
 } as const;
 
 @Injectable()
@@ -431,6 +433,7 @@ function toPublicUser(user: {
   lastName: string | null;
   status: string;
   isEmailVerified: boolean;
+  isPlatformAdmin: boolean;
 }): PublicUser {
   return {
     id: user.id,
@@ -439,5 +442,6 @@ function toPublicUser(user: {
     lastName: user.lastName,
     status: user.status,
     isEmailVerified: user.isEmailVerified,
+    isPlatformAdmin: user.isPlatformAdmin,
   };
 }

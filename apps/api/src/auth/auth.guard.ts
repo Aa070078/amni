@@ -10,7 +10,7 @@ import { ACCESS_COOKIE, CSRF_COOKIE } from "./tokens.service";
 import { TokensService } from "./tokens.service";
 
 export interface AuthenticatedRequest extends Request {
-  user?: { id: string; email: string; role: string };
+  user?: { id: string; email: string; role: string; isPlatformAdmin: boolean };
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -40,7 +40,7 @@ export class AuthGuard implements CanActivate {
 
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, status: true },
+      select: { id: true, email: true, status: true, isPlatformAdmin: true },
     });
     if (!user || user.status !== "ACTIVE") {
       throw new ApiException({ code: ErrorCode.UNAUTHORIZED, status: 401, message: "Account unavailable" });
@@ -55,7 +55,7 @@ export class AuthGuard implements CanActivate {
       }
     }
 
-    req.user = { id: user.id, email: user.email, role: "USER" };
+    req.user = { id: user.id, email: user.email, role: "USER", isPlatformAdmin: user.isPlatformAdmin };
     return true;
   }
 }
