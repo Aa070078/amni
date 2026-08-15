@@ -10,8 +10,10 @@ import {
 
 import { ApiException } from "../common/api.exception";
 import { iso, newId } from "./crm-common";
-import { type CrmActivitiesService } from "./activities.service";
-import { type CrmNotificationsService } from "./notifications.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmActivitiesService } from "./activities.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmNotificationsService } from "./notifications.service";
 
 const at = (dayOffset: number, hour: number, minute = 0): string => {
   const date = new Date(Date.now() + dayOffset * 86_400_000);

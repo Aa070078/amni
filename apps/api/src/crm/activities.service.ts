@@ -9,7 +9,8 @@ import {
 } from "@amni/shared";
 
 import { iso, newId } from "./crm-common";
-import { type CrmNotificationsService } from "./notifications.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmNotificationsService } from "./notifications.service";
 
 const SEED: CrmActivity[] = [
   { id: "act-seed-1", referenceType: "deal", referenceCode: "DL-0001", kind: "comment", content: "Facilities director confirmed interest in the full fit-out package.", author: "Amara Osei", mentions: [], attachments: [], createdAt: iso(6) },

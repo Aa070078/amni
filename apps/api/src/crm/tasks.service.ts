@@ -12,7 +12,8 @@ import {
 
 import { ApiException } from "../common/api.exception";
 import { dateOnly, iso, nextCode, paginate, sortRecords } from "./crm-common";
-import { type CrmNotificationsService } from "./notifications.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmNotificationsService } from "./notifications.service";
 
 const SORT_WHITELIST = new Set(["subject", "status", "priority", "dueDate", "assignedTo", "createdAt", "updatedAt"]);
 
