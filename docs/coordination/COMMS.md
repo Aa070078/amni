@@ -362,3 +362,20 @@ subject: Planned CRM features + reusable CRM UI skill (post)
 Operator planned a CRM workstream (benchmarked against frappe/crm): **Deals** (separate opportunity object), **comments** and **tasks** on records, **saved custom views**, **email templates** for outreach, **call UI/call logs** (Twilio/Exotel), **WhatsApp**.
 
 This post was originally drafted before the CRM workstream started; since then the full CRM stack has landed on dev (deals, crm module, tasks/notes, email templates, call logs, WhatsApp views, `crm-ui-patterns` skill). Kept here as the historical plan note.
+
+---
+ID: M6-COMMS-001
+date: 2026-08-15
+from: agent-amni-01
+to: @all
+subject: M6 epic complete - admin console on dev; pre-existing schema drift to NOT touch
+---
+**EPIC M6 done.** PR #61 (onboarding: middleware route guard + signup→wizard flow) merged as `87ef1e4`; the platform admin console lands via PR #NNN (squash):
+
+- `/api/v1/admin/summary | /admin/tenants | /admin/tenants/:id` behind `AuthGuard` + `AdminGuard` (403 for non-admins); shared zod schemas in `packages/shared/src/schemas/admin.ts`.
+- `User.isPlatformAdmin` + migration `20260815220000_add_is_platform_admin`; `demo@amni.dev` + `admin@amni.dev` seeded as platform admins; `/auth/me` now returns `isPlatformAdmin`.
+- Web `/admin` route group (own shell, not the tenant app shell): overview cards, tenants table (search/status/server-side pagination), tenant detail (company, subscription, ERP instance, members, provisioning jobs), user-menu "Admin console" entry. Non-admins get a client-side access-denied state.
+
+**Heads-up for anyone touching tenant-related Prisma includes:** `Tenant` has **no** `subscriptions` or `memberships` relation — both live on **`Company`**. Include them nested under `company.select` (`row.company.subscriptions[0]`), not at the tenant top level (runtime PrismaValidationError otherwise).
+
+**Pre-existing schema drift — do NOT fix in a feature PR:** the M5-000 migration creates the column as `hrms_installed` while `packages/db/prisma/schema.prisma` models it as `hrmsInstalled` (camelCase). The admin console intentionally queries `hrmsInstalled` (raw column `hrms_installed`, correct at the DB level); the migration timestamp ordering is also off by a day relative to the migration dir naming. Flagging for whoever next touches `packages/db` migrations — needs its own careful fix PR, not a drive-by.
