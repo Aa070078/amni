@@ -119,6 +119,17 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M7 — Demo seed + tenant provisioning (dev)
+
+> Goal: make the demo accounts actually work post-M5. Root cause of the dashboard 409s (`TENANT_NOT_READY`): the old `seed-demo-user.ts` put **both** demo users in one "Demo Co" and created **no** `Tenant`/`ERPInstance`, so every ERP-backed read (`/api/v1/dashboard/*`) 409'd. Fix: seed a **pure SaaS platform admin** (no company membership, lands on `/admin` console) plus **one normal company** with its own isolated ERPNext instance and two accounts inside it (company admin/OWNER + employee/MEMBER). Two disjoint agents; files never overlap.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M7-001 SaaS admin demo → SaaS console (A)** | M7 | agent-amni-01 | in-progress | feat/M7/saas-admin-demo | New `apps/api/scripts/seed-saas-admin.ts`: upsert `owner@amni.com` (`isPlatformAdmin: true`, **no** membership, ACTIVE/verified). Post-login redirect for platform admins → `/admin` in `apps/web/app/login/{login-form,quick-login}.tsx` + quick-login label. Verify `/admin` overview/tenants/detail render B's seeded company; `/api/v1/admin/*` 200. |
+| **M7-002 Company demo seed (admin + member) → company dashboard (B)** | M7 | agent-m7-company-demo | in-progress | feat/M7/company-demo-seed | New `apps/api/scripts/seed-demo-company.ts`: one company **Demo Co** (`demo-co`) with two memberships — `admin@demo.amni` OWNER + `member@demo.amni` MEMBER — plus ACTIVE `Tenant` + `ERPInstance` (host `http://localhost:8080`, `serviceKeyCipher` via running `ENCRYPTION_KEY`) + TRIAL `Subscription`. Verify `/api/v1/dashboard/{overview,activity,alerts}` → 200 for both accounts; member = revenue-only KPI, no Admin console. |
+
+---
+
 ## M6 — Onboarding gaps + Platform Admin console (SaaS)
 
 > Goal: close the onboarding gaps surfaced in the userflow review — (1) signup copy promised background provisioning that never happened, (2) the setup wizard was unreachable except via ⌘K, (3) no server-side route guard — and ship the missing **platform admin dashboard** so the operator sees every tenant with its status, plan, subscription, provisioning job trail, members and ERP instance. Decision (operator, 2026-08-15): provisioning stays at wizard submit (honest copy + route new signups through the wizard), matching PRODUCT_SPEC + SECURITY.md email-verify-before-provision.
@@ -137,6 +148,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-16 | **M7 registered + claimed**: demo seed + tenant provisioning. Root cause of dashboard 409s = old `seed-demo-user.ts` put both demo users in one "Demo Co" with no Tenant/ERPInstance. M7-001 (agent-amni-01, `feat/M7/saas-admin-demo`): `owner@amni.com` pure SaaS platform admin (no membership) → lands on `/admin` console. M7-002 (agent-m7-company-demo, `feat/M7/company-demo-seed`): one company Demo Co with `admin@demo.amni` OWNER + `member@demo.amni` MEMBER + own isolated Tenant/ERPInstance/subscription → both land on `/dashboard`. Claims committed; implementation not started. |
 | 2026-08-15 | M6 registered + claimed (agent-amni-01): onboarding gaps (route guard, signup→wizard flow) on `fix/onboarding-gaps`; platform admin console (identity, API, web UI) on `feat/admin-dashboard`. Decision: provisioning stays at wizard submit. |
 | 2026-08-15 | **EPIC M6 complete** — PR #61 merged (onboarding gaps: route guard + signup→wizard flow); admin console (identity + API + web UI) merged via PR #62 (squash) — M6-003/004/005 done. `/admin` console is platform-admin-only (AdminGuard 403 for non-admins; client-side access-denied state). Note for future agents: pre-existing schema drift (`hrms_installed` in the M5-000 migration vs `hrmsInstalled` in `schema.prisma`) left untouched — see COMMS M6-COMMS-001. |
 | 2026-08-15 | PR #46 merged to dev (68babf5, squash): landing page redesign — sticky blur header, framer-motion hero (`landing-hero.tsx`), feature cards (`landing-features.tsx`), footer. Branch `feat/landing-redesign` synced onto latest dev before merge (conflict resolved in `apps/web/app/page.tsx`, dev's hero tweaks superseded by the new `LandingHero`). |
