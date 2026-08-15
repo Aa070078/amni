@@ -5,6 +5,11 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **M7-001 SaaS admin demo (PR #63)** — first half of M7 (demo seed + tenant provisioning, fixing the post-M5 dashboard 409s where the old `seed-demo-user.ts` seeded both demo users in one company with no `Tenant`/`ERPInstance`):
+  - `apps/api/scripts/seed-saas-admin.ts`: idempotently upserts `owner@amni.com` as a **pure SaaS platform admin** (`isPlatformAdmin: true`, ACTIVE, verified email, **no** company membership — clears any existing memberships) → lands on the `/admin` console.
+  - Post-login redirect: `apps/web/app/login/{login-form,quick-login}.tsx` route platform admins to `/admin` (all other users keep `next`, default `/dashboard`) using `isPlatformAdmin` from the login response.
+  - Quick-login demo accounts updated: SaaS Admin `owner@amni.com` (/admin), Company Admin `admin@demo.amni` + Company Member `member@demo.amni` (both → /dashboard; these accounts are created by M7-002's `seed-demo-company.ts`, pending merge).
+
 - **M6 Platform admin console + onboarding gaps (PR #61 + PR #62)** — M6 epic complete:
   - Onboarding (PR #61, `87ef1e4`): server-side route guard (`apps/web/middleware.ts` — no session cookie redirects to `/login`, with a `next` param), honest signup copy, and new signups land on the `/setup` wizard (provisioning stays at wizard submit per SECURITY.md email-verify gate).
   - Platform admin identity: `User.isPlatformAdmin` flag (`packages/db` migration `20260815220000_add_is_platform_admin`), `isPlatformAdmin` in `/auth/me` / `PublicUser` / `req.user`, seed flags in `apps/api/scripts/seed-demo-user.ts` (`demo@amni.dev` + `admin@amni.dev` flagged).
