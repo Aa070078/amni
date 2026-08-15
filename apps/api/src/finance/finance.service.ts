@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { FINANCE_DOCTYPE, PURCHASING_DOCTYPE } from "@amni/erp";
 import type {
   FinanceArBucket,
   FinanceOverview,
@@ -8,86 +9,198 @@ import type {
   ReportType,
 } from "@amni/shared";
 
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
+
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const KPI_CUR = { format: "currency" as const, currency: "USD" as const };
 
+interface SimpleInvoice {
+  total: number;
+  outstanding: number;
+  dueDate: Date;
+  postingDate: Date;
+  submitted: boolean;
+}
+
+interface SimplePayment {
+  amount: number;
+  postingDate: Date;
+  submitted: boolean;
+  incoming: boolean;
+}
+
+interface SimpleExpense {
+  total: number;
+  postingDate: Date;
+  submitted: boolean;
+}
+
+const INVOICE_FIELDS = ["name", "grand_total", "outstanding_amount", "posting_date", "due_date", "docstatus"];
+const PAYMENT_FIELDS = ["name", "payment_type", "paid_amount", "received_amount", "posting_date", "docstatus"];
+const EXPENSE_FIELDS = ["name", "grand_total", "posting_date", "docstatus"];
+
+function monthKey(date: Date): number {
+  return date.getFullYear() * 12 + date.getMonth();
+}
+
+function monthsBack(count: number): { key: number; label: string }[] {
+  const now = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
+    return { key: monthKey(date), label: months[date.getMonth()] ?? "" };
+  });
+}
+
+function bucketLabel(days: number): string {
+  if (days <= 0) return "Current";
+  if (days <= 30) return "1–30";
+  if (days <= 60) return "31–60";
+  if (days <= 90) return "61–90";
+  return "90+";
+}
+
+function toInvoice(doc: Record<string, unknown>): SimpleInvoice {
+  return {
+    total: Number(doc.grand_total ?? 0),
+    outstanding: Number(doc.outstanding_amount ?? doc.grand_total ?? 0),
+    dueDate: new Date(String(doc.due_date ?? doc.posting_date ?? Date.now())),
+    postingDate: new Date(String(doc.posting_date ?? Date.now())),
+    submitted: Number(doc.docstatus ?? 0) === 1,
+  };
+}
+
+function toPayment(doc: Record<string, unknown>): SimplePayment {
+  const incoming = String(doc.payment_type ?? "") === "Receive";
+  return {
+    amount: Number(incoming ? (doc.received_amount ?? doc.paid_amount) : (doc.paid_amount ?? doc.received_amount)) || 0,
+    postingDate: new Date(String(doc.posting_date ?? Date.now())),
+    submitted: Number(doc.docstatus ?? 0) === 1,
+    incoming,
+  };
+}
+
+function toExpense(doc: Record<string, unknown>): SimpleExpense {
+  return {
+    total: Number(doc.grand_total ?? 0),
+    postingDate: new Date(String(doc.posting_date ?? Date.now())),
+    submitted: Number(doc.docstatus ?? 0) === 1,
+  };
+}
+
+function aging(invoices: SimpleInvoice[]): FinanceArBucket[] {
+  const labels = ["Current", "1–30", "31–60", "61–90", "90+"];
+  const now = Date.now();
+  return labels.map((label) => {
+    const value = invoices.reduce((sum, invoice) => {
+      const overdueDays = Math.ceil((now - invoice.dueDate.getTime()) / 86_400_000);
+      if (bucketLabel(overdueDays) !== label) return sum;
+      return sum + invoice.outstanding;
+    }, 0);
+    return { label, value: Math.round(value * 100) / 100 };
+  });
+}
+
+function toAgingRow(bucket: FinanceArBucket): ReportRow {
+  return { account: bucket.label === "Current" ? "Current" : `${bucket.label} days`, amount: bucket.value };
+}
+
 /**
- * Reference data for the Demo Co tenant. This module is the only finance
- * surface until the ERP gateway lands (M5); endpoints then compute from the
- * tenant ERPNext site and keep the same contract.
+ * Finance dashboard surface over the tenant's real ERPNext site (M5-006).
+ * Aggregation stays in-app (matching the list conventions of the M5-005
+ * modules): overview and aging reports derive from submitted Sales Invoices,
+ * Purchase Invoices, Payment Entries and Expense Claims; statement reports
+ * are computed summaries of the same doctypes. Contract shapes are unchanged.
  */
 @Injectable()
 export class FinanceService {
-  overview(): FinanceOverview {
+  constructor(private readonly gateway: ErpGatewayService) {}
+
+  async overview(user: GatewayUser, meta: GatewayRequestMeta): Promise<FinanceOverview> {
+    const { salesInvoices, purchaseInvoices, payments, expenses } = await this.fetchAll(user, meta);
+    const now = new Date();
+
+    const revenue = sumSubmitted(salesInvoices, (invoice) => invoice.total);
+    const ar = sumSubmitted(salesInvoices, (invoice) => invoice.outstanding);
+    const ap = sumSubmitted(purchaseInvoices, (invoice) => invoice.outstanding);
+    const cash = payments
+      .filter((payment) => payment.submitted)
+      .reduce((sum, payment) => sum + (payment.incoming ? payment.amount : -payment.amount), 0);
+    const invoiced = salesInvoices.filter((invoice) => invoice.submitted);
+    const bills = purchaseInvoices.filter((invoice) => invoice.submitted);
+
+    const buckets = monthsBack(12);
+    const revenueByMonth = new Map<number, number>();
+    const expensesByMonth = new Map<number, number>();
+    for (const invoice of invoiced) revenueByMonth.set(monthKey(invoice.postingDate), (revenueByMonth.get(monthKey(invoice.postingDate)) ?? 0) + invoice.total);
+    for (const expense of expenses.filter((entry) => entry.submitted))
+      expensesByMonth.set(monthKey(expense.postingDate), (expensesByMonth.get(monthKey(expense.postingDate)) ?? 0) + expense.total);
+
+    const revenueTrend = buckets.map((bucket) => ({ label: bucket.label, value: Math.round(revenueByMonth.get(bucket.key) ?? 0) }));
+    const expensesTrend = buckets.map((bucket) => ({ label: bucket.label, value: Math.round(expensesByMonth.get(bucket.key) ?? 0) }));
+    const cashTrend = seriesFrom(cashByMonth(payments, buckets));
+    const monthlyTotals = buckets.map((bucket) => {
+      const revenue = revenueByMonth.get(bucket.key) ?? 0;
+      const expenses = expensesByMonth.get(bucket.key) ?? 0;
+      return { month: bucket.label, revenue, expenses, profit: revenue - expenses };
+    });
+
     return {
-      asOf: new Date().toISOString(),
+      asOf: now.toISOString(),
       kpis: [
-        { id: "revenue", label: "Revenue", value: 284_500, ...KPI_CUR, delta: 12.4, trend: "up", hint: "Invoiced this month", sparkline: [232_000, 241_000, 238_500, 249_800, 255_200, 263_400, 258_900, 271_300, 268_400, 276_200, 279_800, 284_500] },
-        { id: "ar", label: "Accounts receivable", value: 96_250, ...KPI_CUR, delta: 3.1, trend: "up", hint: "12 invoices outstanding", sparkline: [84_100, 86_400, 85_200, 88_300, 87_100, 89_600, 91_200, 90_400, 92_800, 93_500, 95_100, 96_250] },
-        { id: "ap", label: "Accounts payable", value: 41_800, ...KPI_CUR, delta: -1.8, trend: "down", hint: "9 bills due this month", sparkline: [48_200, 47_100, 47_800, 46_500, 46_900, 45_800, 46_100, 44_900, 45_200, 43_800, 42_900, 41_800] },
-        { id: "cash", label: "Cash balance", value: 512_400, ...KPI_CUR, delta: 4.2, trend: "up", hint: "Across 3 bank accounts", sparkline: [438_000, 452_300, 447_800, 461_200, 473_900, 468_500, 481_400, 489_200, 496_100, 503_800, 508_600, 512_400] },
+        { id: "revenue", label: "Revenue", value: Math.round(revenue), ...KPI_CUR, hint: `${invoiced.length} invoices this period` },
+        { id: "ar", label: "Accounts receivable", value: Math.round(ar), ...KPI_CUR, hint: `${invoiced.length} invoices outstanding` },
+        { id: "ap", label: "Accounts payable", value: Math.round(ap), ...KPI_CUR, hint: `${bills.length} bills outstanding` },
+        { id: "cash", label: "Cash balance", value: Math.round(cash), ...KPI_CUR, hint: "net of payment entries" },
       ],
-      revenueTrend: series([232_000, 241_000, 238_500, 249_800, 255_200, 263_400, 258_900, 271_300, 268_400, 276_200, 279_800, 284_500]),
-      cashTrend: series([438_000, 452_300, 447_800, 461_200, 473_900, 468_500, 481_400, 489_200, 496_100, 503_800, 508_600, 512_400]),
-      expensesTrend: series([61_000, 58_000, 64_000, 59_000, 66_000, 62_000, 69_000, 65_000, 71_000, 68_000, 74_000, 70_000]),
-      arAging: aging(["Current", "1–30", "31–60", "61–90", "90+"]),
-      apAging: aging(["Current", "1–30", "31–60", "61–90", "90+"]),
-      monthlyTotals: months.map((month, index) => ({
-        month,
-        revenue: 200_000 + index * 2_100,
-        expenses: 58_000 + index * 900,
-        profit: 142_000 + index * 1_200,
-      })),
+      revenueTrend,
+      cashTrend,
+      expensesTrend,
+      arAging: aging(invoiced),
+      apAging: aging(bills),
+      monthlyTotals,
     };
   }
 
-  report(type: ReportType): FinancialReport {
+  async report(user: GatewayUser, meta: GatewayRequestMeta, type: ReportType): Promise<FinancialReport> {
+    const { salesInvoices, purchaseInvoices, payments, expenses } = await this.fetchAll(user, meta);
+    const now = new Date();
+    const invoiced = salesInvoices.filter((invoice) => invoice.submitted);
+    const bills = purchaseInvoices.filter((invoice) => invoice.submitted);
+    const expenseTotal = sumSubmitted(expenses, (expense) => expense.total);
+    const revenue = sumSubmitted(salesInvoices, (invoice) => invoice.total);
+    const ar = sumSubmitted(salesInvoices, (invoice) => invoice.outstanding);
+    const ap = sumSubmitted(purchaseInvoices, (invoice) => invoice.outstanding);
+    const cash = payments
+      .filter((payment) => payment.submitted)
+      .reduce((sum, payment) => sum + (payment.incoming ? payment.amount : -payment.amount), 0);
+    const incoming = payments.filter((payment) => payment.submitted && payment.incoming).reduce((sum, payment) => sum + payment.amount, 0);
+    const outgoing = payments.filter((payment) => payment.submitted && !payment.incoming).reduce((sum, payment) => sum + payment.amount, 0);
+
     const rowsByType: Record<ReportType, ReportRow[]> = {
       income_statement: [
-        { account: "Sales revenue", amount: 284_500 },
-        { account: "Cost of goods sold", amount: -161_200 },
-        { account: "Gross profit", amount: 123_300 },
-        { account: "Operating expenses", amount: -82_400 },
-        { account: "Operating income", amount: 40_900 },
-        { account: "Other income", amount: 1_800 },
-        { account: "Net income", amount: 42_700 },
+        { account: "Sales revenue", amount: Math.round(revenue) },
+        { account: "Expenses", amount: -Math.round(expenseTotal) },
+        { account: "Net income", amount: Math.round(revenue - expenseTotal) },
       ],
       balance_sheet: [
-        { account: "Current assets", amount: 612_400 },
-        { account: "Fixed assets", amount: 284_200 },
-        { account: "Total assets", amount: 896_600 },
-        { account: "Current liabilities", amount: 71_400 },
-        { account: "Long-term liabilities", amount: 128_000 },
-        { account: "Owner's equity", amount: 697_200 },
-        { account: "Total liabilities & equity", amount: 896_600 },
+        { account: "Current assets (cash + receivables)", amount: Math.round(cash + ar) },
+        { account: "Total assets", amount: Math.round(cash + ar) },
+        { account: "Accounts payable", amount: Math.round(ap) },
+        { account: "Total liabilities", amount: Math.round(ap) },
+        { account: "Owner's equity", amount: Math.round(cash + ar - ap) },
+        { account: "Total liabilities & equity", amount: Math.round(cash + ar) },
       ],
       cash_flow: [
-        { account: "Net income", amount: 42_700 },
-        { account: "Depreciation & amortisation", amount: 18_400 },
-        { account: "Working capital changes", amount: -6_200 },
-        { account: "Cash from operations", amount: 54_900 },
-        { account: "Capital expenditure", amount: -22_500 },
-        { account: "Cash from investing", amount: -22_500 },
-        { account: "Financing activities", amount: -8_100 },
-        { account: "Net cash flow", amount: 24_300 },
+        { account: "Cash received", amount: Math.round(incoming) },
+        { account: "Cash paid", amount: -Math.round(outgoing) },
+        { account: "Net cash flow", amount: Math.round(cash) },
       ],
-      ar_aging: [
-        { account: "Current", amount: 48_200 },
-        { account: "1–30 days", amount: 22_800 },
-        { account: "31–60 days", amount: 12_500 },
-        { account: "61–90 days", amount: 7_100 },
-        { account: "90+ days", amount: 5_650 },
-        { account: "Total receivables", amount: 96_250 },
-      ],
-      ap_aging: [
-        { account: "Current", amount: 19_400 },
-        { account: "1–30 days", amount: 11_200 },
-        { account: "31–60 days", amount: 6_300 },
-        { account: "61–90 days", amount: 3_100 },
-        { account: "90+ days", amount: 1_800 },
-        { account: "Total payables", amount: 41_800 },
-      ],
+      ar_aging: aging(invoiced).map(toAgingRow),
+      ap_aging: aging(bills).map(toAgingRow),
     };
 
     const titles: Record<ReportType, string> = {
@@ -104,16 +217,49 @@ export class FinanceService {
       period: "Last 12 months",
       currency: "USD",
       rows,
-      total: rows.reduce((sum, row) => sum + row.amount, 0),
-      generatedAt: new Date().toISOString(),
+      total: Math.round(rows.reduce((sum, row) => sum + row.amount, 0)),
+      generatedAt: now.toISOString(),
+    };
+  }
+
+  private async fetchAll(user: GatewayUser, meta: GatewayRequestMeta): Promise<{
+    salesInvoices: SimpleInvoice[];
+    purchaseInvoices: SimpleInvoice[];
+    payments: SimplePayment[];
+    expenses: SimpleExpense[];
+  }> {
+    const [sales, purchases, payments, expenses] = await Promise.all([
+      this.gateway.list(user, meta, "Sales Invoice", { fields: INVOICE_FIELDS, limitPageLength: 500 }),
+      this.gateway.list(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, { fields: INVOICE_FIELDS, limitPageLength: 500 }),
+      this.gateway.list(user, meta, FINANCE_DOCTYPE.paymentEntry, { fields: PAYMENT_FIELDS, limitPageLength: 500 }),
+      this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, { fields: EXPENSE_FIELDS, limitPageLength: 500 }),
+    ]);
+    return {
+      salesInvoices: sales.items.map(toInvoice),
+      purchaseInvoices: purchases.items.map(toInvoice),
+      payments: payments.items.map(toPayment),
+      expenses: expenses.items.map(toExpense),
     };
   }
 }
 
-function series(values: number[]): FinanceSeriesPoint[] {
-  return months.map((label, index) => ({ label, value: values[index] ?? 0 }));
+function sumSubmitted<T>(records: T[], pick: (record: T) => number): number {
+  return records.reduce((sum, record) => sum + pick(record), 0);
 }
 
-function aging(labels: string[]): FinanceArBucket[] {
-  return labels.map((label, index) => ({ label, value: 30_000 - index * 4_200 }));
+function cashByMonth(payments: SimplePayment[], buckets: { key: number; label: string }[]): Map<number, number> {
+  const byMonth = new Map<number, number>();
+  for (const payment of payments.filter((entry) => entry.submitted))
+    byMonth.set(monthKey(payment.postingDate), (byMonth.get(monthKey(payment.postingDate)) ?? 0) + (payment.incoming ? payment.amount : -payment.amount));
+  const out = new Map<number, number>();
+  let running = 0;
+  for (const bucket of buckets) {
+    running += byMonth.get(bucket.key) ?? 0;
+    out.set(bucket.key, running);
+  }
+  return out;
+}
+
+function seriesFrom(values: Map<number, number>): FinanceSeriesPoint[] {
+  return monthsBack(12).map((bucket) => ({ label: bucket.label, value: Math.round(values.get(bucket.key) ?? 0) }));
 }

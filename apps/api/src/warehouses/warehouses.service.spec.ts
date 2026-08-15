@@ -1,143 +1,228 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorCode } from "@amni/shared";
+import { ErpError } from "@amni/erp";
+import type * as ErpModule from "@amni/erp";
 
 import { WarehousesService } from "./warehouses.service";
-import { ApiException } from "../common/api.exception";
+import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+
+const mocks = vi.hoisted(() => {
+  const client = {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+  return {
+    membership: { findFirst: vi.fn() },
+    auditLog: { create: vi.fn() },
+    createErpClientForTenant: vi.fn(async () => client),
+    client,
+  };
+});
+
+vi.mock("@amni/db", () => ({
+  prisma: { membership: mocks.membership, auditLog: mocks.auditLog },
+}));
+
+vi.mock("@amni/erp", async (importOriginal) => ({
+  ...(await importOriginal<typeof ErpModule>()),
+  createErpClientForTenant: mocks.createErpClientForTenant,
+}));
+
+const USER: GatewayUser = { id: "user-1", email: "owner@acme.com", role: "USER" };
+const META: GatewayRequestMeta = { ip: "10.0.0.1", requestId: "req-1" };
+const COMPANY = "company-1";
+
+const WAREHOUSE_DOCS = [
+  { name: "Main Store - ACME", warehouse_name: "Main Store", disabled: 0, creation: "2026-01-01 09:00:00", modified: "2026-06-01 09:00:00" },
+  { name: "Workshop - ACME", warehouse_name: "Workshop", disabled: 0, creation: "2026-02-01 09:00:00", modified: "2026-06-02 09:00:00" },
+  { name: "Returns - ACME", warehouse_name: "Returns Center", disabled: 1, creation: "2026-03-01 09:00:00", modified: "2026-06-03 09:00:00" },
+];
+
+const BIN_DOCS = [
+  { name: "BIN-1", item_code: "PRD-0001", warehouse: "Main Store - ACME", actual_qty: 24, reserved_qty: 3, projected_qty: 21 },
+  { name: "BIN-2", item_code: "PRD-0003", warehouse: "Main Store - ACME", actual_qty: 2, reserved_qty: 0, projected_qty: 2 },
+];
+
+function mockWarehouseList() {
+  mocks.client.list.mockImplementation(async (doctype: string) => {
+    if (doctype === "Warehouse") return { items: WAREHOUSE_DOCS, hasMore: false };
+    return { items: [], hasMore: false };
+  });
+}
 
 describe("WarehousesService", () => {
-  const createService = () => new WarehousesService();
+  let service: WarehousesService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createErpClientForTenant.mockResolvedValue(mocks.client);
+    mocks.auditLog.create.mockResolvedValue({ id: "audit-1" });
+    mocks.membership.findFirst.mockResolvedValue({ companyId: COMPANY });
+    service = new WarehousesService(new ErpGatewayService());
+  });
 
   describe("list", () => {
-    it("returns the first page sorted by createdAt desc by default", () => {
-      const result = createService().list({ page: 1, pageSize: 20 });
+    it("returns warehouses from the tenant site mapped to the contract", async () => {
+      mockWarehouseList();
 
-      expect(result.meta.total).toBe(6);
-      expect(result.items[0].code).toBe("WH-0006");
+      const result = await service.list(USER, META, { page: 1, pageSize: 20 });
+
+      expect(result.meta.total).toBe(3);
+      expect(result.items[0].code).toBe("Returns - ACME");
+      expect(result.items[0].status).toBe("inactive");
+      expect(result.items[2].name).toBe("Main Store");
     });
 
-    it("honors whitelisted sortBy and sortDir", () => {
-      const service = createService();
-      const result = service.list({ page: 1, pageSize: 20, sortBy: "name", sortDir: "asc" });
+    it("filters by status", async () => {
+      mockWarehouseList();
 
-      const [first, second] = result.items;
-      expect(first.name <= second.name).toBe(true);
-      expect(first.name).toBe("E-Commerce Fulfillment");
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, status: "active" });
+
+      expect(result.meta.total).toBe(2);
+      expect(result.items.every((w) => w.status === "active")).toBe(true);
     });
 
-    it("falls back to createdAt when sortBy is not whitelisted", () => {
-      const result = createService().list({ page: 1, pageSize: 20, sortBy: "code", sortDir: "asc" });
+    it("searches case-insensitively across name", async () => {
+      mockWarehouseList();
 
-      expect(result.items[0].code).toBe("WH-0006");
-    });
-
-    it("filters by status", () => {
-      const result = createService().list({ page: 1, pageSize: 20, status: "inactive" });
-
-      expect(result.items.every((warehouse) => warehouse.status === "inactive")).toBe(true);
-      expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("WH-0004");
-    });
-
-    it("searches case-insensitively across name and location", () => {
-      const result = createService().list({ page: 1, pageSize: 20, q: "REGIONAL" });
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, q: "workshop" });
 
       expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("WH-0002");
-    });
-
-    it("paginates", () => {
-      const service = createService();
-      const page1 = service.list({ page: 1, pageSize: 4 });
-      const page2 = service.list({ page: 2, pageSize: 4 });
-
-      expect(page1.items.length).toBe(4);
-      expect(page2.items.length).toBe(2);
-      expect(page2.items[0]).not.toBe(page1.items[0]);
+      expect(result.items[0].code).toBe("Workshop - ACME");
     });
   });
 
   describe("detail", () => {
-    it("returns the warehouse with its stock and derived lowStock", () => {
-      const detail = createService().detail("WH-0001");
+    it("returns the warehouse with stock read from Bin docs", async () => {
+      mocks.client.list.mockImplementation(async (doctype: string) => {
+        if (doctype === "Bin") return { items: BIN_DOCS, hasMore: false };
+        if (doctype === "Item") return { items: [{ name: "PRD-0001", reorder_level: 10 }, { name: "PRD-0003", reorder_level: 5 }], hasMore: false };
+        return { items: [], hasMore: false };
+      });
+      mocks.client.get.mockResolvedValue(WAREHOUSE_DOCS[0]);
 
-      expect(detail.code).toBe("WH-0001");
-      expect(detail.stock.length).toBeGreaterThan(0);
-      expect(detail.stock.every((row) => row.warehouseCode === "WH-0001")).toBe(true);
-      expect(detail.stock.every((row) => row.available === Math.max(0, row.onHand - row.reserved))).toBe(true);
-      expect(detail.lowStock.length).toBe(1);
-      expect(detail.lowStock[0].productCode).toBe("PRD-0003");
-      expect(detail.lowStock[0].onHand).toBeLessThan(detail.lowStock[0].reorderLevel);
+      const detail = await service.detail(USER, META, "Main Store - ACME");
+
+      expect(detail.code).toBe("Main Store - ACME");
+      expect(detail.stock).toHaveLength(2);
+      expect(detail.stock[0]).toMatchObject({
+        productCode: "PRD-0001",
+        onHand: 24,
+        reserved: 3,
+        available: 21,
+        reorderLevel: 10,
+      });
+      expect(detail.stock[1].reorderLevel).toBe(5);
+      expect(detail.lowStock.map((row) => row.productCode)).toEqual(["PRD-0003"]);
+      expect(mocks.client.list).toHaveBeenCalledWith(
+        "Bin",
+        expect.objectContaining({ filters: { warehouse: "Main Store - ACME" } }),
+      );
     });
 
-    it("returns an empty lowStock list when nothing is below reorder level", () => {
-      const detail = createService().detail("WH-0005");
+    it("throws not_found for an unknown warehouse", async () => {
+      mocks.client.get.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
 
-      expect(detail.lowStock.length).toBeGreaterThan(0);
-      expect(detail.lowStock.every((row) => row.onHand < row.reorderLevel)).toBe(true);
+      await expect(service.detail(USER, META, "NOPE")).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
     });
+  });
 
-    it("throws not_found for an unknown warehouse", () => {
-      expect(() => createService().detail("WH-9999")).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
+  describe("stockSummary", () => {
+    it("computes inventory value, warehouse count and low stock from Bin/Item/Warehouse docs", async () => {
+      mocks.client.list.mockImplementation(async (doctype: string) => {
+        if (doctype === "Bin") {
+          return {
+            items: [
+              { name: "BIN-1", item_code: "PRD-0001", warehouse: "Main Store - ACME", actual_qty: 24, reserved_qty: 3, projected_qty: 21, valuation_rate: 10 },
+              { name: "BIN-2", item_code: "PRD-0003", warehouse: "Main Store - ACME", actual_qty: 2, reserved_qty: 0, projected_qty: 2, valuation_rate: 50 },
+            ],
+            hasMore: false,
+          };
+        }
+        if (doctype === "Item") {
+          return {
+            items: [
+              { name: "PRD-0001", item_name: "Widget", reorder_level: 10 },
+              { name: "PRD-0003", item_name: "Bolt", reorder_level: 5 },
+            ],
+            hasMore: false,
+          };
+        }
+        if (doctype === "Warehouse") return { items: WAREHOUSE_DOCS, hasMore: false };
+        return { items: [], hasMore: false };
+      });
+
+      const summary = await service.stockSummary(USER, META);
+
+      expect(summary.value).toBe(340);
+      expect(summary.warehouses).toBe(3);
+      expect(summary.currency).toBe("USD");
+      expect(summary.lowStockCount).toBe(1);
+      expect(summary.lowStock).toEqual([{ code: "PRD-0003", name: "Bolt" }]);
+      expect(mocks.client.list).toHaveBeenCalledWith(
+        "Bin",
+        expect.objectContaining({ fields: expect.arrayContaining(["valuation_rate"]) }),
       );
     });
   });
 
   describe("create", () => {
-    it("assigns the next code and defaults status to active", () => {
-      const service = createService();
-      const warehouse = service.create({ name: "Test Warehouse", location: "Test Location" });
+    it("creates the Warehouse doc on the tenant site and audits", async () => {
+      mocks.client.create.mockResolvedValue({ ...WAREHOUSE_DOCS[0], name: "New Store - ACME" });
 
-      expect(warehouse.code).toBe("WH-0007");
+      const warehouse = await service.create(USER, META, { name: "New Store", status: "active" });
+
+      expect(mocks.client.create).toHaveBeenCalledWith(
+        "Warehouse",
+        expect.objectContaining({ warehouse_name: "New Store", disabled: 0 }),
+      );
+      expect(warehouse.code).toBe("New Store - ACME");
       expect(warehouse.status).toBe("active");
-      expect(warehouse.isDefault).toBe(false);
-      expect(service.detail("WH-0007").name).toBe("Test Warehouse");
-    });
-
-    it("honors explicit status and isDefault", () => {
-      const service = createService();
-      const warehouse = service.create({
-        name: "Test Warehouse",
-        manager: "Jane Doe",
-        status: "inactive",
-        isDefault: true,
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "warehouse.create", resourceType: "Warehouse", resourceId: "New Store - ACME", companyId: COMPANY, actorId: USER.id }),
       });
-
-      expect(warehouse.status).toBe("inactive");
-      expect(warehouse.isDefault).toBe(true);
-      expect(warehouse.manager).toBe("Jane Doe");
     });
   });
 
   describe("update", () => {
-    it("updates scalar fields and refreshes updatedAt", () => {
-      const service = createService();
-      const warehouse = service.update("WH-0003", { name: "Assembly Workshop", manager: "Ada Lovelace" });
+    it("patches mapped fields and audits", async () => {
+      mocks.client.update.mockResolvedValue({ ...WAREHOUSE_DOCS[2], disabled: 0 });
 
-      expect(warehouse.name).toBe("Assembly Workshop");
-      expect(warehouse.manager).toBe("Ada Lovelace");
-      expect(warehouse.updatedAt >= warehouse.createdAt).toBe(true);
+      const warehouse = await service.update(USER, META, "Returns - ACME", { status: "active" });
+
+      expect(mocks.client.update).toHaveBeenCalledWith("Warehouse", "Returns - ACME", expect.objectContaining({ disabled: 0 }));
+      expect(warehouse.status).toBe("active");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "warehouse.update", resourceId: "Returns - ACME" }),
+      });
     });
 
-    it("throws not_found when the warehouse does not exist", () => {
-      const service = createService();
-      expect(() => service.update("WH-9999", { name: "Nope" })).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
-      );
+    it("throws not_found when the warehouse does not exist", async () => {
+      mocks.client.update.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
+
+      await expect(service.update(USER, META, "NOPE", { name: "X" })).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
     });
   });
 
   describe("remove", () => {
-    it("removes the warehouse", () => {
-      const service = createService();
-      service.remove("WH-0006");
+    it("deletes the Warehouse doc and audits", async () => {
+      mocks.client.delete.mockResolvedValue(undefined);
 
-      expect(service.list({ page: 1, pageSize: 20 }).meta.total).toBe(5);
+      await service.remove(USER, META, "Old - ACME");
+
+      expect(mocks.client.delete).toHaveBeenCalledWith("Warehouse", "Old - ACME");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "warehouse.delete", resourceType: "Warehouse", resourceId: "Old - ACME" }),
+      });
     });
 
-    it("throws not_found for an unknown warehouse", () => {
-      const service = createService();
-      expect(() => service.remove("WH-9999")).toThrowError(ApiException);
+    it("throws not_found for an unknown warehouse", async () => {
+      mocks.client.delete.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
+
+      await expect(service.remove(USER, META, "NOPE")).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
     });
   });
 });

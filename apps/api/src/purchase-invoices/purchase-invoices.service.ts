@@ -1,5 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import {
+  CATALOG_DOCTYPE,
+  PURCHASING_DOCTYPE,
+  PURCHASE_INVOICE_FIELDS,
+  buildPaymentEntryDoc,
+  buildPurchaseInvoiceDoc,
+  ErpError,
+} from "@amni/erp";
+import {
   ErrorCode,
   type CreateDocLine,
   type CreatePurchaseInvoiceInput,
@@ -14,9 +22,12 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 
 const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 const SORT_WHITELIST = new Set([
@@ -31,6 +42,24 @@ const SORT_WHITELIST = new Set([
   "createdAt",
   "updatedAt",
 ]);
+
+const LIST_FIELDS = [
+  "name",
+  PURCHASE_INVOICE_FIELDS.supplier,
+  "supplier_name",
+  PURCHASE_INVOICE_FIELDS.date,
+  PURCHASE_INVOICE_FIELDS.dueDate,
+  PURCHASE_INVOICE_FIELDS.currency,
+  "grand_total",
+  "outstanding_amount",
+  PURCHASE_INVOICE_FIELDS.purchaseOrder,
+  PURCHASE_INVOICE_FIELDS.notes,
+  "status",
+  "docstatus",
+  "items",
+  "creation",
+  "modified",
+];
 
 export interface SupplierOption {
   code: string;
@@ -49,203 +78,85 @@ export interface PurchaseInvoiceOptions {
   products: ProductOption[];
 }
 
-const SEED_SUPPLIERS: SupplierOption[] = [
-  { code: "SUP-0001", name: "Nordic Timberworks" },
-  { code: "SUP-0002", name: "Fleetline Metals" },
-  { code: "SUP-0003", name: "Comet Office Supply" },
-  { code: "SUP-0004", name: "Hale Lighting Co." },
-  { code: "SUP-0005", name: "PackRight Logistics" },
-  { code: "SUP-0006", name: "Beacon Textiles" },
-  { code: "SUP-0007", name: "Vertex Hardware" },
-];
-
-const SEED_PRODUCTS: ProductOption[] = [
-  { code: "PRD-0001", name: "Alderwood standing desk", uom: "pcs", rate: 520 },
-  { code: "PRD-0002", name: "Aria ergonomic chair", uom: "pcs", rate: 245 },
-  { code: "PRD-0003", name: "Lumen task lamp", uom: "pcs", rate: 34 },
-  { code: "PRD-0004", name: "Linea lateral file cabinet", uom: "pcs", rate: 138 },
-  { code: "PRD-0005", name: "Boardroom conference table", uom: "pcs", rate: 890 },
-  { code: "PRD-0006", name: "Serene modular sofa set", uom: "set", rate: 760 },
-  { code: "PRD-0007", name: "Acoustic partition panel", uom: "pcs", rate: 172 },
-  { code: "PRD-0008", name: "Flux dual monitor arm", uom: "pcs", rate: 58 },
-];
-
-const supplier = (code: string): SupplierOption => {
-  const found = SEED_SUPPLIERS.find((entry) => entry.code === code);
-  if (!found) {
-    throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
-  }
-  return found;
-};
-
-const line = (
-  lineNo: number,
-  product: string,
-  name: string,
-  uom: string,
-  qty: number,
-  rate: number,
-): DocLine => ({
-  lineNo,
-  product,
-  name,
-  uom,
-  qty,
-  rate,
-  amount: round2(qty * rate),
-});
-
-function summarize(lines: DocLine[], discount = 0, tax = 0): DocSummary {
-  const subtotal = round2(lines.reduce((sum, item) => sum + item.amount, 0));
-  return { subtotal, discount, tax, total: round2(subtotal - discount + tax) };
+function notFound(code: string): ApiException {
+  return new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Purchase invoice ${code} not found` });
 }
 
-const SEED: PurchaseInvoice[] = [
-  {
-    code: "PINV-0001",
-    supplier: supplier("SUP-0001"),
-    status: "paid",
-    date: iso(58),
-    dueDate: iso(28),
-    currency: "USD",
-    summary: summarize([
-      line(1, "PRD-0001", "Alderwood standing desk", "pcs", 10, 520),
-      line(2, "PRD-0002", "Aria ergonomic chair", "pcs", 24, 245),
-    ]),
-    items: [
-      line(1, "PRD-0001", "Alderwood standing desk", "pcs", 10, 520),
-      line(2, "PRD-0002", "Aria ergonomic chair", "pcs", 24, 245),
-    ],
-    amountPaid: 11080,
-    owner: "Amara Osei",
-    purchaseOrderCode: "PO-0001",
-    notes: "Paid within discount window.",
-    createdAt: iso(58),
-    updatedAt: iso(28),
-  },
-  {
-    code: "PINV-0002",
-    supplier: supplier("SUP-0002"),
-    status: "overdue",
-    date: iso(50),
-    dueDate: iso(10),
-    currency: "USD",
-    summary: summarize([
-      line(1, "PRD-0004", "Linea lateral file cabinet", "pcs", 12, 138),
-      line(2, "PRD-0007", "Acoustic partition panel", "pcs", 8, 172),
-    ]),
-    items: [
-      line(1, "PRD-0004", "Linea lateral file cabinet", "pcs", 12, 138),
-      line(2, "PRD-0007", "Acoustic partition panel", "pcs", 8, 172),
-    ],
-    amountPaid: 0,
-    owner: "Theo Lindqvist",
-    purchaseOrderCode: "PO-0003",
-    notes: "Follow up on outstanding balance.",
-    createdAt: iso(50),
-    updatedAt: iso(5),
-  },
-  {
-    code: "PINV-0003",
-    supplier: supplier("SUP-0004"),
-    status: "submitted",
-    date: iso(40),
-    dueDate: iso(21),
-    currency: "USD",
-    summary: summarize([
-      line(1, "PRD-0003", "Lumen task lamp", "pcs", 60, 34),
-      line(2, "PRD-0008", "Flux dual monitor arm", "pcs", 20, 58),
-    ]),
-    items: [
-      line(1, "PRD-0003", "Lumen task lamp", "pcs", 60, 34),
-      line(2, "PRD-0008", "Flux dual monitor arm", "pcs", 20, 58),
-    ],
-    amountPaid: 0,
-    owner: "Amara Osei",
-    purchaseOrderCode: "PO-0002",
-    notes: "Due 30 days from invoice date.",
-    createdAt: iso(40),
-    updatedAt: iso(9),
-  },
-  {
-    code: "PINV-0004",
-    supplier: supplier("SUP-0005"),
-    status: "partially_paid",
-    date: iso(30),
-    dueDate: iso(8),
-    currency: "USD",
-    summary: summarize([
-      line(1, "PRD-0006", "Serene modular sofa set", "set", 3, 760),
-    ]),
-    items: [
-      line(1, "PRD-0006", "Serene modular sofa set", "set", 3, 760),
-    ],
-    amountPaid: 1000,
-    owner: "Amara Osei",
-    notes: "Partial payment made against delivery.",
-    createdAt: iso(30),
-    updatedAt: iso(6),
-  },
-  {
-    code: "PINV-0005",
-    supplier: supplier("SUP-0003"),
-    status: "paid",
-    date: iso(20),
-    dueDate: iso(10),
-    currency: "USD",
-    summary: summarize([
-      line(1, "PRD-0003", "Lumen task lamp", "pcs", 40, 34),
-    ]),
-    items: [
-      line(1, "PRD-0003", "Lumen task lamp", "pcs", 40, 34),
-    ],
-    amountPaid: 1360,
-    owner: "Theo Lindqvist",
-    purchaseOrderCode: "PO-0005",
-    notes: "",
-    createdAt: iso(20),
-    updatedAt: iso(10),
-  },
-  {
-    code: "PINV-0006",
-    supplier: supplier("SUP-0006"),
-    status: "submitted",
-    date: iso(5),
-    dueDate: iso(26),
-    currency: "USD",
-    summary: summarize([
-      line(1, "PRD-0007", "Acoustic partition panel", "pcs", 16, 172),
-    ]),
-    items: [
-      line(1, "PRD-0007", "Acoustic partition panel", "pcs", 16, 172),
-    ],
-    amountPaid: 0,
-    owner: "Amara Osei",
-    purchaseOrderCode: "PO-0006",
-    notes: "",
-    createdAt: iso(2),
-    updatedAt: iso(1),
-  },
-];
+/**
+ * Maps an ERPNext Purchase Invoice (status string + docstatus) onto the
+ * platform contract statuses. ERPNext derives the payment statuses; only
+ * draft/submitted/cancelled map 1:1 and the rest are direct ERPNext values.
+ */
+function toStatus(docstatus: unknown, status: unknown): PurchaseInvoiceStatus {
+  if (Number(docstatus) === 2) return "cancelled";
+  if (Number(docstatus) === 0) return "draft";
+  switch (String(status)) {
+    case "Paid":
+      return "paid";
+    case "Partially Paid":
+      return "partially_paid";
+    case "Overdue":
+      return "overdue";
+    default:
+      return "submitted";
+  }
+}
 
-function buildLines(inputs: CreateDocLine[], productName: (code: string) => string | undefined): DocLine[] {
+function toLine(line: Record<string, unknown>, lineNo: number): DocLine {
+  const qty = Number(line.qty ?? 0);
+  const rate = Number(line.rate ?? 0);
+  return {
+    lineNo,
+    product: String(line.item_code ?? ""),
+    name: line.item_name != null ? String(line.item_name) : String(line.item_code ?? ""),
+    uom: line.uom != null ? String(line.uom) : "pcs",
+    qty,
+    rate,
+    amount: round2(qty * rate),
+  };
+}
+
+function toSummary(lines: DocLine[], grandTotal: unknown): DocSummary {
+  const subtotal = round2(lines.reduce((sum, item) => sum + item.amount, 0));
+  return { subtotal, discount: 0, tax: 0, total: grandTotal != null ? Number(grandTotal) : subtotal };
+}
+
+function toPurchaseInvoice(doc: Record<string, unknown>): PurchaseInvoice {
+  const now = new Date().toISOString();
+  const lines = Array.isArray(doc.items) ? doc.items.map((line, index) => toLine(line as Record<string, unknown>, index + 1)) : [];
+  const grandTotal = doc.grand_total != null ? Number(doc.grand_total) : round2(lines.reduce((sum, item) => sum + item.amount, 0));
+  const outstanding = doc.outstanding_amount != null ? Number(doc.outstanding_amount) : grandTotal;
+  return {
+    code: String(doc.name),
+    supplier: {
+      code: String(doc.supplier ?? ""),
+      name: doc.supplier_name != null ? String(doc.supplier_name) : String(doc.supplier ?? ""),
+    },
+    status: toStatus(doc.docstatus, doc.status),
+    date: doc.posting_date != null ? String(doc.posting_date) : now,
+    dueDate: doc.due_date != null ? String(doc.due_date) : now,
+    currency: doc.currency != null ? String(doc.currency) : "USD",
+    summary: toSummary(lines, grandTotal),
+    items: lines,
+    amountPaid: round2(grandTotal - outstanding),
+    owner: doc.owner != null ? String(doc.owner) : undefined,
+    purchaseOrderCode: doc.purchase_order != null ? String(doc.purchase_order) : undefined,
+    notes: doc.remarks != null ? String(doc.remarks) : undefined,
+    createdAt: doc.creation != null ? String(doc.creation) : now,
+    updatedAt: doc.modified != null ? String(doc.modified) : now,
+  };
+}
+
+function buildLines(inputs: CreateDocLine[], products: Map<string, ProductOption>): DocLine[] {
   return inputs.map((input, index) => ({
     lineNo: index + 1,
     product: input.product,
-    name: input.name ?? productName(input.product) ?? input.product,
-    uom: input.uom ?? "pcs",
+    name: input.name ?? products.get(input.product)?.name ?? input.product,
+    uom: input.uom ?? products.get(input.product)?.uom ?? "pcs",
     qty: input.qty,
     rate: input.rate,
     amount: round2(input.qty * input.rate),
   }));
-}
-
-function nextCode(records: PurchaseInvoice[]): string {
-  const max = records.reduce((highest, invoice) => {
-    const number = Number(invoice.code.slice(5));
-    return number > highest ? number : highest;
-  }, 0);
-  return `PINV-${String(max + 1).padStart(4, "0")}`;
 }
 
 function sortValue(invoice: PurchaseInvoice, sortBy: string): unknown {
@@ -255,21 +166,51 @@ function sortValue(invoice: PurchaseInvoice, sortBy: string): unknown {
 }
 
 /**
- * Reference data for the Demo Co tenant. This module is the only purchase-invoice
- * surface until the ERP gateway lands (M5); endpoints then read from the
- * tenant ERPNext site and keep the same contract.
+ * Purchase-invoices surface over the tenant's real ERPNext site (M5-005).
+ * Same wiring as the other purchasing modules: tenant from Membership, code
+ * IS the ERPNext doc name, mutations audited. Payments create and submit a
+ * Payment Entry (Pay/Supplier) through the gateway, matching the finance
+ * domain's recordPaymentEntry flow, then re-read the invoice so amountPaid
+ * reflects the ERPNext outstanding_amount.
  */
 @Injectable()
 export class PurchaseInvoicesService {
-  private records: PurchaseInvoice[] = structuredClone(SEED);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  options(): PurchaseInvoiceOptions {
-    return { suppliers: SEED_SUPPLIERS, products: SEED_PRODUCTS };
+  async options(user: GatewayUser, meta: GatewayRequestMeta): Promise<PurchaseInvoiceOptions> {
+    const [supplierDocs, productDocs] = await Promise.all([
+      this.gateway.list(user, meta, PURCHASING_DOCTYPE.supplier, {
+        fields: ["name", "supplier_name"],
+        limitPageLength: 500,
+      }),
+      this.gateway.list(user, meta, CATALOG_DOCTYPE.item, {
+        fields: ["name", "item_code", "item_name", "stock_uom", "standard_rate"],
+        limitPageLength: 500,
+      }),
+    ]);
+    return {
+      suppliers: supplierDocs.items.map((doc) => ({
+        code: String(doc.name),
+        name: doc.supplier_name != null ? String(doc.supplier_name) : String(doc.name),
+      })),
+      products: productDocs.items.map((doc) => ({
+        code: String(doc.item_code ?? doc.name),
+        name: doc.item_name != null ? String(doc.item_name) : String(doc.name),
+        uom: doc.stock_uom != null ? String(doc.stock_uom) : "pcs",
+        rate: Number(doc.standard_rate ?? 0),
+      })),
+    };
   }
 
-  list(query: PurchaseInvoiceListQuery): PurchaseInvoiceListResponse {
+  async list(user: GatewayUser, meta: GatewayRequestMeta, query: PurchaseInvoiceListQuery): Promise<PurchaseInvoiceListResponse> {
+    const { items } = await this.gateway.list(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, {
+      fields: LIST_FIELDS,
+      limitPageLength: 500,
+    });
+    const records = items.map(toPurchaseInvoice);
+
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.records.filter((invoice) => {
+    const filtered = records.filter((invoice) => {
       if (query.status && invoice.status !== query.status) return false;
       if (!q) return true;
       return [invoice.code, invoice.supplier.code, invoice.supplier.name, invoice.owner ?? "", invoice.notes ?? ""]
@@ -298,92 +239,134 @@ export class PurchaseInvoicesService {
     };
   }
 
-  detail(code: string): PurchaseInvoice {
-    const invoice = this.records.find((record) => record.code === code);
-    if (!invoice) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Purchase invoice ${code} not found` });
+  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<PurchaseInvoice> {
+    try {
+      const doc = await this.gateway.get(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, code);
+      return toPurchaseInvoice(doc);
+    } catch (err) {
+      if (err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND) throw notFound(code);
+      throw err;
     }
-    return invoice;
   }
 
-  create(input: CreatePurchaseInvoiceInput): PurchaseInvoice {
-    const lines = buildLines(input.items, (code) => SEED_PRODUCTS.find((product) => product.code === code)?.name);
+  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreatePurchaseInvoiceInput): Promise<PurchaseInvoice> {
+    const [code, products, supplier] = await Promise.all([
+      this.nextCode(user, meta),
+      this.listProducts(user, meta),
+      this.resolveSupplier(user, meta, input.supplierCode),
+    ]);
+    const lines = buildLines(input.items, products);
     const date = input.date ?? new Date().toISOString();
-    const invoice: PurchaseInvoice = {
-      code: nextCode(this.records),
-      supplier: supplier(input.supplierCode),
-      status: "draft",
-      date,
-      dueDate: input.dueDate ?? new Date(new Date(date).getTime() + 30 * DAY_MS).toISOString(),
-      currency: input.currency ?? "USD",
-      summary: summarize(lines),
-      items: lines,
-      amountPaid: 0,
-      owner: "Amara Osei",
-      purchaseOrderCode: input.purchaseOrderCode,
-      notes: input.notes ?? "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.records.push(invoice);
-    return invoice;
+    const doc = await this.gateway.create(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, {
+      name: code,
+      ...buildPurchaseInvoiceDoc({
+        supplier: supplier.code,
+        supplierName: supplier.name,
+        date,
+        dueDate: input.dueDate ?? new Date(new Date(date).getTime() + 30 * DAY_MS).toISOString(),
+        currency: input.currency,
+        purchaseOrder: input.purchaseOrderCode,
+        notes: input.notes ?? "",
+        items: lines.map((line) => ({ product: line.product, name: line.name, uom: line.uom, qty: line.qty, rate: line.rate })),
+      }),
+    });
+    return toPurchaseInvoice(doc);
   }
 
-  update(code: string, input: UpdatePurchaseInvoiceInput): PurchaseInvoice {
-    const invoice = this.records.find((record) => record.code === code);
-    if (!invoice) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Purchase invoice ${code} not found` });
-    }
-    if (input.supplierCode !== undefined) invoice.supplier = supplier(input.supplierCode);
-    if (input.date !== undefined) invoice.date = input.date;
-    if (input.dueDate !== undefined) invoice.dueDate = input.dueDate;
-    if (input.currency !== undefined) invoice.currency = input.currency;
-    if (input.purchaseOrderCode !== undefined) invoice.purchaseOrderCode = input.purchaseOrderCode;
-    if (input.notes !== undefined) invoice.notes = input.notes;
-    if (input.items !== undefined) {
-      invoice.items = buildLines(input.items, (code) => SEED_PRODUCTS.find((product) => product.code === code)?.name);
-      invoice.summary = summarize(invoice.items);
-    }
-    invoice.updatedAt = new Date().toISOString();
-    return invoice;
+  async update(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdatePurchaseInvoiceInput): Promise<PurchaseInvoice> {
+    const products = await this.listProducts(user, meta);
+    const doc = await this.gateway.update(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, code, undefined, {
+      ...(input.supplierCode !== undefined ? { [PURCHASE_INVOICE_FIELDS.supplier]: input.supplierCode } : {}),
+      ...(input.date !== undefined ? { [PURCHASE_INVOICE_FIELDS.date]: input.date } : {}),
+      ...(input.dueDate !== undefined ? { [PURCHASE_INVOICE_FIELDS.dueDate]: input.dueDate } : {}),
+      ...(input.currency !== undefined ? { [PURCHASE_INVOICE_FIELDS.currency]: input.currency } : {}),
+      ...(input.purchaseOrderCode !== undefined ? { [PURCHASE_INVOICE_FIELDS.purchaseOrder]: input.purchaseOrderCode } : {}),
+      ...(input.notes !== undefined ? { [PURCHASE_INVOICE_FIELDS.notes]: input.notes } : {}),
+      ...(input.items !== undefined
+        ? { items: buildLines(input.items, products).map((line) => ({ item_code: line.product, item_name: line.name, qty: line.qty, rate: line.rate, uom: line.uom, amount: line.amount })) }
+        : {}),
+    });
+    return toPurchaseInvoice(doc);
   }
 
-  changeStatus(code: string, input: { status: PurchaseInvoiceStatus }): PurchaseInvoice {
-    const invoice = this.records.find((record) => record.code === code);
-    if (!invoice) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Purchase invoice ${code} not found` });
-    }
-    invoice.status = input.status;
-    invoice.updatedAt = new Date().toISOString();
-    return invoice;
-  }
-
-  recordPayment(code: string, input: RecordPaymentInput): PurchaseInvoice {
-    const invoice = this.records.find((record) => record.code === code);
-    if (!invoice) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Purchase invoice ${code} not found` });
-    }
-    const remaining = round2(invoice.summary.total - invoice.amountPaid);
-    if (input.amount > remaining) {
+  async changeStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: PurchaseInvoiceStatus }): Promise<PurchaseInvoice> {
+    let doc: Record<string, unknown>;
+    if (input.status === "submitted") {
+      doc = await this.gateway.update(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, code, "submit", {});
+    } else if (input.status === "cancelled") {
+      doc = await this.gateway.update(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, code, "cancel", {});
+    } else {
       throw new ApiException({
-        code: ErrorCode.UNPROCESSABLE,
-        status: 422,
-        message: `Payment of ${input.amount} exceeds the remaining balance of ${remaining}`,
+        code: ErrorCode.VALIDATION,
+        status: 400,
+        message: "Purchase invoice status is derived from ERPNext; only submitted and cancelled can be set",
       });
     }
-    invoice.amountPaid = round2(invoice.amountPaid + input.amount);
-    if (invoice.status !== "cancelled") {
-      invoice.status = invoice.amountPaid >= invoice.summary.total ? "paid" : "partially_paid";
-    }
-    invoice.updatedAt = new Date().toISOString();
-    return invoice;
+    return toPurchaseInvoice(doc);
   }
 
-  remove(code: string): void {
-    const index = this.records.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Purchase invoice ${code} not found` });
+  async recordPayment(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: RecordPaymentInput): Promise<PurchaseInvoice> {
+    const payment = await this.gateway.create(user, meta, "Payment Entry", {
+      ...buildPaymentEntryDoc({
+        party: code,
+        partyType: "Supplier",
+        paymentType: "Pay",
+        paidAmount: input.amount,
+        method: input.method,
+        date: input.date,
+        reference: input.reference,
+      }),
+    });
+    await this.gateway.update(user, meta, "Payment Entry", String(payment.name), "submit", {});
+    const doc = await this.gateway.get(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, code);
+    return toPurchaseInvoice(doc);
+  }
+
+  async remove(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    await this.gateway.remove(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, code);
+  }
+
+  private async listProducts(user: GatewayUser, meta: GatewayRequestMeta): Promise<Map<string, ProductOption>> {
+    const { items } = await this.gateway.list(user, meta, CATALOG_DOCTYPE.item, {
+      fields: ["name", "item_code", "item_name", "stock_uom", "standard_rate"],
+      limitPageLength: 500,
+    });
+    return new Map(
+      items.map((doc) => [
+        String(doc.item_code ?? doc.name),
+        {
+          code: String(doc.item_code ?? doc.name),
+          name: doc.item_name != null ? String(doc.item_name) : String(doc.name),
+          uom: doc.stock_uom != null ? String(doc.stock_uom) : "pcs",
+          rate: Number(doc.standard_rate ?? 0),
+        },
+      ]),
+    );
+  }
+
+  private async resolveSupplier(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<SupplierOption> {
+    const { items } = await this.gateway.list(user, meta, PURCHASING_DOCTYPE.supplier, {
+      filters: { name: code },
+      fields: ["name", "supplier_name"],
+      limitPageLength: 1,
+    });
+    const found = items[0];
+    if (!found) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
     }
-    this.records.splice(index, 1);
+    return { code: String(found.name), name: found.supplier_name != null ? String(found.supplier_name) : String(found.name) };
+  }
+
+  private async nextCode(user: GatewayUser, meta: GatewayRequestMeta): Promise<string> {
+    const { items } = await this.gateway.list(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, {
+      fields: ["name"],
+      limitPageLength: 500,
+    });
+    const max = items.reduce((highest, doc) => {
+      const match = /^PINV-(\d{4})$/.exec(String(doc.name));
+      const number = match ? Number(match[1]) : 0;
+      return number > highest ? number : highest;
+    }, 0);
+    return `PINV-${String(max + 1).padStart(4, "0")}`;
   }
 }

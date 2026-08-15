@@ -9,7 +9,7 @@ import type {
   UpdateLeadInput,
 } from "@amni/shared";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 const CSRF_COOKIE = "amni_csrf";
 
 export class LeadsApiError extends Error {

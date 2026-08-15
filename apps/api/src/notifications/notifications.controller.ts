@@ -5,7 +5,8 @@ import {
   type NotificationsResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { CurrentUser } from "../auth/request.decorators";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { NotificationsService } from "./notifications.service";
@@ -16,17 +17,23 @@ export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 
   @Get()
-  list(@Query() query: unknown): NotificationsResponse {
-    return this.notifications.list(notificationsListQuerySchema.parse(query));
+  list(
+    @Query() query: unknown,
+    @CurrentUser() user: AuthenticatedRequest["user"],
+  ): Promise<NotificationsResponse> {
+    return this.notifications.list(user!.id, notificationsListQuerySchema.parse(query));
   }
 
   @Patch(":id/read")
-  markRead(@Param("id") id: string): Notification {
-    return this.notifications.markRead(id);
+  markRead(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedRequest["user"],
+  ): Promise<Notification> {
+    return this.notifications.markRead(id, user!.id);
   }
 
   @Patch("read-all")
-  markAllRead(): NotificationsResponse {
-    return this.notifications.markAllRead();
+  markAllRead(@CurrentUser() user: AuthenticatedRequest["user"]): Promise<NotificationsResponse> {
+    return this.notifications.markAllRead(user!.id);
   }
 }

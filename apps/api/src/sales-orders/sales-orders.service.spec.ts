@@ -1,178 +1,292 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorCode } from "@amni/shared";
+import { ErpError } from "@amni/erp";
+import type * as ErpModule from "@amni/erp";
 
 import { SalesOrdersService } from "./sales-orders.service";
-import { ApiException } from "../common/api.exception";
+import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+
+const mocks = vi.hoisted(() => {
+  const client = {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    submit: vi.fn(),
+    cancel: vi.fn(),
+  };
+  return {
+    membership: { findFirst: vi.fn() },
+    auditLog: { create: vi.fn() },
+    createErpClientForTenant: vi.fn(async () => client),
+    client,
+  };
+});
+
+vi.mock("@amni/db", () => ({
+  prisma: { membership: mocks.membership, auditLog: mocks.auditLog },
+}));
+
+vi.mock("@amni/erp", async (importOriginal) => ({
+  ...(await importOriginal<typeof ErpModule>()),
+  createErpClientForTenant: mocks.createErpClientForTenant,
+}));
+
+const USER: GatewayUser = { id: "user-1", email: "owner@acme.com", role: "USER" };
+const META: GatewayRequestMeta = { ip: "10.0.0.1", requestId: "req-1" };
+const COMPANY = "company-1";
+
+const CUSTOMER_DOCS = [
+  { name: "CUS-0001", customer_name: "Serenity Interiors" },
+  { name: "CUS-0002", customer_name: "Lumina Supplies" },
+];
+
+const PRODUCT_DOCS = [
+  { name: "PRD-0001", item_name: "Alderwood standing desk", stock_uom: "pcs", standard_rate: 1450 },
+  { name: "PRD-0002", item_name: "Aria ergonomic chair", stock_uom: "pcs", standard_rate: 620 },
+];
+
+const SALES_ORDER_DOCS = [
+  { name: "SO-2040", customer: "CUS-0001", transaction_date: "2026-07-01 09:00:00", delivery_date: "2026-08-04 09:00:00", currency: "USD", grand_total: 5380, status: "Delivered", docstatus: 1, owner: "Amara Osei", notes: "First order", items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 2, rate: 1450, amount: 2900, uom: "pcs" }, { item_code: "PRD-0002", item_name: "Aria ergonomic chair", qty: 4, rate: 620, amount: 2480, uom: "pcs" }], creation: "2026-06-30 09:00:00", modified: "2026-08-04 09:00:00" },
+  { name: "SO-2041", customer: "CUS-0002", transaction_date: "2026-08-11 09:00:00", delivery_date: "2026-07-31 09:00:00", currency: "USD", grand_total: 3340, status: "To Deliver and Bill", docstatus: 1, owner: "Amara Osei", quotation: "QT-0011", notes: "Split delivery", items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 2, rate: 1450, amount: 2900, uom: "pcs" }, { item_code: "PRD-0002", item_name: "Aria ergonomic chair", qty: 1, rate: 440, amount: 440, uom: "pcs" }], creation: "2026-08-11 09:00:00", modified: "2026-08-11 09:00:00" },
+  { name: "SO-2043", customer: "CUS-0001", transaction_date: "2026-08-13 09:00:00", delivery_date: null, currency: "USD", grand_total: 8120, status: "Draft", docstatus: 0, owner: "Amara Osei", quotation: "QT-0001", notes: "Draft fit-out", items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 4, rate: 1450, amount: 5800, uom: "pcs" }, { item_code: "PRD-0002", item_name: "Aria ergonomic chair", qty: 4, rate: 580, amount: 2320, uom: "pcs" }], creation: "2026-08-13 09:00:00", modified: "2026-08-13 09:00:00" },
+  { name: "SO-2044", customer: "CUS-0002", transaction_date: "2026-06-15 09:00:00", delivery_date: "2026-07-15 09:00:00", currency: "USD", grand_total: 2890, status: "Completed", docstatus: 1, owner: "Theo Lindqvist", notes: "Closed", items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 1, rate: 1450, amount: 1450, uom: "pcs" }, { item_code: "PRD-0002", item_name: "Aria ergonomic chair", qty: 3, rate: 480, amount: 1440, uom: "pcs" }], creation: "2026-06-14 09:00:00", modified: "2026-07-15 09:00:00" },
+  { name: "SO-2047", customer: "CUS-0001", transaction_date: "2026-07-27 09:00:00", delivery_date: "2026-08-09 09:00:00", currency: "USD", grand_total: 3130, status: "Partially Delivered", docstatus: 1, owner: "Amara Osei", notes: "Back-order", items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 1, rate: 1450, amount: 1450, uom: "pcs" }, { item_code: "PRD-0002", item_name: "Aria ergonomic chair", qty: 3, rate: 560, amount: 1680, uom: "pcs" }], creation: "2026-07-27 09:00:00", modified: "2026-08-11 09:00:00" },
+  { name: "SO-2048", customer: "CUS-0002", transaction_date: "2026-07-15 09:00:00", delivery_date: "2026-08-04 09:00:00", currency: "USD", grand_total: 6810, status: "Cancelled", docstatus: 2, owner: "Theo Lindqvist", notes: "Cancelled by customer", items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 3, rate: 1450, amount: 4350, uom: "pcs" }, { item_code: "PRD-0002", item_name: "Aria ergonomic chair", qty: 4, rate: 615, amount: 2460, uom: "pcs" }], creation: "2026-07-14 09:00:00", modified: "2026-07-26 09:00:00" },
+];
 
 describe("SalesOrdersService", () => {
-  const createService = () => new SalesOrdersService();
-  const all = (service: SalesOrdersService) => service.list({ page: 1, pageSize: 100 }).items;
+  let service: SalesOrdersService;
 
-  describe("list", () => {
-    it("returns the first page sorted by createdAt desc by default", () => {
-      const result = createService().list({ page: 1, pageSize: 20 });
-
-      expect(result.meta.total).toBe(14);
-      expect(result.items[0].code).toBe("SO-2043");
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createErpClientForTenant.mockResolvedValue(mocks.client);
+    mocks.auditLog.create.mockResolvedValue({ id: "audit-1" });
+    mocks.membership.findFirst.mockResolvedValue({ companyId: COMPANY });
+    mocks.client.list.mockImplementation((doctype: string) => {
+      if (doctype === "Customer") return Promise.resolve({ items: CUSTOMER_DOCS, hasMore: false });
+      if (doctype === "Item") return Promise.resolve({ items: PRODUCT_DOCS, hasMore: false });
+      return Promise.resolve({ items: SALES_ORDER_DOCS, hasMore: false });
     });
-
-    it("honors whitelisted sortBy and sortDir", () => {
-      const result = createService().list({ page: 1, pageSize: 100, sortBy: "total", sortDir: "desc" });
-
-      const [first, second] = result.items;
-      expect(first.summary.total).toBeGreaterThanOrEqual(second.summary.total);
+    mocks.client.get.mockImplementation((doctype: string, code: string) => {
+      if (doctype === "Customer") {
+        const customer = CUSTOMER_DOCS.find((entry) => entry.name === code);
+        return customer ? Promise.resolve(customer) : Promise.reject(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
+      }
+      const doc = SALES_ORDER_DOCS.find((entry) => entry.name === code);
+      return doc ? Promise.resolve(doc) : Promise.reject(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
     });
-
-    it("sorts by customer name", () => {
-      const result = createService().list({ page: 1, pageSize: 100, sortBy: "customer", sortDir: "asc" });
-
-      const names = result.items.map((order) => order.customer.name);
-      expect([...names].sort()).toEqual(names);
-    });
-
-    it("filters by status", () => {
-      const result = createService().list({ page: 1, pageSize: 100, status: "cancelled" });
-
-      expect(result.items.every((order) => order.status === "cancelled")).toBe(true);
-      expect(result.meta.total).toBe(2);
-    });
-
-    it("searches case-insensitively across customer and code", () => {
-      const result = createService().list({ page: 1, pageSize: 100, q: "HARBOR" });
-
-      expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("SO-2040");
-    });
-
-    it("paginates", () => {
-      const service = createService();
-      const page1 = service.list({ page: 1, pageSize: 6 });
-      const page2 = service.list({ page: 2, pageSize: 6 });
-
-      expect(page1.items.length).toBe(6);
-      expect(page2.items.length).toBe(6);
-      expect(page2.items[0]).not.toBe(page1.items[0]);
-    });
+    service = new SalesOrdersService(new ErpGatewayService());
   });
 
   describe("options", () => {
-    it("returns customers and products from seed", () => {
-      const options = createService().options();
+    it("returns customers and products for the order builder", async () => {
+      const options = await service.options(USER, META);
 
-      expect(options.customers.length).toBe(10);
-      expect(options.products.length).toBe(8);
-      expect(options.customers[0]).toEqual({ code: "CUS-0001", name: "Serenity Interiors" });
-      expect(options.products[0].code).toBe("PRD-0001");
+      expect(options.customers).toEqual([
+        { code: "CUS-0001", name: "Serenity Interiors" },
+        { code: "CUS-0002", name: "Lumina Supplies" },
+      ]);
+      expect(options.products).toEqual([
+        { code: "PRD-0001", name: "Alderwood standing desk", uom: "pcs", rate: 1450 },
+        { code: "PRD-0002", name: "Aria ergonomic chair", uom: "pcs", rate: 620 },
+      ]);
+    });
+  });
+
+  describe("list", () => {
+    it("returns sales orders from the tenant site mapped to the contract", async () => {
+      const result = await service.list(USER, META, { page: 1, pageSize: 20 });
+
+      expect(result.meta.total).toBe(6);
+      expect(result.items[0].code).toBe("SO-2043");
+      expect(result.items[0].status).toBe("draft");
+      expect(result.items[0].customer.name).toBe("Serenity Interiors");
+    });
+
+    it("maps ERPNext statuses onto the platform vocabulary", async () => {
+      const result = await service.list(USER, META, { page: 1, pageSize: 20 });
+
+      const byCode = new Map(result.items.map((order) => [order.code, order.status]));
+      expect(byCode.get("SO-2040")).toBe("delivered");
+      expect(byCode.get("SO-2041")).toBe("submitted");
+      expect(byCode.get("SO-2044")).toBe("completed");
+      expect(byCode.get("SO-2047")).toBe("partially_delivered");
+      expect(byCode.get("SO-2048")).toBe("cancelled");
+    });
+
+    it("reads the quotation reference and delivery date", async () => {
+      const result = await service.list(USER, META, { page: 1, pageSize: 20 });
+
+      const byCode = new Map(result.items.map((order) => [order.code, order]));
+      expect(byCode.get("SO-2041")?.quotationCode).toBe("QT-0011");
+      expect(byCode.get("SO-2043")?.deliveryDate).toBeNull();
+    });
+
+    it("filters by status", async () => {
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, status: "submitted" });
+
+      expect(result.meta.total).toBe(1);
+      expect(result.items[0].code).toBe("SO-2041");
+    });
+
+    it("searches across customer name and notes", async () => {
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, q: "lumina" });
+
+      expect(result.meta.total).toBe(3);
+    });
+
+    it("sorts by total descending when requested", async () => {
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, sortBy: "total", sortDir: "desc" });
+
+      expect(result.items[0].code).toBe("SO-2043");
+      expect(result.items[0].summary.total).toBe(8120);
+    });
+
+    it("paginates", async () => {
+      const page1 = await service.list(USER, META, { page: 1, pageSize: 3 });
+      const page2 = await service.list(USER, META, { page: 2, pageSize: 3 });
+
+      expect(page1.items.length).toBe(3);
+      expect(page2.items.length).toBe(3);
+      expect(page2.items[0].code).not.toBe(page1.items[0].code);
     });
   });
 
   describe("detail", () => {
-    it("returns the order", () => {
-      const detail = createService().detail("SO-2040");
+    it("returns the sales order with customer and computed summary", async () => {
+      const order = await service.detail(USER, META, "SO-2041");
 
-      expect(detail.code).toBe("SO-2040");
-      expect(detail.status).toBe("delivered");
-      expect(detail.customer.code).toBe("CUS-0006");
-      expect(detail.summary.total).toBe(5380);
+      expect(order.code).toBe("SO-2041");
+      expect(order.status).toBe("submitted");
+      expect(order.customer).toEqual({ code: "CUS-0002", name: "Lumina Supplies" });
+      expect(order.quotationCode).toBe("QT-0011");
+      expect(order.deliveryDate).not.toBeNull();
+      expect(order.summary.total).toBe(3340);
     });
 
-    it("throws not_found for an unknown order", () => {
-      expect(() => createService().detail("SO-9999")).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
-      );
+    it("throws not_found for an unknown sales order", async () => {
+      await expect(service.detail(USER, META, "SO-9999")).rejects.toMatchObject({
+        code: ErrorCode.NOT_FOUND,
+      });
     });
   });
 
   describe("create", () => {
-    it("assigns the next code, defaults to draft and computes lines + summary", () => {
-      const service = createService();
-      const order = service.create({
-        customerCode: "CUS-0001",
-        items: [
-          { product: "PRD-0001", name: "Alderwood standing desk", qty: 2, rate: 1450 },
-          { product: "PRD-0002", name: "Aria ergonomic chair", qty: 3, rate: 620 },
-        ],
+    it("creates the Sales Order doc and audits", async () => {
+      mocks.client.create.mockResolvedValue({
+        name: "SO-2053",
+        customer: "CUS-0001",
+        transaction_date: "2026-08-14 09:00:00",
+        docstatus: 0,
+        items: [{ item_code: "PRD-0001", item_name: "Alderwood standing desk", qty: 2, rate: 1450, amount: 2900, uom: "pcs" }],
+        creation: "2026-08-14 09:00:00",
+        modified: "2026-08-14 09:00:00",
       });
 
-      expect(order.code).toBe("SO-2054");
-      expect(order.status).toBe("draft");
-      expect(order.customer).toEqual({ code: "CUS-0001", name: "Serenity Interiors" });
-      expect(order.currency).toBe("USD");
-      expect(order.deliveryDate).toBeNull();
-      expect(order.items.map((item) => item.amount)).toEqual([2900, 1860]);
-      expect(order.items[0].lineNo).toBe(1);
-      expect(order.summary.subtotal).toBe(4760);
-      expect(order.summary.total).toBe(4760);
-      expect(service.detail("SO-2054").code).toBe("SO-2054");
-    });
+      const order = await service.create(USER, META, {
+        customerCode: "CUS-0001",
+        items: [{ product: "PRD-0001", qty: 2, rate: 1450 }],
+      });
 
-    it("throws not_found when the customer is unknown", () => {
-      const service = createService();
-      expect(() =>
-        service.create({ customerCode: "CUS-9999", items: [{ product: "PRD-0001", qty: 1, rate: 10 }] }),
-      ).toThrowError(expect.objectContaining({ code: ErrorCode.NOT_FOUND }));
+      expect(mocks.client.create).toHaveBeenCalledWith(
+        "Sales Order",
+        expect.objectContaining({
+          customer: "CUS-0001",
+          currency: "USD",
+          items: expect.arrayContaining([
+            expect.objectContaining({ item_code: "PRD-0001", qty: 2, rate: 1450, uom: "pcs" }),
+          ]),
+        }),
+      );
+      expect(order.code).toBe("SO-2053");
+      expect(order.status).toBe("draft");
+      expect(order.customer.name).toBe("Serenity Interiors");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "sales_order.create", resourceType: "Sales Order", resourceId: "SO-2053", companyId: COMPANY, actorId: USER.id }),
+      });
     });
   });
 
-  describe("update / changeStatus", () => {
-    it("updates scalar fields and refreshes updatedAt", () => {
-      const service = createService();
-      const order = service.update("SO-2051", { notes: "Hold for approval" });
+  describe("update", () => {
+    it("patches a draft sales order and audits", async () => {
+      mocks.client.update.mockResolvedValue({ ...SALES_ORDER_DOCS[2], notes: "revised" });
 
-      expect(order.notes).toBe("Hold for approval");
-      expect(order.updatedAt >= order.createdAt).toBe(true);
-    });
+      const order = await service.update(USER, META, "SO-2043", { notes: "revised" });
 
-    it("recomputes summary when items change", () => {
-      const service = createService();
-      const order = service.update("SO-2051", {
-        items: [{ product: "PRD-0005", name: "Boardroom conference table", qty: 1, rate: 2200 }],
-      });
-
-      expect(order.items.length).toBe(1);
-      expect(order.summary.total).toBe(2200);
-    });
-
-    it("changeStatus sets the status", () => {
-      const service = createService();
-      const order = service.changeStatus("SO-2051", { status: "submitted" });
-
-      expect(order.status).toBe("submitted");
-    });
-
-    it("throws not_found when the order does not exist", () => {
-      expect(() => createService().update("SO-9999", { notes: "x" })).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
+      expect(mocks.client.update).toHaveBeenCalledWith(
+        "Sales Order",
+        "SO-2043",
+        expect.objectContaining({ notes: "revised" }),
       );
+      expect(order.notes).toBe("revised");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "sales_order.update", resourceId: "SO-2043" }),
+      });
+    });
+
+    it("rejects updates to a submitted sales order", async () => {
+      await expect(service.update(USER, META, "SO-2041", { notes: "revised" })).rejects.toMatchObject({
+        code: ErrorCode.UNPROCESSABLE,
+      });
+    });
+
+    it("throws not_found when the sales order does not exist", async () => {
+      await expect(service.update(USER, META, "SO-9999", { notes: "revised" })).rejects.toMatchObject({
+        code: ErrorCode.NOT_FOUND,
+      });
+    });
+  });
+
+  describe("changeStatus", () => {
+    it("submits a sales order and audits sales_order.submit", async () => {
+      mocks.client.submit.mockResolvedValue({ ...SALES_ORDER_DOCS[1], status: "To Deliver and Bill" });
+
+      const order = await service.changeStatus(USER, META, "SO-2043", "submitted");
+
+      expect(mocks.client.submit).toHaveBeenCalledWith("Sales Order", "SO-2043");
+      expect(order.status).toBe("submitted");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "sales_order.submit", resourceId: "SO-2043" }),
+      });
+    });
+
+    it("cancels a sales order and audits sales_order.cancel", async () => {
+      mocks.client.cancel.mockResolvedValue(SALES_ORDER_DOCS[5]);
+
+      const order = await service.changeStatus(USER, META, "SO-2048", "cancelled");
+
+      expect(mocks.client.cancel).toHaveBeenCalledWith("Sales Order", "SO-2048");
+      expect(order.status).toBe("cancelled");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "sales_order.cancel", resourceId: "SO-2048" }),
+      });
+    });
+
+    it("rejects unsupported status transitions", async () => {
+      await expect(service.changeStatus(USER, META, "SO-2041", "delivered")).rejects.toMatchObject({
+        code: ErrorCode.UNPROCESSABLE,
+      });
     });
   });
 
   describe("remove", () => {
-    it("removes the order", () => {
-      const service = createService();
-      service.remove("SO-2048");
+    it("deletes a draft sales order and audits", async () => {
+      mocks.client.delete.mockResolvedValue(undefined);
 
-      expect(service.list({ page: 1, pageSize: 100 }).meta.total).toBe(13);
+      await service.remove(USER, META, "SO-2043");
+
+      expect(mocks.client.delete).toHaveBeenCalledWith("Sales Order", "SO-2043");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "sales_order.remove", resourceType: "Sales Order", resourceId: "SO-2043" }),
+      });
     });
 
-    it("throws not_found for an unknown order", () => {
-      expect(() => createService().remove("SO-9999")).toThrowError(ApiException);
-    });
-  });
-
-  describe("seed coherence", () => {
-    it("covers every sales order status", () => {
-      const items = all(createService());
-      const statuses = new Set(items.map((order) => order.status));
-
-      expect(statuses).toEqual(new Set([
-        "draft",
-        "submitted",
-        "partially_delivered",
-        "delivered",
-        "completed",
-        "cancelled",
-      ]));
+    it("rejects removal of a submitted sales order", async () => {
+      await expect(service.remove(USER, META, "SO-2041")).rejects.toMatchObject({
+        code: ErrorCode.UNPROCESSABLE,
+      });
     });
   });
 });

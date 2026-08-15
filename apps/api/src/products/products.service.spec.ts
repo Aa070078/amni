@@ -1,170 +1,188 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorCode } from "@amni/shared";
+import { ErpError } from "@amni/erp";
+import type * as ErpModule from "@amni/erp";
 
 import { ProductsService } from "./products.service";
-import { ApiException } from "../common/api.exception";
+import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+
+const mocks = vi.hoisted(() => {
+  const client = {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+  return {
+    membership: { findFirst: vi.fn() },
+    auditLog: { create: vi.fn() },
+    createErpClientForTenant: vi.fn(async () => client),
+    client,
+  };
+});
+
+vi.mock("@amni/db", () => ({
+  prisma: { membership: mocks.membership, auditLog: mocks.auditLog },
+}));
+
+vi.mock("@amni/erp", async (importOriginal) => ({
+  ...(await importOriginal<typeof ErpModule>()),
+  createErpClientForTenant: mocks.createErpClientForTenant,
+}));
+
+const USER: GatewayUser = { id: "user-1", email: "owner@acme.com", role: "USER" };
+const META: GatewayRequestMeta = { ip: "10.0.0.1", requestId: "req-1" };
+const COMPANY = "company-1";
+
+const ITEM_DOCS = [
+  { name: "NIM-LED-2000", item_code: "NIM-LED-2000", item_name: "Nimbus LED Panel", item_group: "Lighting", stock_uom: "pcs", standard_rate: 149, valuation_rate: 89, disabled: 0, reorder_level: 25, description: "Recessed panel luminaire.", creation: "2026-01-01 09:00:00", modified: "2026-06-01 09:00:00" },
+  { name: "ALU-SHT-15", item_code: "ALU-SHT-15", item_name: "Aluminium Sheet", item_group: "Materials", stock_uom: "m2", standard_rate: 42.5, valuation_rate: 26, disabled: 0, reorder_level: 10, creation: "2026-02-01 09:00:00", modified: "2026-06-02 09:00:00" },
+  { name: "MON-ARM-AR3", item_code: "MON-ARM-AR3", item_name: "Posturite Monitor Arm", item_group: "Office", stock_uom: "pcs", standard_rate: 129, valuation_rate: 71, disabled: 1, reorder_level: 0, creation: "2026-03-01 09:00:00", modified: "2026-06-03 09:00:00" },
+];
+
+function mockItemList() {
+  mocks.client.list.mockImplementation(async (doctype: string) => {
+    if (doctype === "Item") return { items: ITEM_DOCS, hasMore: false };
+    return { items: [], hasMore: false };
+  });
+}
 
 describe("ProductsService", () => {
-  const createService = () => new ProductsService();
+  let service: ProductsService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createErpClientForTenant.mockResolvedValue(mocks.client);
+    mocks.auditLog.create.mockResolvedValue({ id: "audit-1" });
+    mocks.membership.findFirst.mockResolvedValue({ companyId: COMPANY });
+    service = new ProductsService(new ErpGatewayService());
+  });
 
   describe("list", () => {
-    it("returns the first page sorted by createdAt desc by default", () => {
-      const result = createService().list({ page: 1, pageSize: 20 });
+    it("returns items from the tenant site mapped to the contract, sorted by createdAt desc", async () => {
+      mockItemList();
 
-      expect(result.meta.total).toBe(18);
-      expect(result.items[0].code).toBe("PRD-0018");
+      const result = await service.list(USER, META, { page: 1, pageSize: 20 });
+
+      expect(result.meta.total).toBe(3);
+      expect(result.items[0].code).toBe("MON-ARM-AR3");
+      expect(result.items[0].status).toBe("disabled");
+      expect(result.items[1].status).toBe("active");
+      expect(result.items[0].price).toBe(129);
+      expect(result.items[0].cost).toBe(71);
+      expect(result.items[0].reorderLevel).toBe(0);
     });
 
-    it("honors whitelisted sortBy and sortDir", () => {
-      const service = createService();
-      const result = service.list({ page: 1, pageSize: 20, sortBy: "price", sortDir: "desc" });
+    it("filters by category and status", async () => {
+      mockItemList();
 
-      const [first, second] = result.items;
-      expect(first.price).toBeGreaterThanOrEqual(second.price);
-    });
-
-    it("sorts by name ascending when requested", () => {
-      const result = createService().list({ page: 1, pageSize: 20, sortBy: "name", sortDir: "asc" });
-
-      expect(result.items[0].code).toBe("PRD-0012");
-    });
-
-    it("falls back to createdAt when sortBy is not whitelisted", () => {
-      const result = createService().list({ page: 1, pageSize: 20, sortBy: "notes", sortDir: "asc" });
-
-      expect(result.items[0].code).toBe("PRD-0018");
-    });
-
-    it("filters by category", () => {
-      const result = createService().list({ page: 1, pageSize: 20, category: "lighting" });
-
-      expect(result.items.every((product) => product.category === "lighting")).toBe(true);
-      expect(result.meta.total).toBe(5);
-    });
-
-    it("filters by status", () => {
-      const result = createService().list({ page: 1, pageSize: 20, status: "active" });
-
-      expect(result.items.every((product) => product.status === "active")).toBe(true);
-      expect(result.meta.total).toBe(16);
-    });
-
-    it("searches case-insensitively across name and sku", () => {
-      const result = createService().list({ page: 1, pageSize: 20, q: "NIMBUS" });
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, category: "Materials", status: "active" });
 
       expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("PRD-0001");
+      expect(result.items[0].code).toBe("ALU-SHT-15");
     });
 
-    it("searches across sku", () => {
-      const result = createService().list({ page: 1, pageSize: 20, q: "alu-sht" });
+    it("searches case-insensitively across name and sku", async () => {
+      mockItemList();
+
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, q: "monitor" });
 
       expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("PRD-0002");
+      expect(result.items[0].code).toBe("MON-ARM-AR3");
     });
 
-    it("paginates", () => {
-      const service = createService();
-      const page1 = service.list({ page: 1, pageSize: 6 });
-      const page2 = service.list({ page: 2, pageSize: 6 });
+    it("sorts by price ascending when requested", async () => {
+      mockItemList();
 
-      expect(page1.items.length).toBe(6);
-      expect(page2.items.length).toBe(6);
-      expect(page2.items[0]).not.toBe(page1.items[0]);
+      const result = await service.list(USER, META, { page: 1, pageSize: 20, sortBy: "price", sortDir: "asc" });
+
+      expect(result.items.map((p) => p.price)).toEqual([42.5, 129, 149]);
+    });
+
+    it("paginates", async () => {
+      mockItemList();
+
+      const page1 = await service.list(USER, META, { page: 1, pageSize: 2 });
+      const page2 = await service.list(USER, META, { page: 2, pageSize: 2 });
+
+      expect(page1.items.length).toBe(2);
+      expect(page2.items.length).toBe(1);
     });
   });
 
   describe("detail", () => {
-    it("returns the product with all fields", () => {
-      const detail = createService().detail("PRD-0001");
+    it("returns the mapped item", async () => {
+      mocks.client.get.mockResolvedValue(ITEM_DOCS[0]);
 
-      expect(detail.code).toBe("PRD-0001");
-      expect(detail.name).toBe("Nimbus LED Panel");
-      expect(detail.currency).toBe("USD");
-      expect(detail.status).toBe("active");
+      const product = await service.detail(USER, META, "NIM-LED-2000");
+
+      expect(product.sku).toBe("NIM-LED-2000");
+      expect(product.category).toBe("Lighting");
+      expect(product.currency).toBe("USD");
+      expect(mocks.client.get).toHaveBeenCalledWith("Item", "NIM-LED-2000");
     });
 
-    it("throws not_found for an unknown product", () => {
-      expect(() => createService().detail("PRD-9999")).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
-      );
+    it("throws not_found for an unknown item", async () => {
+      mocks.client.get.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
+
+      await expect(service.detail(USER, META, "NOPE")).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
     });
   });
 
   describe("create", () => {
-    it("assigns the next code and applies schema defaults", () => {
-      const service = createService();
-      const product = service.create({
-        sku: "TST-001",
-        name: "Test Widget",
-        category: "office",
-        price: 99,
-      });
+    it("creates the Item doc on the tenant site and audits", async () => {
+      mocks.client.create.mockResolvedValue({ ...ITEM_DOCS[0], name: "NIM-LED-2001" });
 
-      expect(product.code).toBe("PRD-0019");
-      expect(product.status).toBe("draft");
+      const product = await service.create(USER, META, { sku: "NIM-LED-2001", name: "Nimbus LED Panel 2", category: "Lighting", unit: "pcs", price: 149, cost: 89, isStockItem: true, isSalesItem: true, isPurchaseItem: false });
+
+      expect(mocks.client.create).toHaveBeenCalledWith("Item", expect.objectContaining({ item_code: "NIM-LED-2001", item_name: "Nimbus LED Panel 2", item_group: "Lighting", stock_uom: "pcs", standard_rate: 149, valuation_rate: 89 }));
+      expect(product.code).toBe("NIM-LED-2001");
       expect(product.currency).toBe("USD");
-      expect(product.unit).toBe("pcs");
-      expect(product.reorderLevel).toBe(0);
-      expect(product.vatRate).toBe(0);
-      expect(product.isStockItem).toBe(true);
-      expect(product.isSalesItem).toBe(true);
-      expect(product.isPurchaseItem).toBe(false);
-      expect(service.detail("PRD-0019").name).toBe("Test Widget");
-    });
-
-    it("honors explicit values", () => {
-      const service = createService();
-      const product = service.create({
-        sku: "TST-002",
-        name: "Test Bundle",
-        category: "materials",
-        unit: "set",
-        price: 250,
-        cost: 140,
-        status: "active",
-        reorderLevel: 8,
-        isPurchaseItem: true,
-        vatRate: 15,
-      });
-
       expect(product.status).toBe("active");
-      expect(product.unit).toBe("set");
-      expect(product.reorderLevel).toBe(8);
-      expect(product.isPurchaseItem).toBe(true);
-      expect(product.vatRate).toBe(15);
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "product.create", resourceType: "Item", resourceId: "NIM-LED-2001", companyId: COMPANY, actorId: USER.id }),
+      });
     });
   });
 
   describe("update", () => {
-    it("updates scalar fields and refreshes updatedAt", () => {
-      const service = createService();
-      const product = service.update("PRD-0003", { price: 320, name: "ErgoMesh Task Chair 2" });
+    it("patches mapped fields and audits", async () => {
+      mocks.client.update.mockResolvedValue({ ...ITEM_DOCS[2], reorder_level: 15, disabled: 0 });
 
-      expect(product.price).toBe(320);
-      expect(product.name).toBe("ErgoMesh Task Chair 2");
-      expect(product.updatedAt >= product.createdAt).toBe(true);
+      const product = await service.update(USER, META, "MON-ARM-AR3", { reorderLevel: 15, status: "active" });
+
+      expect(mocks.client.update).toHaveBeenCalledWith("Item", "MON-ARM-AR3", expect.objectContaining({ reorder_level: 15, disabled: 0 }));
+      expect(product.reorderLevel).toBe(15);
+      expect(product.status).toBe("active");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "product.update", resourceId: "MON-ARM-AR3" }),
+      });
     });
 
-    it("throws not_found when the product does not exist", () => {
-      const service = createService();
-      expect(() => service.update("PRD-9999", { price: 1 })).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
-      );
+    it("throws not_found when the item does not exist", async () => {
+      mocks.client.update.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
+
+      await expect(service.update(USER, META, "NOPE", { name: "X" })).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
     });
   });
 
   describe("remove", () => {
-    it("removes the product", () => {
-      const service = createService();
-      service.remove("PRD-0010");
+    it("deletes the Item doc and audits", async () => {
+      mocks.client.delete.mockResolvedValue(undefined);
 
-      expect(service.list({ page: 1, pageSize: 20 }).meta.total).toBe(17);
+      await service.remove(USER, META, "OLD-ITEM");
+
+      expect(mocks.client.delete).toHaveBeenCalledWith("Item", "OLD-ITEM");
+      expect(mocks.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ action: "product.delete", resourceType: "Item", resourceId: "OLD-ITEM" }),
+      });
     });
 
-    it("throws not_found for an unknown product", () => {
-      const service = createService();
-      expect(() => service.remove("PRD-9999")).toThrowError(ApiException);
+    it("throws not_found for an unknown item", async () => {
+      mocks.client.delete.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
+
+      await expect(service.remove(USER, META, "NOPE")).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND });
     });
   });
 });

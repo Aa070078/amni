@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { prisma } from "@amni/db";
 import type { Prisma } from "@amni/db";
-import { createErpClientForTenant, type ErpClient } from "@amni/erp";
+import { createErpClientForTenant, ErpError, type ErpClient } from "@amni/erp";
 import { ErrorCode } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
@@ -17,12 +17,12 @@ export interface GatewayRequestMeta {
   requestId?: string;
 }
 
-interface ClientScope {
+export interface ClientScope {
   companyId: string;
   client: ErpClient;
 }
 
-interface AuditEntry {
+export interface AuditEntry {
   user: GatewayUser;
   meta: GatewayRequestMeta;
   companyId: string;
@@ -30,6 +30,18 @@ interface AuditEntry {
   resourceType: string;
   resourceId?: string;
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Re-throws an `ErpError` with a 404 `ApiException` when the underlying ERP
+ * doc is missing, so the sales/inventory modules keep the platform's
+ * `NOT_FOUND` contract. Any other error propagates unchanged.
+ */
+export function translateErpError(err: unknown, label: string): never {
+  if (err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND) {
+    throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `${label} not found` });
+  }
+  throw err;
 }
 
 /**
@@ -140,7 +152,7 @@ export class ErpGatewayService {
     return message;
   }
 
-  private async scopeFor(userId: string, requestId?: string): Promise<ClientScope> {
+  public async scopeFor(userId: string, requestId?: string): Promise<ClientScope> {
     const membership = await prisma.membership.findFirst({
       where: { userId },
       select: { companyId: true },
@@ -157,7 +169,7 @@ export class ErpGatewayService {
     return { companyId: membership.companyId, client };
   }
 
-  private async audit(entry: AuditEntry): Promise<void> {
+  public async audit(entry: AuditEntry): Promise<void> {
     await prisma.auditLog.create({
       data: {
         actorId: entry.user.id,
