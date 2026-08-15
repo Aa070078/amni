@@ -12,8 +12,10 @@ import {
 import { ApiException } from "../common/api.exception";
 import { type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 import { iso, nextCode, paginate, sortRecords } from "./crm-common";
-import { type CrmContactsService } from "./contacts.service";
-import { type DealsService } from "../deals/deals.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmContactsService } from "./contacts.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { DealsService } from "../deals/deals.service";
 
 const SORT_WHITELIST = new Set(["name", "industry", "territory", "status", "annualRevenue", "employeeCount", "createdAt", "updatedAt"]);
 

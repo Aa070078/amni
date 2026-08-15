@@ -10,8 +10,10 @@ import {
   type UpdateCrmSettingsInput,
 } from "@amni/shared";
 
-import { type CrmActivitiesService } from "./activities.service";
-import { type CrmCallLogsService } from "./call-logs.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmActivitiesService } from "./activities.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmCallLogsService } from "./call-logs.service";
 
 const PIPELINE_COLORS: Record<string, string> = {
   qualification: "#f59e0b",

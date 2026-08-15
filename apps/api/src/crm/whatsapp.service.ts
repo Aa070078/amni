@@ -8,7 +8,8 @@ import {
 } from "@amni/shared";
 
 import { newId } from "./crm-common";
-import { type CrmActivitiesService } from "./activities.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmActivitiesService } from "./activities.service";
 
 const SEED: CrmWhatsappMessage[] = [
   { id: "wa-1", to: "+49 30 1234 5678", message: "Hi Jonas — sending over the load rating request now.", status: "sent", referenceType: "deal", referenceCode: "DL-0003", sentAt: new Date(Date.now() - 2 * 86_400_000).toISOString() },
