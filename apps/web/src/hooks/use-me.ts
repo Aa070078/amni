@@ -11,6 +11,7 @@ export interface MeUser {
   lastName: string | null;
   status: string;
   isEmailVerified: boolean;
+  isPlatformAdmin: boolean;
 }
 
 export function useMe() {
