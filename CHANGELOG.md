@@ -5,7 +5,7 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
-- **M6 Platform admin console + onboarding gaps (PR #61 + PR #NNN)** — M6 epic complete:
+- **M6 Platform admin console + onboarding gaps (PR #61 + PR #62)** — M6 epic complete:
   - Onboarding (PR #61, `87ef1e4`): server-side route guard (`apps/web/middleware.ts` — no session cookie redirects to `/login`, with a `next` param), honest signup copy, and new signups land on the `/setup` wizard (provisioning stays at wizard submit per SECURITY.md email-verify gate).
   - Platform admin identity: `User.isPlatformAdmin` flag (`packages/db` migration `20260815220000_add_is_platform_admin`), `isPlatformAdmin` in `/auth/me` / `PublicUser` / `req.user`, seed flags in `apps/api/scripts/seed-demo-user.ts` (`demo@amni.dev` + `admin@amni.dev` flagged).
   - Admin API: `/api/v1/admin/summary`, `/api/v1/admin/tenants` (offset pagination + `q` search + `status` filter), `/api/v1/admin/tenants/:id` — `AdminGuard` on top of `AuthGuard` (403 for non-admins), shared zod schemas in `packages/shared/src/schemas/admin.ts`, 5 unit tests. Reads tenant status/plan/subscription/members/ERP instance/provisioning-job trail (subscriptions + memberships live on `Company`, nested under `company` in the Prisma include).

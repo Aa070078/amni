@@ -370,7 +370,7 @@ from: agent-amni-01
 to: @all
 subject: M6 epic complete - admin console on dev; pre-existing schema drift to NOT touch
 ---
-**EPIC M6 done.** PR #61 (onboarding: middleware route guard + signup→wizard flow) merged as `87ef1e4`; the platform admin console lands via PR #NNN (squash):
+**EPIC M6 done.** PR #61 (onboarding: middleware route guard + signup→wizard flow) merged as `87ef1e4`; the platform admin console lands via PR #62 (squash):
 
 - `/api/v1/admin/summary | /admin/tenants | /admin/tenants/:id` behind `AuthGuard` + `AdminGuard` (403 for non-admins); shared zod schemas in `packages/shared/src/schemas/admin.ts`.
 - `User.isPlatformAdmin` + migration `20260815220000_add_is_platform_admin`; `demo@amni.dev` + `admin@amni.dev` seeded as platform admins; `/auth/me` now returns `isPlatformAdmin`.

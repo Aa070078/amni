@@ -127,9 +127,9 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 |---|---|---|---|---|---|
 | M6-001 Server-side route guard (Next.js middleware; no session cookie → `/login`) + login `next` param | M6 | agent-amni-01 | done | fix/onboarding-gaps | `apps/web/middleware.ts`; one-directional (no cookie→skip-login redirect) to avoid httpOnly-cookie redirect loops. PR #61 |
 | M6-002 Onboarding flow fix (honest signup copy + new signups land on `/setup` wizard; e2e updated) | M6 | agent-amni-01 | done | fix/onboarding-gaps | provisioning stays at wizard submit (SECURITY.md email-verify gate). PR #61 |
-| M6-003 Platform admin identity: `User.isPlatformAdmin` + migration + seed flags | M6 | agent-amni-01 | done | feat/admin-dashboard | `demo@amni.dev` + `admin@amni.dev` flagged platform admins. PR #NNN |
-| M6-004 Admin API (`/admin/summary`, `/admin/tenants`, `/admin/tenants/:id`) + AdminGuard + shared schemas | M6 | agent-amni-01 | done | feat/admin-dashboard | 403 for non-admins; 5 unit tests. PR #NNN |
-| M6-005 Admin console web UI (`/admin` shell, summary cards, tenants table, tenant detail w/ provisioning timeline) | M6 | agent-amni-01 | done | feat/admin-dashboard | `/auth/me` returns `isPlatformAdmin`; user-menu entry. PR #NNN |
+| M6-003 Platform admin identity: `User.isPlatformAdmin` + migration + seed flags | M6 | agent-amni-01 | done | feat/admin-dashboard | `demo@amni.dev` + `admin@amni.dev` flagged platform admins. PR #62 |
+| M6-004 Admin API (`/admin/summary`, `/admin/tenants`, `/admin/tenants/:id`) + AdminGuard + shared schemas | M6 | agent-amni-01 | done | feat/admin-dashboard | 403 for non-admins; 5 unit tests. PR #62 |
+| M6-005 Admin console web UI (`/admin` shell, summary cards, tenants table, tenant detail w/ provisioning timeline) | M6 | agent-amni-01 | done | feat/admin-dashboard | `/auth/me` returns `isPlatformAdmin`; user-menu entry. PR #62 |
 
 ---
 
@@ -138,7 +138,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | Date | Change |
 |---|---|
 | 2026-08-15 | M6 registered + claimed (agent-amni-01): onboarding gaps (route guard, signup→wizard flow) on `fix/onboarding-gaps`; platform admin console (identity, API, web UI) on `feat/admin-dashboard`. Decision: provisioning stays at wizard submit. |
-| 2026-08-15 | **EPIC M6 complete** — PR #61 merged (onboarding gaps: route guard + signup→wizard flow); admin console (identity + API + web UI) merged via PR #NNN (squash) — M6-003/004/005 done. `/admin` console is platform-admin-only (AdminGuard 403 for non-admins; client-side access-denied state). Note for future agents: pre-existing schema drift (`hrms_installed` in the M5-000 migration vs `hrmsInstalled` in `schema.prisma`) left untouched — see COMMS M6-COMMS-001. |
+| 2026-08-15 | **EPIC M6 complete** — PR #61 merged (onboarding gaps: route guard + signup→wizard flow); admin console (identity + API + web UI) merged via PR #62 (squash) — M6-003/004/005 done. `/admin` console is platform-admin-only (AdminGuard 403 for non-admins; client-side access-denied state). Note for future agents: pre-existing schema drift (`hrms_installed` in the M5-000 migration vs `hrmsInstalled` in `schema.prisma`) left untouched — see COMMS M6-COMMS-001. |
 | 2026-08-15 | PR #46 merged to dev (68babf5, squash): landing page redesign — sticky blur header, framer-motion hero (`landing-hero.tsx`), feature cards (`landing-features.tsx`), footer. Branch `feat/landing-redesign` synced onto latest dev before merge (conflict resolved in `apps/web/app/page.tsx`, dev's hero tweaks superseded by the new `LandingHero`). |
 | 2026-08-15 | PR #47 merged to dev (80f21d0, squash): web API clients default to same-origin `/api/v1` when `NEXT_PUBLIC_API_BASE_URL` is unset (preview-tunnel fix). Follow-up noted: `deals.ts` + `imports.ts` still carry the old localhost default (added to dev after #47 branched). |
 | 2026-08-15 | **EPIC M5 complete** — PR #55 merged to dev (c923a33, squash): M5-004..M5-007 (Track B) landed — purchasing/finance ERP wiring + finance dashboard KPIs + isolation CI gate. Combined with Track A (PR #56), the M5 market-readiness epic is now done. Pre-merge sync fixed the Track A↔B PaymentEntry symbol collision (Track A renamed to `Sales*`, Track B canonical) and rebuilt COMMS/WORKBOARD docs. COMMS M5-COMMS-006/007. |
