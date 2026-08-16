@@ -35,7 +35,7 @@ function toProduct(doc: ErpItemRaw): Product {
     currency: "USD",
     status: doc.disabled === 1 ? "disabled" : "active",
     description: doc.description,
-    reorderLevel: (doc as ErpItemRaw & { reorder_level?: number }).reorder_level ?? 0,
+    reorderLevel: (doc as ErpItemRaw & { safety_stock?: number }).safety_stock ?? 0,
     isStockItem: doc.is_stock_item !== 0,
     isSalesItem: doc.is_sales_item !== 0,
     isPurchaseItem: doc.is_purchase_item === 1,
@@ -157,7 +157,7 @@ export class ProductsService {
     if (input.isStockItem !== undefined) patch[ITEM_FIELDS.isStockItem] = input.isStockItem ? 1 : 0;
     if (input.isSalesItem !== undefined) patch[ITEM_FIELDS.isSalesItem] = input.isSalesItem ? 1 : 0;
     if (input.isPurchaseItem !== undefined) patch[ITEM_FIELDS.isPurchaseItem] = input.isPurchaseItem ? 1 : 0;
-    if (input.reorderLevel !== undefined) patch["reorder_level"] = input.reorderLevel;
+    if (input.reorderLevel !== undefined) patch["safety_stock"] = input.reorderLevel;
 
     const updated = await client
       .update<ErpItemDoc>(INVENTORY_DOCTYPE.item, code, patch)

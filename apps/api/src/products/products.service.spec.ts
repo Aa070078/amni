@@ -36,9 +36,9 @@ const META: GatewayRequestMeta = { ip: "10.0.0.1", requestId: "req-1" };
 const COMPANY = "company-1";
 
 const ITEM_DOCS = [
-  { name: "NIM-LED-2000", item_code: "NIM-LED-2000", item_name: "Nimbus LED Panel", item_group: "Lighting", stock_uom: "pcs", standard_rate: 149, valuation_rate: 89, disabled: 0, reorder_level: 25, description: "Recessed panel luminaire.", creation: "2026-01-01 09:00:00", modified: "2026-06-01 09:00:00" },
-  { name: "ALU-SHT-15", item_code: "ALU-SHT-15", item_name: "Aluminium Sheet", item_group: "Materials", stock_uom: "m2", standard_rate: 42.5, valuation_rate: 26, disabled: 0, reorder_level: 10, creation: "2026-02-01 09:00:00", modified: "2026-06-02 09:00:00" },
-  { name: "MON-ARM-AR3", item_code: "MON-ARM-AR3", item_name: "Posturite Monitor Arm", item_group: "Office", stock_uom: "pcs", standard_rate: 129, valuation_rate: 71, disabled: 1, reorder_level: 0, creation: "2026-03-01 09:00:00", modified: "2026-06-03 09:00:00" },
+  { name: "NIM-LED-2000", item_code: "NIM-LED-2000", item_name: "Nimbus LED Panel", item_group: "Lighting", stock_uom: "pcs", standard_rate: 149, valuation_rate: 89, disabled: 0, safety_stock: 25, description: "Recessed panel luminaire.", creation: "2026-01-01 09:00:00", modified: "2026-06-01 09:00:00" },
+  { name: "ALU-SHT-15", item_code: "ALU-SHT-15", item_name: "Aluminium Sheet", item_group: "Materials", stock_uom: "m2", standard_rate: 42.5, valuation_rate: 26, disabled: 0, safety_stock: 10, creation: "2026-02-01 09:00:00", modified: "2026-06-02 09:00:00" },
+  { name: "MON-ARM-AR3", item_code: "MON-ARM-AR3", item_name: "Posturite Monitor Arm", item_group: "Office", stock_uom: "pcs", standard_rate: 129, valuation_rate: 71, disabled: 1, safety_stock: 0, creation: "2026-03-01 09:00:00", modified: "2026-06-03 09:00:00" },
 ];
 
 function mockItemList() {
@@ -148,11 +148,11 @@ describe("ProductsService", () => {
 
   describe("update", () => {
     it("patches mapped fields and audits", async () => {
-      mocks.client.update.mockResolvedValue({ ...ITEM_DOCS[2], reorder_level: 15, disabled: 0 });
+      mocks.client.update.mockResolvedValue({ ...ITEM_DOCS[2], safety_stock: 15, disabled: 0 });
 
       const product = await service.update(USER, META, "MON-ARM-AR3", { reorderLevel: 15, status: "active" });
 
-      expect(mocks.client.update).toHaveBeenCalledWith("Item", "MON-ARM-AR3", expect.objectContaining({ reorder_level: 15, disabled: 0 }));
+      expect(mocks.client.update).toHaveBeenCalledWith("Item", "MON-ARM-AR3", expect.objectContaining({ safety_stock: 15, disabled: 0 }));
       expect(product.reorderLevel).toBe(15);
       expect(product.status).toBe("active");
       expect(mocks.auditLog.create).toHaveBeenCalledWith({
