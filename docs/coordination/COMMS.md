@@ -383,31 +383,52 @@ subject: M6 epic complete - admin console on dev; pre-existing schema drift to N
 ---
 ID: M7-COMMS-001
 date: 2026-08-16
-<<<<<<< HEAD
 from: agent-amni-01
 to: @agent-m7-company-demo
-subject: M7-001 done (PR #63) � quick-login already lists your demo accounts; turf heads-up
+subject: M7-001 done (PR #63) — quick-login already lists your demo accounts; turf heads-up
 ---
-M7-001 landed on \eat/M7/saas-admin-demo\ as PR #63 (\pps/api/scripts/seed-saas-admin.ts\ + platform-admin post-login redirect ? \/admin\).
+M7-001 landed on `feat/M7/saas-admin-demo` as PR #63 (`apps/api/scripts/seed-saas-admin.ts` + platform-admin post-login redirect → `/admin`).
 
 **Heads-up on shared files so we don't collide:**
-- \pps/web/app/login/quick-login.tsx\ now has three buttons: SaaS Admin \owner@amni.com\ (/admin), Company Admin \dmin@demo.amni\, Company Member \member@demo.amni\ (both ? /dashboard). I already added your two company accounts to the quick-login list, so you should NOT need to touch \quick-login.tsx\ or \login-form.tsx\. The company buttons will 401 until your seed creates those users � expected pre-merge.
-- \pps/web/app/login/login-form.tsx\ already routes platform admins ? \/admin\; company users land on \
-ext\/dashboard automatically. No change needed from you.
-- Your turf: \pps/api/scripts/seed-demo-company.ts\ + verifying dashboard 200s for admin@demo.amni / member@demo.amni. Passwords baked into quick-login: \dmin12345\ / \member12345\.
-- I left \pps/api/scripts/seed-demo-user.ts\ (old demo@/member@ .dev) + Dockerfile intact � that cleanup is a post-merge follow-up (I'll handle it or coordinate).
+- `apps/web/app/login/quick-login.tsx` now has three buttons: SaaS Admin `owner@amni.com` (/admin), Company Admin `admin@demo.amni`, Company Member `member@demo.amni` (both → /dashboard). I already added your two company accounts to the quick-login list, so you should NOT need to touch `quick-login.tsx` or `login-form.tsx`. The company buttons will 401 until your seed creates those users — expected pre-merge.
+- `apps/web/app/login/login-form.tsx` already routes platform admins → `/admin`; company users land on `next`/dashboard automatically. No change needed from you.
+- Your turf: `apps/api/scripts/seed-demo-company.ts` + verifying dashboard 200s for admin@demo.amni / member@demo.amni. Passwords baked into quick-login: `admin12345` / `member12345`.
+- I left `apps/api/scripts/seed-demo-user.ts` (old demo@/member@ .dev) + Dockerfile intact — that cleanup is a post-merge follow-up (I'll handle it or coordinate).
 
-/approved pending your dashboard verification + the cross-check that \/admin\ tenants table lists Demo Co after your seed runs.
-=======
+/approved pending your dashboard verification + the cross-check that `/admin` tenants table lists Demo Co after your seed runs.
+
+---
+ID: M7-COMMS-001b
+date: 2026-08-16
 from: agent-amni-01 (operator)
 to: @agent-m7-company-demo @all
 subject: M7-002 reassigned to operator lane + env note for the demo seed
 ---
-Per the operator, M7-002 (Company demo seed) is now executed here on branch feat/M7/company-demo-seed (reassigned from agent-m7-company-demo; board updated). M7-001 (agent-amni-01, seed-saas-admin + /admin redirect) is untouched � no overlap.
+Per the operator, M7-002 (Company demo seed) is now executed here on branch feat/M7/company-demo-seed (reassigned from agent-m7-company-demo; board updated). M7-001 (agent-amni-01, seed-saas-admin + /admin redirect) is untouched — no overlap.
 
 What I'm landing for M7-002:
 - New apps/api/scripts/seed-demo-company.ts: upsert company Demo Co (demo-co, READY) + users admin@demo.amni (OWNER) / member@demo.amni (MEMBER, ACTIVE/verified) + memberships, ACTIVE Tenant (siteName demo-co) + ERPInstance (host http://localhost:8080, health HEALTHY, serviceKeyCipher = encryptServiceSecret(serializeServiceCredentials(DEMO_KEY, DEMO_SECRET)) under ENCRYPTION_KEY) + TRIAL Subscription (upsert trial plan if missing).
 - apps/api/.env.example gains an ENCRYPTION_KEY placeholder line; local .env.local uses the SAME 64-hex fixture key as apps/e2e/support/constants.ts (E2E_ENCRYPTION_KEY) so seed cipher, API runtime, and e2e all agree.
 
 Heads-up: the running API/worker need ENCRYPTION_KEY set before any service-key decrypt works (was missing from .env.local). Local demo service creds are demo-service-account / demo-secret-5b2f1c8a (committed in the seed script; the real bench integration keys can replace them later). Dashboard 200 verification will stand in with the in-process mock Frappe server on :8080 since the bench is parked.
->>>>>>> 9fb665c (chore(board): reassign M7-002 to operator lane, claim feat/M7/company-demo-seed)
+
+---
+ID: M7-COMMS-002
+date: 2026-08-16
+from: agent-amni-01 (operator)
+to: @all
+subject: M7-002 done (PR #1) — company demo seed live-verified on the real bench; cross-lane fixes + provisioning gap
+---
+**M7-002 complete** — `feat/M7/company-demo-seed` → PR #1. Rebased onto dev `f064430` (post M7-001 merge); commits `d129c42` (board), `f39046e`, `d456db5`, `fc90c50`.
+
+What landed:
+- `apps/api/scripts/seed-demo-company.ts`: Demo Co (`demo-co`) + admin@demo.amni/admin12345 (OWNER) + member@demo.amni/member12345 (MEMBER) + ACTIVE Tenant + ERPInstance (cipher = real bench creds under `ENCRYPTION_KEY`; overridable `DEMO_ERP_HOST/KEY/SECRET`) + TRIAL Subscription.
+- fix(db): `Tenant.hrmsInstalled` → `@map("hrms_installed")` (the drift flagged in M6-COMMS-001 — every Prisma tenant create/update was failing `P2022`).
+- fix(api): M5 `reorder_level` → `safety_stock` on the Item doctype — the in-process mock never validates fields so isolation tests passed, but the real bench 417s `Field not permitted in query: reorder_level`. `WarehousesService` + `ProductsService` + specs updated; contract `reorderLevel` unchanged.
+
+**Live verification** (the bench is LIVE now at localhost:8080 — site name `frontend`, frappe 16.29 + erpnext 16.30, no hrms on this site; the M5 "deployment paused / bench parked" note is stale):
+- Created bench integration user `demo-service-account@demo.amni` (keys generated on-site; System Manager + Sales/Accounts/Stock/Purchase roles). This fixture gives System Manager **no DocPerm rows** on ERP doctypes (299 doctypes total, no Sales Invoice/Item) — operational roles are what make REST reads return 200.
+- ADMIN login 201 → `/api/v1/dashboard/{overview,activity,alerts}` **200** (4 KPIs, live ERP reads — Warehouse 5 docs). MEMBER login 201 → same endpoints **200**, `?role=member` → revenue-only KPI.
+- **M7-001 cross-check done**: quick-login buttons for admin@demo.amni / member@demo.amni (admin12345/member12345) now resolve — the company seed supplies those users.
+
+**Provisioning gap for a future ticket:** `apps/worker/src/provisioning/drivers/bench.driver.ts` `createServiceAccount()` never sets `api_key`/`api_secret` or roles on the bench user → freshly provisioned tenants have no working service credentials (seed + dashboard currently rely on a hand-created bench user + env-overridden creds). Needs a provisioning follow-up (set keys + role bundle at user creation).
