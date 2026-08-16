@@ -154,7 +154,7 @@ model Tenant {
   status        TenantStatus     @default(CREATING)
   planTier      PlanTier         @default(TRIAL)
   erpnextVersion String          @default("16.30.0") @db.VarChar(32)
-  hrmsInstalled Boolean          @default(false)
+  hrmsInstalled Boolean          @default(false) @map("hrms_installed")
   locale        Json
   region        String           @default("us") @db.VarChar(16)
   createdAt     DateTime         @default(now()) @db.Timestamptz(3)
