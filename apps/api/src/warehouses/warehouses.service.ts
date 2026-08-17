@@ -132,11 +132,11 @@ export class WarehousesService {
       fields: ["name", "item_code", "warehouse", "actual_qty", "reserved_qty", "projected_qty"],
       limitPageLength: 0,
     });
-    const { items: items } = await client.list<{ name: string; reorder_level?: number }>(
+    const { items: items } = await client.list<{ name: string; safety_stock?: number }>(
       INVENTORY_DOCTYPE.item,
-      { fields: ["name", "reorder_level"], limitPageLength: 0 },
+      { fields: ["name", "safety_stock"], limitPageLength: 0 },
     );
-    const reorderMap = new Map(items.map((item) => [item.name, item.reorder_level ?? 0]));
+    const reorderMap = new Map(items.map((item) => [item.name, item.safety_stock ?? 0]));
 
     const stock = bins.map((bin) => toStockLevel(bin, reorderMap));
     const lowStock = stock.filter((row) => row.onHand < row.reorderLevel);
@@ -150,8 +150,8 @@ export class WarehousesService {
         fields: ["name", "item_code", "warehouse", "actual_qty", "reserved_qty", "projected_qty", "valuation_rate"],
         limitPageLength: 0,
       }),
-      client.list<{ name: string; item_name?: string; reorder_level?: number }>(INVENTORY_DOCTYPE.item, {
-        fields: ["name", "item_name", "reorder_level"],
+      client.list<{ name: string; item_name?: string; safety_stock?: number }>(INVENTORY_DOCTYPE.item, {
+        fields: ["name", "item_name", "safety_stock"],
         limitPageLength: 0,
       }),
       client.list<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, { limitPageLength: 0 }),
@@ -163,7 +163,7 @@ export class WarehousesService {
     for (const bin of binDocs) {
       value += (bin.actual_qty ?? 0) * (bin.valuation_rate ?? 0);
       const item = itemMap.get(bin.item_code);
-      if ((bin.actual_qty ?? 0) < (item?.reorder_level ?? 0) && !lowStock.has(bin.item_code)) {
+      if ((bin.actual_qty ?? 0) < (item?.safety_stock ?? 0) && !lowStock.has(bin.item_code)) {
         lowStock.set(bin.item_code, item?.item_name ?? bin.item_code);
       }
     }
