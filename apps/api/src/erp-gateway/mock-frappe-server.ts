@@ -26,6 +26,7 @@ export async function startMockFrappeServer(options: {
   apiKey: string;
   apiSecret: string;
   docs: Record<string, unknown>[];
+  port?: number;
 }): Promise<MockFrappeServer> {
   const docs = new Map<string, Record<string, unknown>>();
   for (const doc of options.docs) {
@@ -68,7 +69,7 @@ export async function startMockFrappeServer(options: {
       switch (req.method) {
         case "GET": {
           if (!name) {
-            const limit = Number(url.searchParams.get("limit_page_length") ?? 20);
+            const requestedLimit = Number(url.searchParams.get("limit_page_length") ?? 20);
             const start = Number(url.searchParams.get("start") ?? 0);
             const filters = parseFilters(url.searchParams.get("filters"));
             // Docs created through POST are tagged with their doctype; legacy
@@ -77,6 +78,7 @@ export async function startMockFrappeServer(options: {
             const all = [...docs.values()]
               .filter((doc) => !doc.doctype || doc.doctype === doctype)
               .filter((doc) => matchesFilters(doc, filters));
+            const limit = requestedLimit === 0 ? all.length : requestedLimit;
             sendJson(res, 200, { data: all.slice(start, start + limit) });
             return;
           }
@@ -132,7 +134,7 @@ export async function startMockFrappeServer(options: {
     }
   }
 
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(options.port ?? 0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Mock ERP server failed to bind");
   const url = `http://127.0.0.1:${address.port}`;
@@ -142,7 +144,9 @@ export async function startMockFrappeServer(options: {
     docs,
     requests,
     close: () =>
-      new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve()))),
+      new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve())),
+      ),
   };
 }
 
@@ -170,7 +174,10 @@ function matchesFilters(doc: Record<string, unknown>, filters: FilterClause[]): 
   return filters.every(([field, operator, value]) => {
     const docValue = doc[field];
     if (operator === "=" || operator === "like") {
-      if (operator === "like") return String(docValue ?? "").toLowerCase().includes(String(value ?? "").toLowerCase());
+      if (operator === "like")
+        return String(docValue ?? "")
+          .toLowerCase()
+          .includes(String(value ?? "").toLowerCase());
       return docValue === value || String(docValue ?? "") === String(value ?? "");
     }
     if (operator === "!=") return String(docValue ?? "") !== String(value ?? "");

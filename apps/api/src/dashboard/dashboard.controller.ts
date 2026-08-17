@@ -1,10 +1,10 @@
-import { Controller, Get, Query, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Req, UseGuards } from "@nestjs/common";
 import {
   ProductRole,
-  dashboardOverviewQuerySchema,
   type DashboardAlerts,
   type DashboardActivity,
   type DashboardOverview,
+  type DashboardSnapshot,
 } from "@amni/shared";
 
 import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
@@ -19,22 +19,26 @@ export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}
 
   @Get("overview")
-  overview(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<DashboardOverview> {
-    // The guard reports "USER" today; a real membership role wins once M3/M4
-    // wire it, and the query param stays a preview fallback until then.
-    const parsed = dashboardOverviewQuerySchema.safeParse(query);
-    const queryRole = parsed.success ? parsed.data.role : undefined;
-    const role = resolveProductRole(req.user?.role) ?? queryRole ?? ProductRole.ADMIN;
+  overview(@Req() req: AuthenticatedRequest): Promise<DashboardOverview> {
+    const role = resolveProductRole(req.user?.role) ?? ProductRole.MEMBER;
     return this.dashboard.overview(userFrom(req), metaFrom(req), role);
+  }
+
+  @Get("snapshot")
+  snapshot(@Req() req: AuthenticatedRequest): Promise<DashboardSnapshot> {
+    const role = resolveProductRole(req.user?.role) ?? ProductRole.MEMBER;
+    return this.dashboard.snapshot(userFrom(req), metaFrom(req), role);
   }
 
   @Get("alerts")
   alerts(@Req() req: AuthenticatedRequest): Promise<DashboardAlerts> {
-    return this.dashboard.alerts(userFrom(req), metaFrom(req));
+    const role = resolveProductRole(req.user?.role) ?? ProductRole.MEMBER;
+    return this.dashboard.alerts(userFrom(req), metaFrom(req), role);
   }
 
   @Get("activity")
   activity(@Req() req: AuthenticatedRequest): Promise<DashboardActivity> {
-    return this.dashboard.activity(userFrom(req), metaFrom(req));
+    const role = resolveProductRole(req.user?.role) ?? ProductRole.MEMBER;
+    return this.dashboard.activity(userFrom(req), metaFrom(req), role);
   }
 }

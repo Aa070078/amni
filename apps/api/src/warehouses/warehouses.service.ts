@@ -4,6 +4,7 @@ import {
   INVENTORY_DOCTYPE,
   WAREHOUSE_FIELDS,
   buildWarehouseDoc,
+  type ErpClient,
   type ErpBinDoc,
   type ErpWarehouseDoc,
 } from "@amni/erp";
@@ -21,7 +22,11 @@ import { toIso } from "../common/frappe";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
-import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+import {
+  translateErpError,
+  type GatewayRequestMeta,
+  type GatewayUser,
+} from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "name",
@@ -121,7 +126,11 @@ export class WarehousesService {
     };
   }
 
-  async detail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<WarehouseDetail> {
+  async detail(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+  ): Promise<WarehouseDetail> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const doc = await client
       .get<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, code)
@@ -145,15 +154,30 @@ export class WarehousesService {
 
   async stockSummary(user: GatewayUser, meta: GatewayRequestMeta): Promise<StockSummary> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    return this.stockSummaryForClient(client);
+  }
+
+  async stockSummaryForClient(client: ErpClient): Promise<StockSummary> {
     const [{ items: binDocs }, { items: itemDocs }, { items: warehouseDocs }] = await Promise.all([
       client.list<ErpBinDoc & { valuation_rate?: number }>(INVENTORY_DOCTYPE.bin, {
-        fields: ["name", "item_code", "warehouse", "actual_qty", "reserved_qty", "projected_qty", "valuation_rate"],
+        fields: [
+          "name",
+          "item_code",
+          "warehouse",
+          "actual_qty",
+          "reserved_qty",
+          "projected_qty",
+          "valuation_rate",
+        ],
         limitPageLength: 0,
       }),
-      client.list<{ name: string; item_name?: string; safety_stock?: number }>(INVENTORY_DOCTYPE.item, {
-        fields: ["name", "item_name", "safety_stock"],
-        limitPageLength: 0,
-      }),
+      client.list<{ name: string; item_name?: string; safety_stock?: number }>(
+        INVENTORY_DOCTYPE.item,
+        {
+          fields: ["name", "item_name", "safety_stock"],
+          limitPageLength: 0,
+        },
+      ),
       client.list<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, { limitPageLength: 0 }),
     ]);
 
@@ -177,7 +201,11 @@ export class WarehousesService {
     };
   }
 
-  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateWarehouseInput): Promise<Warehouse> {
+  async create(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    input: CreateWarehouseInput,
+  ): Promise<Warehouse> {
     const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
     const created = await client.create<ErpWarehouseRaw>(
       INVENTORY_DOCTYPE.warehouse,
@@ -203,7 +231,8 @@ export class WarehousesService {
     const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
     const patch: Record<string, unknown> = {};
     if (input.name !== undefined) patch[WAREHOUSE_FIELDS.name] = input.name;
-    if (input.status !== undefined) patch[WAREHOUSE_FIELDS.status] = input.status === "inactive" ? 1 : 0;
+    if (input.status !== undefined)
+      patch[WAREHOUSE_FIELDS.status] = input.status === "inactive" ? 1 : 0;
 
     const updated = await client
       .update<ErpWarehouseRaw>(INVENTORY_DOCTYPE.warehouse, code, patch)

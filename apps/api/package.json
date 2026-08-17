@@ -8,6 +8,7 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
+    "demo:erp": "tsx scripts/serve-demo-erp.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

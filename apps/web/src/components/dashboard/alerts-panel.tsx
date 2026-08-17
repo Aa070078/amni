@@ -1,20 +1,20 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { ArrowRight, Bell, Info, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Badge, Card, CardContent, Skeleton } from "@amni/ui";
-import type { DashboardAlert, DashboardAlerts } from "@amni/shared";
+import type { DashboardAlert } from "@amni/shared";
 import { cn } from "@amni/ui";
-import { api } from "@/src/lib/api";
+import { useDashboardSnapshot } from "@/src/hooks/use-dashboard-snapshot";
 import { PanelEmpty, PanelError, PanelHeader } from "./panel-utils";
 
-const SEVERITY_BADGE: Record<DashboardAlert["severity"], "destructive" | "warning" | "secondary"> = {
-  critical: "destructive",
-  warning: "warning",
-  info: "secondary",
-};
+const SEVERITY_BADGE: Record<DashboardAlert["severity"], "destructive" | "warning" | "secondary"> =
+  {
+    critical: "destructive",
+    warning: "warning",
+    info: "secondary",
+  };
 
 const SEVERITY_ICON: Record<DashboardAlert["severity"], typeof TriangleAlert> = {
   critical: TriangleAlert,
@@ -48,14 +48,21 @@ function AlertRow({ alert }: { alert: DashboardAlert }) {
           <p className="text-sm font-medium">{alert.title}</p>
           <Badge variant={SEVERITY_BADGE[alert.severity]}>{alert.severity}</Badge>
         </div>
-        {alert.description ? <p className="text-sm text-muted-foreground">{alert.description}</p> : null}
+        {alert.description ? (
+          <p className="text-sm text-muted-foreground">{alert.description}</p>
+        ) : null}
       </div>
-      {alert.href ? <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
+      {alert.href ? (
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      ) : null}
     </div>
   );
 
   return alert.href ? (
-    <Link href={alert.href} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link
+      href={alert.href}
+      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       {row}
     </Link>
   ) : (
@@ -64,10 +71,8 @@ function AlertRow({ alert }: { alert: DashboardAlert }) {
 }
 
 export function AlertsPanel() {
-  const query = useQuery({
-    queryKey: ["dashboard", "alerts"],
-    queryFn: () => api<DashboardAlerts>("/dashboard/alerts"),
-  });
+  const query = useDashboardSnapshot();
+  const alerts = query.data?.alerts.alerts;
   const reducedMotion = useReducedMotion();
   const listVariants: Variants = reducedMotion
     ? { hidden: {}, show: {} }
@@ -81,22 +86,27 @@ export function AlertsPanel() {
 
   return (
     <Card className="h-full">
-      <PanelHeader icon={Bell} title="Alerts" count={query.data?.alerts.length} />
+      <PanelHeader icon={Bell} title="Alerts" count={alerts?.length} />
       <CardContent>
         {query.isLoading ? (
           <AlertsSkeleton />
         ) : query.isError ? (
-          <PanelError onRetry={() => void query.refetch()} />
-        ) : query.data ? (
-          query.data.alerts.length === 0 ? (
+          <PanelError error={query.error} onRetry={() => void query.refetch()} />
+        ) : alerts ? (
+          alerts.length === 0 ? (
             <PanelEmpty
               icon={ShieldCheck}
               title="All clear"
               description="No alerts right now — we'll let you know when something needs attention."
             />
           ) : (
-            <motion.div variants={listVariants} initial="hidden" animate="show" className="space-y-3">
-              {query.data.alerts.map((alert) => (
+            <motion.div
+              variants={listVariants}
+              initial="hidden"
+              animate="show"
+              className="space-y-3"
+            >
+              {alerts.map((alert) => (
                 <motion.div key={alert.id} variants={itemVariants}>
                   <AlertRow alert={alert} />
                 </motion.div>

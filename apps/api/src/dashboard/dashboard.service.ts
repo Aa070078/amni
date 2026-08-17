@@ -8,6 +8,7 @@ import {
   type DashboardKpi,
   type DashboardOverview,
   type DashboardSeriesPoint,
+  type DashboardSnapshot,
   type QuickAction,
 } from "@amni/shared";
 import {
@@ -22,7 +23,11 @@ import {
 import { toIso } from "../common/frappe";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+import {
+  ErpGatewayService,
+  type GatewayRequestMeta,
+  type GatewayUser,
+} from "../erp-gateway/erp-gateway.service";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { WarehousesService } from "../warehouses/warehouses.service";
 import type { StockSummary } from "../warehouses/warehouses.service";
@@ -96,7 +101,9 @@ type ErpInvoiceRaw = ErpSalesInvoiceDoc & { creation?: string; modified?: string
 type ErpOrderRaw = ErpSalesOrderDoc & { creation?: string; modified?: string; owner?: string };
 type ErpQuotationRaw = ErpQuotationDoc & { creation?: string; modified?: string; owner?: string };
 type ErpCustomerRaw = ErpCustomerDoc & { creation?: string; modified?: string; owner?: string };
-type ErpPaymentRaw = Omit<ErpPaymentEntryDoc, "payment_type"> & { payment_type?: "Receive" | "Pay" };
+type ErpPaymentRaw = Omit<ErpPaymentEntryDoc, "payment_type"> & {
+  payment_type?: "Receive" | "Pay";
+};
 
 interface MonthPoint {
   key: string;
@@ -117,7 +124,8 @@ function lastTwelveMonths(now: Date = new Date()): MonthPoint[] {
 
 const monthOf = (date?: string): string | undefined => (date ? date.slice(0, 7) : undefined);
 
-const utcDay = (now: Date): number => Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+const utcDay = (now: Date): number =>
+  Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
 function buildRevenueKpi(invoices: ErpInvoiceRaw[], months: MonthPoint[]): DashboardKpi {
   const byMonth = new Map<string, number>();
@@ -134,7 +142,8 @@ function buildRevenueKpi(invoices: ErpInvoiceRaw[], months: MonthPoint[]): Dashb
     if (month === current) currentTotal += total;
     if (month === previous) previousTotal += total;
   }
-  const delta = previousTotal > 0 ? round2(((currentTotal - previousTotal) / previousTotal) * 100) : 0;
+  const delta =
+    previousTotal > 0 ? round2(((currentTotal - previousTotal) / previousTotal) * 100) : 0;
   return {
     id: "revenue",
     label: "Revenue",
@@ -181,7 +190,10 @@ function buildCashKpi(payments: ErpPaymentRaw[], months: MonthPoint[]): Dashboar
     const month = monthOf(payment.posting_date);
     if (!month) continue;
     const amount = payment.paid_amount ?? 0;
-    byMonth.set(month, (byMonth.get(month) ?? 0) + (payment.payment_type === "Pay" ? -amount : amount));
+    byMonth.set(
+      month,
+      (byMonth.get(month) ?? 0) + (payment.payment_type === "Pay" ? -amount : amount),
+    );
   }
   const sparkline: number[] = [];
   let running = 0;
@@ -245,7 +257,9 @@ function buildArAging(invoices: ErpInvoiceRaw[], now: Date = new Date()): Dashbo
       currentBucket.value += amount;
       continue;
     }
-    const days = Math.floor((today - new Date(`${invoice.due_date}T00:00:00Z`).getTime()) / 86_400_000);
+    const days = Math.floor(
+      (today - new Date(`${invoice.due_date}T00:00:00Z`).getTime()) / 86_400_000,
+    );
     if (days <= 0) currentBucket.value += amount;
     else if (days <= 30) bucket30.value += amount;
     else if (days <= 60) bucket60.value += amount;
@@ -268,22 +282,57 @@ export class DashboardService {
     private readonly warehouses: WarehousesService,
   ) {}
 
-  async overview(user: GatewayUser, meta: GatewayRequestMeta, role: ProductRole): Promise<DashboardOverview> {
+  async overview(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    role: ProductRole,
+  ): Promise<DashboardOverview> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [{ items: invoiceDocs }, { items: paymentDocs }, stock] = await Promise.all([
-      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 0 }),
-      client.list<ErpPaymentRaw>(SALES_DOCTYPE.paymentEntry, { limitPageLength: 0 }),
-      this.warehouses.stockSummary(user, meta),
+      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, {
+        fields: [
+          "name",
+          "customer",
+          "posting_date",
+          "due_date",
+          "grand_total",
+          "outstanding_amount",
+          "status",
+          "docstatus",
+          "creation",
+          "modified",
+          "owner",
+        ],
+        limitPageLength: 0,
+      }),
+      client.list<ErpPaymentRaw>(SALES_DOCTYPE.paymentEntry, {
+        fields: ["name", "payment_type", "paid_amount", "posting_date", "docstatus"],
+        limitPageLength: 0,
+      }),
+      this.warehouses.stockSummaryForClient(client),
     ]);
 
+    return this.buildOverview(invoiceDocs, paymentDocs, stock, role);
+  }
+
+  private buildOverview(
+    invoiceDocs: ErpInvoiceRaw[],
+    paymentDocs: ErpPaymentRaw[],
+    stock: StockSummary,
+    role: ProductRole,
+  ): DashboardOverview {
     const months = lastTwelveMonths();
     const revenue = buildRevenueKpi(invoiceDocs, months);
     const ar = buildArKpi(invoiceDocs, months);
     const cash = buildCashKpi(paymentDocs, months);
     const inventory = buildInventoryKpi(stock);
     const byId: Record<string, DashboardKpi> = { revenue, ar, cash, inventory };
-    const kpis = ROLE_KPI_IDS[role].map((id) => byId[id]).filter((kpi): kpi is DashboardKpi => kpi !== undefined);
-    const quickActions = QUICK_ACTIONS.filter((action) => !action.roles || action.roles.includes(role));
+    const kpis = ROLE_KPI_IDS[role]
+      .map((id) => byId[id])
+      .filter((kpi): kpi is DashboardKpi => kpi !== undefined);
+    const quickActions = QUICK_ACTIONS.filter(
+      (action) => !action.roles || action.roles.includes(role),
+    );
     const revenueTrend: DashboardSeriesPoint[] = months.map((month, index) => ({
       label: month.label,
       value: revenue.sparkline?.[index] ?? 0,
@@ -292,41 +341,62 @@ export class DashboardService {
       label: month.label,
       value: cash.sparkline?.[index] ?? 0,
     }));
+    const allowedKpis = new Set(ROLE_KPI_IDS[role]);
 
     return {
       asOf: new Date().toISOString(),
       role,
       kpis,
       quickActions,
-      revenueTrend,
-      cashTrend,
-      arAging: buildArAging(invoiceDocs),
+      revenueTrend: allowedKpis.has("revenue") ? revenueTrend : undefined,
+      cashTrend: allowedKpis.has("cash") ? cashTrend : undefined,
+      arAging: allowedKpis.has("ar") ? buildArAging(invoiceDocs) : undefined,
     };
   }
 
-  async alerts(user: GatewayUser, meta: GatewayRequestMeta): Promise<DashboardAlerts> {
+  async alerts(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    role: ProductRole = ProductRole.ADMIN,
+  ): Promise<DashboardAlerts> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [{ items: invoiceDocs }, stock] = await Promise.all([
-      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 0 }),
-      this.warehouses.stockSummary(user, meta),
+      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, {
+        fields: ["name", "due_date", "outstanding_amount", "docstatus"],
+        limitPageLength: 0,
+      }),
+      this.warehouses.stockSummaryForClient(client),
     ]);
 
+    return this.buildAlerts(invoiceDocs, stock, role);
+  }
+
+  private buildAlerts(
+    invoiceDocs: ErpInvoiceRaw[],
+    stock: StockSummary,
+    role: ProductRole,
+  ): DashboardAlerts {
     const today = utcDay(new Date());
     const overdue = invoiceDocs
-      .filter((invoice) => invoice.docstatus === 1 && (invoice.outstanding_amount ?? 0) > 0 && invoice.due_date)
+      .filter(
+        (invoice) =>
+          invoice.docstatus === 1 && (invoice.outstanding_amount ?? 0) > 0 && invoice.due_date,
+      )
       .map((invoice) => ({ invoice, due: new Date(`${invoice.due_date}T00:00:00Z`).getTime() }))
       .filter(({ due }) => due < today)
       .sort((a, b) => a.due - b.due);
 
     const alerts: DashboardAlerts["alerts"] = [];
     if (overdue.length > 0) {
-      const total = round2(overdue.reduce((sum, { invoice }) => sum + (invoice.outstanding_amount ?? 0), 0));
+      const total = round2(
+        overdue.reduce((sum, { invoice }) => sum + (invoice.outstanding_amount ?? 0), 0),
+      );
       const oldest = overdue[0]!;
       const days = Math.floor((today - oldest.due) / 86_400_000);
       alerts.push({
         id: "overdue-invoices",
         severity: "critical",
-        title: `${overdue.length} ${overdue.length === 1 ? "invoice" : "invoices"} are overdue`,
+        title: `${overdue.length} ${overdue.length === 1 ? "invoice is" : "invoices are"} overdue`,
         description: `Totalling $${total.toLocaleString("en-US")} — the oldest is ${oldest.invoice.name}, ${days} days late.`,
         href: "/finance",
       });
@@ -337,7 +407,7 @@ export class DashboardService {
       alerts.push({
         id: "low-stock",
         severity: "warning",
-        title: `${stock.lowStockCount} ${stock.lowStockCount === 1 ? "item" : "items"} are low on stock`,
+        title: `${stock.lowStockCount} ${stock.lowStockCount === 1 ? "item is" : "items are"} low on stock`,
         description:
           stock.lowStockCount === 1
             ? `${label} needs re-ordering.`
@@ -346,18 +416,58 @@ export class DashboardService {
       });
     }
 
-    return { alerts };
+    const visibleAlerts = alerts.filter((alert) => {
+      if (role === ProductRole.ADMIN) return true;
+      if (alert.id === "overdue-invoices") {
+        return role === ProductRole.ACCOUNTANT || role === ProductRole.SALES;
+      }
+      if (alert.id === "low-stock") return role === ProductRole.INVENTORY;
+      return false;
+    });
+
+    return { alerts: visibleAlerts };
   }
 
-  async activity(user: GatewayUser, meta: GatewayRequestMeta): Promise<DashboardActivity> {
+  async activity(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    role: ProductRole = ProductRole.ADMIN,
+  ): Promise<DashboardActivity> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
-    const [{ items: invoices }, { items: orders }, { items: quotations }, { items: customers }] = await Promise.all([
-      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 100 }),
-      client.list<ErpOrderRaw>(SALES_DOCTYPE.salesOrder, { limitPageLength: 100 }),
-      client.list<ErpQuotationRaw>(SALES_DOCTYPE.quotation, { limitPageLength: 100 }),
-      client.list<ErpCustomerRaw>(SALES_DOCTYPE.customer, { limitPageLength: 100 }),
-    ]);
+    const [{ items: invoices }, { items: orders }, { items: quotations }, { items: customers }] =
+      await Promise.all([
+        client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, {
+          fields: ["name", "customer", "docstatus", "creation", "modified", "owner"],
+          orderBy: "modified desc",
+          limitPageLength: 20,
+        }),
+        client.list<ErpOrderRaw>(SALES_DOCTYPE.salesOrder, {
+          fields: ["name", "creation", "modified", "owner"],
+          orderBy: "modified desc",
+          limitPageLength: 20,
+        }),
+        client.list<ErpQuotationRaw>(SALES_DOCTYPE.quotation, {
+          fields: ["name", "creation", "modified", "owner"],
+          orderBy: "modified desc",
+          limitPageLength: 20,
+        }),
+        client.list<ErpCustomerRaw>(SALES_DOCTYPE.customer, {
+          fields: ["name", "customer_name", "creation", "modified", "owner"],
+          orderBy: "modified desc",
+          limitPageLength: 20,
+        }),
+      ]);
 
+    return this.buildActivity(invoices, orders, quotations, customers, role);
+  }
+
+  private buildActivity(
+    invoices: ErpInvoiceRaw[],
+    orders: ErpOrderRaw[],
+    quotations: ErpQuotationRaw[],
+    customers: ErpCustomerRaw[],
+    role: ProductRole,
+  ): DashboardActivity {
     const activity: ActivityItem[] = [
       ...invoices.map((doc) => ({
         id: `sales-invoice:${doc.name}`,
@@ -395,6 +505,72 @@ export class DashboardService {
       .sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0))
       .slice(0, 8);
 
-    return { activity };
+    const visibleActivity = activity.filter((item) => {
+      if (role === ProductRole.ADMIN || role === ProductRole.SALES) return true;
+      if (role === ProductRole.ACCOUNTANT) return item.id.startsWith("sales-invoice:");
+      return false;
+    });
+
+    return { activity: visibleActivity };
+  }
+
+  async snapshot(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    role: ProductRole,
+  ): Promise<DashboardSnapshot> {
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const [
+      { items: invoices },
+      { items: payments },
+      stock,
+      { items: orders },
+      { items: quotations },
+      { items: customers },
+    ] = await Promise.all([
+      client.list<ErpInvoiceRaw>(SALES_DOCTYPE.salesInvoice, {
+        fields: [
+          "name",
+          "customer",
+          "posting_date",
+          "due_date",
+          "grand_total",
+          "outstanding_amount",
+          "status",
+          "docstatus",
+          "creation",
+          "modified",
+          "owner",
+        ],
+        orderBy: "modified desc",
+        limitPageLength: 0,
+      }),
+      client.list<ErpPaymentRaw>(SALES_DOCTYPE.paymentEntry, {
+        fields: ["name", "payment_type", "paid_amount", "posting_date", "docstatus"],
+        limitPageLength: 0,
+      }),
+      this.warehouses.stockSummaryForClient(client),
+      client.list<ErpOrderRaw>(SALES_DOCTYPE.salesOrder, {
+        fields: ["name", "creation", "modified", "owner"],
+        orderBy: "modified desc",
+        limitPageLength: 20,
+      }),
+      client.list<ErpQuotationRaw>(SALES_DOCTYPE.quotation, {
+        fields: ["name", "creation", "modified", "owner"],
+        orderBy: "modified desc",
+        limitPageLength: 20,
+      }),
+      client.list<ErpCustomerRaw>(SALES_DOCTYPE.customer, {
+        fields: ["name", "customer_name", "creation", "modified", "owner"],
+        orderBy: "modified desc",
+        limitPageLength: 20,
+      }),
+    ]);
+
+    return {
+      overview: this.buildOverview(invoices, payments, stock, role),
+      alerts: this.buildAlerts(invoices, stock, role),
+      activity: this.buildActivity(invoices, orders, quotations, customers, role),
+    };
   }
 }

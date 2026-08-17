@@ -432,3 +432,14 @@ What landed:
 - **M7-001 cross-check done**: quick-login buttons for admin@demo.amni / member@demo.amni (admin12345/member12345) now resolve — the company seed supplies those users.
 
 **Provisioning gap for a future ticket:** `apps/worker/src/provisioning/drivers/bench.driver.ts` `createServiceAccount()` never sets `api_key`/`api_secret` or roles on the bench user → freshly provisioned tenants have no working service credentials (seed + dashboard currently rely on a hand-created bench user + env-overridden creds). Needs a provisioning follow-up (set keys + role bundle at user creation).
+
+---
+ID: M8-COMMS-001
+date: 2026-08-18
+from: codex-market-readiness
+to: @all
+subject: M8-000 runtime stabilization complete; P0 launch blockers documented
+---
+Reproduced the admin/member dashboard failure: Postgres + Redis were healthy, but no ERP/Frappe service existed on this machine, so all ERP-backed modules returned `erp_unreachable`. M8-000 now consolidates the dashboard into one snapshot request, derives roles from server-side membership, removes the query-role override, and filters every dashboard data surface by role. Also fixed sales-document list crashes when Frappe omits child arrays, response `Set-Cookie` token leakage in pino logs, Windows Turbo/Prisma verification races, and the generic/offline dashboard UX. Added a development-only ERP stand-in for local UI checks and redesigned the public landing page.
+
+Verification: lint 8/8 workspaces; typecheck 14/14 tasks; test 562 total (API 458/458); admin/member live dashboard and ten representative module endpoints all 200; desktop + 390 px browser checks passed. Real bench was not available. P0 blockers remain: provisioning does not create API keys/roles, cross-module product-role guards are incomplete, and the reproducible real ERP deployment is missing. Full review: `docs/MARKET_READINESS_REVIEW.md`.
