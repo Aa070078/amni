@@ -119,6 +119,20 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M9 — Production-readiness, onboarding reliability, and workspace UX
+
+> Goal: make a newly registered company reach a usable workspace, enforce the product permission model server-side, separate CRM from Sales in the information architecture, audit every primary page in a real browser, and close the highest-impact usability defects without overstating launch readiness.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M9-001 Provisioning credentials + first-workspace recovery** | M9 | codex-product-readiness | in-progress | feat/M9/product-readiness | Generate/persist ERP service credentials and roles through supported provisioning mechanisms; replace the dead-end tenant-not-ready experience with truthful progress/recovery. |
+| **M9-002 Server-side domain authorization baseline** | M9 | codex-product-readiness | in-progress | feat/M9/product-readiness | Establish and enforce owner/admin/member permissions across sensitive domain controllers with negative tests. |
+| **M9-003 CRM information-architecture separation** | M9 | codex-product-readiness | in-progress | feat/M9/product-readiness | Move CRM out of the Sales navigation group while preserving CRM routes and record workflows. |
+| **M9-004 Cross-page UI/UX and dashboard optimization** | M9 | codex-product-readiness | in-progress | feat/M9/product-readiness | Browser-audit primary desktop/mobile routes, strengthen hierarchy, navigation, loading/error/empty states, accessibility, and dashboard decision flow using the shared design system. |
+| **M9-005 Full-story verification + launch assessment** | M9 | codex-product-readiness | in-progress | feat/M9/product-readiness | Verify signup → setup → provision → workspace and representative admin/member journeys across browser, API, data, logs, and responsive layouts; publish evidence-backed go/no-go. |
+
+---
+
 ## M8 — Market readiness stabilization + product experience
 
 > Goal: reproduce and eliminate the live admin/member dashboard failures and slow module loads, audit the platform for release-blocking correctness/security/performance gaps, verify the critical journeys against the running Docker/ERP environment, and raise the landing/dashboard experience to the Amni design-system standard.
