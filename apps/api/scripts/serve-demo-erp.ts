@@ -1,4 +1,5 @@
 import { startMockFrappeServer } from "../src/erp-gateway/mock-frappe-server";
+import { buildShowcaseDocs } from "./demo-erp-fixtures";
 
 const apiKey = process.env.DEMO_ERP_API_KEY ?? "demo-service-account";
 const apiSecret = process.env.DEMO_ERP_API_SECRET ?? "demo-secret-5b2f1c8a";
@@ -149,6 +150,8 @@ const docs: Record<string, unknown>[] = [
     valuation_rate: 130,
   },
 ];
+
+docs.push(...buildShowcaseDocs({ isoDay, modified }));
 
 async function main(): Promise<void> {
   const server = await startMockFrappeServer({ apiKey, apiSecret, docs, port });

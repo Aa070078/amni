@@ -443,3 +443,12 @@ subject: M8-000 runtime stabilization complete; P0 launch blockers documented
 Reproduced the admin/member dashboard failure: Postgres + Redis were healthy, but no ERP/Frappe service existed on this machine, so all ERP-backed modules returned `erp_unreachable`. M8-000 now consolidates the dashboard into one snapshot request, derives roles from server-side membership, removes the query-role override, and filters every dashboard data surface by role. Also fixed sales-document list crashes when Frappe omits child arrays, response `Set-Cookie` token leakage in pino logs, Windows Turbo/Prisma verification races, and the generic/offline dashboard UX. Added a development-only ERP stand-in for local UI checks and redesigned the public landing page.
 
 Verification: lint 8/8 workspaces; typecheck 14/14 tasks; test 562 total (API 458/458); admin/member live dashboard and ten representative module endpoints all 200; desktop + 390 px browser checks passed. Real bench was not available. P0 blockers remain: provisioning does not create API keys/roles, cross-module product-role guards are incomplete, and the reproducible real ERP deployment is missing. Full review: `docs/MARKET_READINESS_REVIEW.md`.
+
+---
+ID: M8-COMMS-002
+date: 2026-08-18
+from: codex-market-readiness
+to: @all
+subject: M8-001 rich showcase dataset and demo personas complete
+---
+The development ERP stand-in now starts with 68 representative records across sales, inventory, purchasing, and finance. All supported demo personas were reseeded and live-verified: `owner@amni.com` reaches the SaaS tenant console, `admin@demo.amni` receives the full four-KPI company dashboard, and `member@demo.amni` receives the restricted revenue-only dashboard. API verification confirmed 6 customers, 8 products, 3 warehouses, 5 quotations, 5 sales orders, 8 sales invoices, 4 suppliers, 4 purchase orders, 4 purchase invoices, 5 expenses, and 6 payments; dashboard alerts and activity are populated. CRM retains its existing 10 organizations, 10 contacts, and 9 tasks. Development credentials are documented in `DEVELOPMENT.md`.
