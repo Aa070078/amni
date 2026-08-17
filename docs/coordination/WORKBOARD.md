@@ -119,6 +119,16 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M8 — Market readiness stabilization + product experience
+
+> Goal: reproduce and eliminate the live admin/member dashboard failures and slow module loads, audit the platform for release-blocking correctness/security/performance gaps, verify the critical journeys against the running Docker/ERP environment, and raise the landing/dashboard experience to the Amni design-system standard.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M8-000 Runtime stabilization + market-readiness audit + landing/dashboard UX refresh** | M8 | codex-market-readiness | in-progress | feat/M8/market-readiness | Live reproduction first; preserve tenant isolation and API contracts; fix highest-impact reliability/performance issues, add regression coverage, then upgrade landing/dashboard UI and verify end-to-end. |
+
+---
+
 ## M7 — Demo seed + tenant provisioning (dev)
 
 > Goal: make the demo accounts actually work post-M5. Root cause of the dashboard 409s (`TENANT_NOT_READY`): the old `seed-demo-user.ts` put **both** demo users in one "Demo Co" and created **no** `Tenant`/`ERPInstance`, so every ERP-backed read (`/api/v1/dashboard/*`) 409'd. Fix: seed a **pure SaaS platform admin** (no company membership, lands on `/admin` console) plus **one normal company** with its own isolated ERPNext instance and two accounts inside it (company admin/OWNER + employee/MEMBER). Two disjoint agents; files never overlap.
