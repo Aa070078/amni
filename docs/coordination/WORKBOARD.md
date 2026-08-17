@@ -126,6 +126,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | **M8-000 Runtime stabilization + market-readiness audit + landing/dashboard UX refresh** | M8 | codex-market-readiness | done | feat/M8/market-readiness | Dashboard snapshot, membership-derived roles, ERP-offline UX, auth-log redaction, sales-list hardening, Windows verification fixes, development ERP stand-in, and responsive landing redesign completed. Full review: `docs/MARKET_READINESS_REVIEW.md`. [PR #66](https://github.com/Aa070078/amni/pull/66) |
+| **M8-001 Rich showcase dataset + demo persona verification** | M8 | codex-market-readiness | in-progress | feat/M8/showcase-dataset | Expand the development ERP fixture across sales, inventory, purchasing, and finance; reseed all supported demo personas; verify account-specific access and visible data. |
 
 ---
 
