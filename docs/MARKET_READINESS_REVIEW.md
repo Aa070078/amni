@@ -12,6 +12,7 @@ Amni's control plane, application shell, and ERP-backed modules can run coherent
 - ERP connection failures are shown as a truthful workspace status and actionable error instead of a generic panel failure while the hero claims data is live.
 - Sales invoice, sales order, and quotation list mapping tolerates ERP list responses without child-line arrays instead of crashing the whole section.
 - API logging redacts response `Set-Cookie` headers, preventing access and refresh tokens from being written to logs.
+- The dependency tree pins patched `deepmerge-ts` 8.x after CI detected the high-severity recursive-merge exhaustion advisory in Prisma's transitive configuration dependency.
 - Root typechecking now serializes each package's build before its typecheck, and the database package no longer runs a second competing Prisma generation step. This removes `.next/types` races and Windows Prisma DLL rename failures when no runtime process holds the client.
 - A development-only ERP stand-in with representative records is available through `pnpm --filter @amni/api demo:erp`. It is never a production substitute.
 - The landing page now has a product-led hero, responsive dashboard preview, capability narrative, guided operating flow, and stronger conversion path using the shared design system.
@@ -51,6 +52,7 @@ Deployment documentation still describes an older demo posture and does not matc
 - `pnpm lint`: 8 workspaces passed.
 - `pnpm typecheck`: 14 tasks passed after removing the build/typecheck races.
 - `pnpm test`: 562 tests passed, including 458 API tests and the tenant-isolation suites.
+- `pnpm audit --audit-level high`: passed after the patched dependency override; one low-severity advisory remains below the enforced threshold.
 - Production builds completed for API and web; the Next.js standalone trace warning remains recorded above.
 - Local services verified on web `:3000`, API `:4000`, and development ERP stand-in `:8080`; Postgres and Redis were healthy in Docker.
 - Admin and member login both returned 201. Dashboard snapshot returned 200 in 76 ms and 20 ms respectively during the first runtime pass.
