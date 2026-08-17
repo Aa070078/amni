@@ -77,6 +77,16 @@ docker compose -p frappe -f compose.yaml \
 - Verify: `http://localhost:8080/api/method/ping` → `{"message":"pong"}`. Login: `Administrator` / `admin`.
 - A second tenant site in dev: `bench new-site myco.localhost --mariadb-user-host-login-scope=% --db-root-password admin --admin-password admin --install-app erpnext`, reachable at `http://myco.localhost:8080` (nginx routes by Host header; `*.localhost` resolves to 127.0.0.1).
 
+### 5.0.1 Development stand-in when a bench is unavailable
+
+The API package includes a small authenticated, in-memory Frappe stand-in for local UI work and automated smoke checks:
+
+```bash
+pnpm --filter @amni/api demo:erp
+```
+
+It listens on `127.0.0.1:8080` by default and uses the same development credentials as `seed-demo-company.ts`. It contains representative dashboard, sales, customer, warehouse, item, and stock records. This process is **development-only**: it does not implement Frappe permissions, workflows, validation, provisioning, or persistence and must never be used as production evidence or deployed with Amni.
+
 ### 5.1 HRMS (Frappe HR + Amni SSO)
 
 Frappe HR (the `hrms` app) ships as the embedded HRMS section in the platform. Every new site gets it automatically via `ERPNEXT_INSTALL_APPS` (default `erpnext,hrms`). Existing sites need the one-off script below.

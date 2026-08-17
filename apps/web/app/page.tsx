@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@amni/ui";
 import { LandingFeatures } from "@/src/components/landing/landing-features";
 import { LandingHero } from "@/src/components/landing/landing-hero";
+import { LandingWorkflow } from "@/src/components/landing/landing-workflow";
 
 export default function HomePage() {
   return (
@@ -14,7 +15,15 @@ export default function HomePage() {
             </span>
             <span className="text-lg font-semibold tracking-tight">Amni</span>
           </Link>
-          <nav className="flex items-center gap-3">
+          <nav className="flex items-center gap-2" aria-label="Main navigation">
+            <div className="mr-3 hidden items-center gap-1 md:flex">
+              <Button asChild variant="ghost" size="sm">
+                <Link href="#product">Product</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="#how-it-works">How it works</Link>
+              </Button>
+            </div>
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Log in</Link>
             </Button>
@@ -26,12 +35,10 @@ export default function HomePage() {
       </header>
 
       <LandingHero />
+      <LandingFeatures />
+      <LandingWorkflow />
 
-      <div className="mx-auto w-full max-w-6xl px-6">
-        <LandingFeatures />
-      </div>
-
-      <footer className="mt-auto border-t">
+      <footer className="mt-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-6 py-6 text-sm text-muted-foreground sm:flex-row">
           <span>© {new Date().getFullYear()} Amni</span>
           <nav className="flex items-center gap-6">

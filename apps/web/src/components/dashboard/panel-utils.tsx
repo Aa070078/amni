@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { TriangleAlert } from "lucide-react";
+import { CircleAlert, ServerOff, TriangleAlert } from "lucide-react";
 import { Badge, Button, CardHeader, CardTitle } from "@amni/ui";
+import { ApiError } from "@/src/lib/api";
 
 interface PanelHeaderProps {
   title: string;
@@ -25,12 +26,38 @@ export function PanelHeader({ title, icon: Icon, count, action }: PanelHeaderPro
   );
 }
 
-export function PanelError({ onRetry }: { onRetry: () => void }) {
+const PANEL_ERROR_COPY: Record<string, { title: string; description: string; icon: LucideIcon }> = {
+  erp_unreachable: {
+    title: "Business data is offline",
+    description:
+      "Amni can’t reach this workspace’s ERP service. Your account is safe; reconnect ERPNext and try again.",
+    icon: ServerOff,
+  },
+  erp_unauthorized: {
+    title: "Workspace connection needs attention",
+    description:
+      "The ERPNext service account could not authenticate. Ask a workspace owner to reconnect it.",
+    icon: CircleAlert,
+  },
+  tenant_not_ready: {
+    title: "Workspace is still getting ready",
+    description: "Provisioning hasn’t finished yet. Give it a moment, then try again.",
+    icon: CircleAlert,
+  },
+};
+
+export function PanelError({ error, onRetry }: { error?: unknown; onRetry: () => void }) {
+  const copy = error instanceof ApiError ? PANEL_ERROR_COPY[error.code] : undefined;
+  const Icon = copy?.icon ?? TriangleAlert;
+
   return (
     <div className="flex flex-col items-center gap-3 py-10 text-center" role="alert">
-      <TriangleAlert className="h-6 w-6 text-destructive" aria-hidden />
-      <p className="text-sm font-medium">Couldn&apos;t load this panel</p>
-      <p className="text-sm text-muted-foreground">It didn&apos;t affect the rest of the page.</p>
+      <Icon className="h-6 w-6 text-destructive" aria-hidden />
+      <p className="text-sm font-medium">{copy?.title ?? "Couldn’t load dashboard data"}</p>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        {copy?.description ??
+          "Something interrupted this request. Try again, or refresh the page if it continues."}
+      </p>
       <Button size="sm" variant="outline" onClick={onRetry}>
         Try again
       </Button>

@@ -1,7 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ServerOff } from "lucide-react";
+import { useDashboardSnapshot } from "@/src/hooks/use-dashboard-snapshot";
 import { useMe } from "@/src/hooks/use-me";
+import { ApiError } from "@/src/lib/api";
 
 const Hero3D = dynamic(() => import("./hero-3d").then((module) => module.Hero3D), {
   ssr: false,
@@ -10,9 +13,12 @@ const Hero3D = dynamic(() => import("./hero-3d").then((module) => module.Hero3D)
 
 export function DashboardHero() {
   const me = useMe();
+  const snapshot = useDashboardSnapshot();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const name = me.data ? [me.data.firstName, me.data.lastName].filter(Boolean).join(" ") : null;
+  const erpOffline =
+    snapshot.error instanceof ApiError && snapshot.error.code === "erp_unreachable";
 
   return (
     <section className="relative overflow-hidden rounded-lg border bg-card p-6 shadow-sm sm:p-8">
@@ -24,7 +30,7 @@ export function DashboardHero() {
 
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">Demo Co.</p>
+          <p className="text-sm font-medium text-muted-foreground">Your workspace</p>
           <h1 className="mt-1.5 text-2xl font-semibold tracking-tight sm:text-3xl">
             {greeting}
             {name ? `, ${name}` : ""}
@@ -34,12 +40,20 @@ export function DashboardHero() {
           </p>
         </div>
 
-        <span className="inline-flex items-center gap-2 rounded-full border bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-          </span>
-          Live
+        <span className="inline-flex items-center gap-2 rounded-full border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
+          {erpOffline ? (
+            <ServerOff className="h-3.5 w-3.5 text-destructive" aria-hidden />
+          ) : (
+            <span className="relative flex h-2 w-2">
+              {snapshot.isSuccess ? (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60 motion-reduce:animate-none" />
+              ) : null}
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${snapshot.isSuccess ? "bg-success" : "bg-warning"}`}
+              />
+            </span>
+          )}
+          {erpOffline ? "ERP offline" : snapshot.isSuccess ? "Live data" : "Connecting"}
         </span>
       </div>
     </section>

@@ -119,6 +119,16 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M8 — Market readiness stabilization + product experience
+
+> Goal: reproduce and eliminate the live admin/member dashboard failures and slow module loads, audit the platform for release-blocking correctness/security/performance gaps, verify the critical journeys against the running Docker/ERP environment, and raise the landing/dashboard experience to the Amni design-system standard.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M8-000 Runtime stabilization + market-readiness audit + landing/dashboard UX refresh** | M8 | codex-market-readiness | done | feat/M8/market-readiness | Dashboard snapshot, membership-derived roles, ERP-offline UX, auth-log redaction, sales-list hardening, Windows verification fixes, development ERP stand-in, and responsive landing redesign completed. Full review: `docs/MARKET_READINESS_REVIEW.md`. [PR #66](https://github.com/Aa070078/amni/pull/66) |
+
+---
+
 ## M7 — Demo seed + tenant provisioning (dev)
 
 > Goal: make the demo accounts actually work post-M5. Root cause of the dashboard 409s (`TENANT_NOT_READY`): the old `seed-demo-user.ts` put **both** demo users in one "Demo Co" and created **no** `Tenant`/`ERPInstance`, so every ERP-backed read (`/api/v1/dashboard/*`) 409'd. Fix: seed a **pure SaaS platform admin** (no company membership, lands on `/admin` console) plus **one normal company** with its own isolated ERPNext instance and two accounts inside it (company admin/OWNER + employee/MEMBER). Two disjoint agents; files never overlap.
@@ -148,6 +158,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-18 | **M8-000 completed** (codex-market-readiness, [PR #66](https://github.com/Aa070078/amni/pull/66)): reproduced the admin/member dashboard failures, restored the local ERP-backed experience with a development stand-in, consolidated dashboard reads, fixed server-derived role filtering and auth-log redaction, hardened omitted ERP child rows, removed Windows verification races, refreshed the landing page, and documented the remaining P0/P1 launch blockers in `docs/MARKET_READINESS_REVIEW.md`. Root lint/typecheck/build and 562 tests pass; desktop/mobile browser journeys verified. |
 | 2026-08-16 | **M7-002 implemented + verified live** (agent-amni-01, PR #1 on `feat/M7/company-demo-seed`): `seed-demo-company.ts` seeds Demo Co (`demo-co`) with admin/member accounts + ACTIVE Tenant + ERPInstance (real bench creds ciphered) + TRIAL sub. Live-verified on frappe_docker bench (site `frontend`): dashboard overview/activity/alerts 200 for both accounts; member `?role=member` = revenue-only KPI. Also fixed pre-existing `Tenant.hrmsInstalled` schema drift (`@map`) and the M5 Item `reorder_level`→`safety_stock` bug (mock never validated fields; real bench 417'd). Provisioning gap flagged (bench service account has no api_key/roles) — COMMS M7-COMMS-002. |
 | 2026-08-16 | **M7-001 merged to dev** — PR #63 squash as `ab2af60` (agent-amni-01): seed-saas-admin.ts + platform-admin → `/admin` redirect + quick-login demo accounts. M7-002 (company seed) in-progress (reassigned to operator lane). |
 | 2026-08-16 | **M7-001 implemented** (agent-amni-01, PR #63 on `feat/M7/saas-admin-demo`): `seed-saas-admin.ts` (`owner@amni.com`, platform admin, no membership) + platform-admin post-login redirect → `/admin` in login-form + quick-login (demo accounts updated: SaaS Admin `owner@amni.com`, Company Admin `admin@demo.amni`, Company Member `member@demo.amni`). Live-verified login/auth-me/admin API 200. M7-002 (company seed) in-progress (reassigned to operator lane). |

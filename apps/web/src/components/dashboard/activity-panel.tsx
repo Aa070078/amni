@@ -1,12 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { Activity as ActivityIcon, History } from "lucide-react";
 import { Card, CardContent, Skeleton } from "@amni/ui";
-import type { ActivityItem, DashboardActivity } from "@amni/shared";
-import { api } from "@/src/lib/api";
+import type { ActivityItem } from "@amni/shared";
+import { useDashboardSnapshot } from "@/src/hooks/use-dashboard-snapshot";
 import { formatRelativeTime } from "@/src/lib/format";
 import { PanelEmpty, PanelError, PanelHeader } from "./panel-utils";
 
@@ -38,7 +37,10 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   );
 
   return item.href ? (
-    <Link href={item.href} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link
+      href={item.href}
+      className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       {row}
     </Link>
   ) : (
@@ -47,10 +49,8 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 }
 
 export function ActivityPanel() {
-  const query = useQuery({
-    queryKey: ["dashboard", "activity"],
-    queryFn: () => api<DashboardActivity>("/dashboard/activity"),
-  });
+  const query = useDashboardSnapshot();
+  const activity = query.data?.activity.activity;
   const reducedMotion = useReducedMotion();
   const listVariants: Variants = reducedMotion
     ? { hidden: {}, show: {} }
@@ -69,17 +69,22 @@ export function ActivityPanel() {
         {query.isLoading ? (
           <ActivitySkeleton />
         ) : query.isError ? (
-          <PanelError onRetry={() => void query.refetch()} />
-        ) : query.data ? (
-          query.data.activity.length === 0 ? (
+          <PanelError error={query.error} onRetry={() => void query.refetch()} />
+        ) : activity ? (
+          activity.length === 0 ? (
             <PanelEmpty
               icon={History}
               title="No activity yet"
               description="Actions your team takes will show up here."
             />
           ) : (
-            <motion.ul variants={listVariants} initial="hidden" animate="show" className="space-y-4">
-              {query.data.activity.map((item) => (
+            <motion.ul
+              variants={listVariants}
+              initial="hidden"
+              animate="show"
+              className="space-y-4"
+            >
+              {activity.map((item) => (
                 <motion.li key={item.id} variants={itemVariants}>
                   <ActivityRow item={item} />
                 </motion.li>

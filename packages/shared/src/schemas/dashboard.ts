@@ -72,6 +72,12 @@ export const dashboardActivitySchema = z.object({
   activity: z.array(activityItemSchema),
 });
 
+export const dashboardSnapshotSchema = z.object({
+  overview: dashboardOverviewSchema,
+  alerts: dashboardAlertsSchema,
+  activity: dashboardActivitySchema,
+});
+
 export const dashboardOverviewQuerySchema = z.object({
   role: z.nativeEnum(ProductRole).optional(),
 });
@@ -87,3 +93,4 @@ export type QuickAction = z.infer<typeof quickActionSchema>;
 export type DashboardOverview = z.infer<typeof dashboardOverviewSchema>;
 export type DashboardAlerts = z.infer<typeof dashboardAlertsSchema>;
 export type DashboardActivity = z.infer<typeof dashboardActivitySchema>;
+export type DashboardSnapshot = z.infer<typeof dashboardSnapshotSchema>;

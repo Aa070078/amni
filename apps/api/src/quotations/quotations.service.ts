@@ -23,7 +23,11 @@ import { toIso } from "../common/frappe";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
-import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+import {
+  translateErpError,
+  type GatewayRequestMeta,
+  type GatewayUser,
+} from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "code",
@@ -78,8 +82,8 @@ function toDocLines(items: UpdateQuotationInput["items"]): ErpDocLine[] {
   }));
 }
 
-function toItems(lines: ErpDocLine[]): Quotation["items"] {
-  return lines.map((line, index) => ({
+function toItems(lines: ErpDocLine[] | undefined): Quotation["items"] {
+  return (lines ?? []).map((line, index) => ({
     lineNo: index + 1,
     product: line.item_code,
     name: line.item_name ?? line.item_code,
@@ -90,10 +94,17 @@ function toItems(lines: ErpDocLine[]): Quotation["items"] {
   }));
 }
 
-function summarize(doc: ErpQuotationRaw, lines: ErpDocLine[]): DocSummary {
-  const subtotal = round2(lines.reduce((sum, line) => sum + (line.amount ?? round2(line.qty * line.rate)), 0));
+function summarize(doc: ErpQuotationRaw, lines: ErpDocLine[] | undefined): DocSummary {
+  const subtotal = round2(
+    (lines ?? []).reduce((sum, line) => sum + (line.amount ?? round2(line.qty * line.rate)), 0),
+  );
   const total = doc.grand_total ?? subtotal;
-  return { subtotal, discount: 0, tax: round2(Math.max(total - subtotal, 0)), total: round2(total) };
+  return {
+    subtotal,
+    discount: 0,
+    tax: round2(Math.max(total - subtotal, 0)),
+    total: round2(total),
+  };
 }
 
 function toQuotation(doc: ErpQuotationRaw, customerName?: string): Quotation {
@@ -115,15 +126,24 @@ function toQuotation(doc: ErpQuotationRaw, customerName?: string): Quotation {
 }
 
 async function fetchCustomerMap(client: ErpClient): Promise<Map<string, string>> {
-  const { items } = await client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, {
-    limitPageLength: 0,
-  });
+  const { items } = await client.list<{ name: string; customer_name: string }>(
+    SALES_DOCTYPE.customer,
+    {
+      limitPageLength: 0,
+    },
+  );
   return new Map(items.map((customer) => [customer.name, customer.customer_name ?? customer.name]));
 }
 
-async function resolveCustomer(client: ErpClient, code: string): Promise<{ code: string; name: string }> {
+async function resolveCustomer(
+  client: ErpClient,
+  code: string,
+): Promise<{ code: string; name: string }> {
   try {
-    const doc = await client.get<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, code);
+    const doc = await client.get<{ name: string; customer_name: string }>(
+      SALES_DOCTYPE.customer,
+      code,
+    );
     return { code: doc.name, name: doc.customer_name ?? doc.name };
   } catch {
     return { code, name: code };
@@ -143,14 +163,19 @@ export class QuotationsService {
   async options(user: GatewayUser, meta: GatewayRequestMeta): Promise<QuotationOptions> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [customers, products] = await Promise.all([
-      client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, { limitPageLength: 0 }),
+      client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, {
+        limitPageLength: 0,
+      }),
       client.list<{ name: string; item_name: string; stock_uom: string; standard_rate: number }>(
         INVENTORY_DOCTYPE.item,
         { limitPageLength: 0 },
       ),
     ]);
     return {
-      customers: customers.items.map((customer) => ({ code: customer.name, name: customer.customer_name ?? customer.name })),
+      customers: customers.items.map((customer) => ({
+        code: customer.name,
+        name: customer.customer_name ?? customer.name,
+      })),
       products: products.items.map((product) => ({
         code: product.name,
         name: product.item_name ?? product.name,
@@ -160,7 +185,11 @@ export class QuotationsService {
     };
   }
 
-  async list(user: GatewayUser, meta: GatewayRequestMeta, query: QuotationListQuery): Promise<QuotationListResponse> {
+  async list(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    query: QuotationListQuery,
+  ): Promise<QuotationListResponse> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [{ items: docs }, customerNames] = await Promise.all([
       client.list<ErpQuotationRaw>(SALES_DOCTYPE.quotation, { limitPageLength: 0 }),
@@ -168,21 +197,23 @@ export class QuotationsService {
     ]);
 
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = docs.map((doc) => toQuotation(doc, customerNames.get(doc.customer))).filter((quotation) => {
-      if (query.status && quotation.status !== query.status) return false;
-      if (!q) return true;
-      return [
-        quotation.code,
-        quotation.customer.code,
-        quotation.customer.name,
-        quotation.owner ?? "",
-        quotation.notes ?? "",
-        ...quotation.items.map((item) => item.name),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
+    const filtered = docs
+      .map((doc) => toQuotation(doc, customerNames.get(doc.customer)))
+      .filter((quotation) => {
+        if (query.status && quotation.status !== query.status) return false;
+        if (!q) return true;
+        return [
+          quotation.code,
+          quotation.customer.code,
+          quotation.customer.name,
+          quotation.owner ?? "",
+          quotation.notes ?? "",
+          ...quotation.items.map((item) => item.name),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      });
 
     const whitelisted = query.sortBy !== undefined && SORT_WHITELIST.has(query.sortBy);
     const sortBy = whitelisted ? query.sortBy : "createdAt";
@@ -211,7 +242,11 @@ export class QuotationsService {
     return toQuotation(doc, (await resolveCustomer(client, doc.customer)).name);
   }
 
-  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateQuotationInput): Promise<Quotation> {
+  async create(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    input: CreateQuotationInput,
+  ): Promise<Quotation> {
     const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
     const created = await client.create<ErpQuotationDoc>(
       SALES_DOCTYPE.quotation,
@@ -336,7 +371,9 @@ export class QuotationsService {
         message: "Only draft quotations can be removed",
       });
     }
-    await client.delete(SALES_DOCTYPE.quotation, code).catch((err) => translateErpError(err, "Quotation"));
+    await client
+      .delete(SALES_DOCTYPE.quotation, code)
+      .catch((err) => translateErpError(err, "Quotation"));
     await this.gateway.audit({
       user,
       meta,

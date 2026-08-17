@@ -25,7 +25,11 @@ import { toIso } from "../common/frappe";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
-import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+import {
+  translateErpError,
+  type GatewayRequestMeta,
+  type GatewayUser,
+} from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "code",
@@ -86,8 +90,8 @@ function toDocLines(items: UpdateSalesInvoiceInput["items"]): ErpDocLine[] {
   }));
 }
 
-function toItems(lines: ErpDocLine[]): SalesInvoice["items"] {
-  return lines.map((line, index) => ({
+function toItems(lines: ErpDocLine[] | undefined): SalesInvoice["items"] {
+  return (lines ?? []).map((line, index) => ({
     lineNo: index + 1,
     product: line.item_code,
     name: line.item_name ?? line.item_code,
@@ -121,15 +125,24 @@ function toInvoice(doc: ErpSalesInvoiceRaw, customerName?: string): SalesInvoice
 }
 
 async function fetchCustomerMap(client: ErpClient): Promise<Map<string, string>> {
-  const { items } = await client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, {
-    limitPageLength: 0,
-  });
+  const { items } = await client.list<{ name: string; customer_name: string }>(
+    SALES_DOCTYPE.customer,
+    {
+      limitPageLength: 0,
+    },
+  );
   return new Map(items.map((customer) => [customer.name, customer.customer_name ?? customer.name]));
 }
 
-async function resolveCustomer(client: ErpClient, code: string): Promise<{ code: string; name: string }> {
+async function resolveCustomer(
+  client: ErpClient,
+  code: string,
+): Promise<{ code: string; name: string }> {
   try {
-    const doc = await client.get<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, code);
+    const doc = await client.get<{ name: string; customer_name: string }>(
+      SALES_DOCTYPE.customer,
+      code,
+    );
     return { code: doc.name, name: doc.customer_name ?? doc.name };
   } catch {
     return { code, name: code };
@@ -153,7 +166,9 @@ export class SalesInvoicesService {
 
   async summary(user: GatewayUser, meta: GatewayRequestMeta): Promise<SalesInvoiceSummary> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
-    const { items } = await client.list<ErpSalesInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 0 });
+    const { items } = await client.list<ErpSalesInvoiceRaw>(SALES_DOCTYPE.salesInvoice, {
+      limitPageLength: 0,
+    });
 
     const now = new Date();
     let outstanding = 0;
@@ -193,14 +208,19 @@ export class SalesInvoicesService {
   async options(user: GatewayUser, meta: GatewayRequestMeta): Promise<SalesInvoiceOptions> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [customers, products] = await Promise.all([
-      client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, { limitPageLength: 0 }),
+      client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, {
+        limitPageLength: 0,
+      }),
       client.list<{ name: string; item_name: string; stock_uom: string; standard_rate: number }>(
         INVENTORY_DOCTYPE.item,
         { limitPageLength: 0 },
       ),
     ]);
     return {
-      customers: customers.items.map((customer) => ({ code: customer.name, name: customer.customer_name ?? customer.name })),
+      customers: customers.items.map((customer) => ({
+        code: customer.name,
+        name: customer.customer_name ?? customer.name,
+      })),
       products: products.items.map((product) => ({
         code: product.name,
         name: product.item_name ?? product.name,
@@ -210,7 +230,11 @@ export class SalesInvoicesService {
     };
   }
 
-  async list(user: GatewayUser, meta: GatewayRequestMeta, query: SalesInvoiceListQuery): Promise<SalesInvoiceListResponse> {
+  async list(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    query: SalesInvoiceListQuery,
+  ): Promise<SalesInvoiceListResponse> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [{ items: docs }, customerNames] = await Promise.all([
       client.list<ErpSalesInvoiceRaw>(SALES_DOCTYPE.salesInvoice, { limitPageLength: 0 }),
@@ -218,21 +242,23 @@ export class SalesInvoicesService {
     ]);
 
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = docs.map((doc) => toInvoice(doc, customerNames.get(doc.customer))).filter((invoice) => {
-      if (query.status && invoice.status !== query.status) return false;
-      if (!q) return true;
-      return [
-        invoice.code,
-        invoice.customer.code,
-        invoice.customer.name,
-        invoice.owner ?? "",
-        invoice.salesOrderCode ?? "",
-        invoice.notes ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
+    const filtered = docs
+      .map((doc) => toInvoice(doc, customerNames.get(doc.customer)))
+      .filter((invoice) => {
+        if (query.status && invoice.status !== query.status) return false;
+        if (!q) return true;
+        return [
+          invoice.code,
+          invoice.customer.code,
+          invoice.customer.name,
+          invoice.owner ?? "",
+          invoice.salesOrderCode ?? "",
+          invoice.notes ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      });
 
     const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
     const sortDir = query.sortDir === "asc" ? 1 : -1;
@@ -260,7 +286,11 @@ export class SalesInvoicesService {
     return toInvoice(doc, (await resolveCustomer(client, doc.customer)).name);
   }
 
-  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateSalesInvoiceInput): Promise<SalesInvoice> {
+  async create(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    input: CreateSalesInvoiceInput,
+  ): Promise<SalesInvoice> {
     const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
     const created = await client.create<ErpSalesInvoiceDoc>(
       SALES_DOCTYPE.salesInvoice,
@@ -375,7 +405,12 @@ export class SalesInvoicesService {
     });
   }
 
-  async recordPayment(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: RecordPaymentInput): Promise<SalesInvoice> {
+  async recordPayment(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    code: string,
+    input: RecordPaymentInput,
+  ): Promise<SalesInvoice> {
     const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
     const current = await client
       .get<ErpSalesInvoiceRaw>(SALES_DOCTYPE.salesInvoice, code)
@@ -430,7 +465,9 @@ export class SalesInvoicesService {
         message: "Only draft invoices can be removed",
       });
     }
-    await client.delete(SALES_DOCTYPE.salesInvoice, code).catch((err) => translateErpError(err, "Invoice"));
+    await client
+      .delete(SALES_DOCTYPE.salesInvoice, code)
+      .catch((err) => translateErpError(err, "Invoice"));
     await this.gateway.audit({
       user,
       meta,
