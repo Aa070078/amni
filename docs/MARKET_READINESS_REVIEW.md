@@ -32,12 +32,15 @@ Amni's control plane, application shell, onboarding flow, and ERP-backed modules
 - CRM organizations, contacts, tasks, notes, activities, events, call logs, email templates, WhatsApp history, notifications, saved views, and CRM settings now persist in each tenant's ERP site through the supported Amni Bridge custom DocType. API contracts are unchanged; every request derives the site from authenticated membership.
 - The CRM repository has two-tenant HTTP isolation coverage. The pinned real bench created and queried a CRM record through authenticated Frappe REST, then returned the identical JSON payload after the backend container restarted.
 - Existing sites now run `bench migrate` during ERP image bootstrap, ensuring bundled DocTypes and patches match the immutable image. The development ERP fixture includes representative CRM records without seeding customer production sites.
+- Accounting and invoicing now use native tenant ERP records: `Account`, `Journal Entry`, `GL Entry`, return `Sales Invoice`, and `Auto Repeat`. A bounded Amni Bridge query supplies account balances without copying ledger data into Postgres.
+- The restricted provisioning account now includes ERPNext's Item, Sales Master, and Purchase Master manager roles in addition to the operational roles. A live token created master data and every finance fixture, survived a backend restart, read each record back, and removed the fixtures successfully.
+- Sales Invoice Auto Repeat is enabled idempotently through Frappe's supported Property Setter mechanism on every site migration. The real-bench gate caught and verified this configuration rather than relying on the in-process mock.
 
 ## Launch blockers
 
 ### P0 — several product domains still use process-local demo stores
 
-CRM is now durable and tenant-local. Accounting, invoicing, equity, ESG, and signing still keep representative data in process memory rather than tenant ERPNext. That data resets on restart and is not a safe multi-tenant system of record. Replace each remaining store, add cross-tenant tests, and remove demo-only product claims before a paid launch.
+CRM, accounting, and invoicing are now durable and tenant-local. Equity, ESG, and signing still keep representative data in process memory rather than tenant ERPNext. That data resets on restart and is not a safe multi-tenant system of record. Replace each remaining store, add cross-tenant tests, and remove demo-only product claims before a paid launch.
 
 ### P1 — specialist business roles are not implemented
 

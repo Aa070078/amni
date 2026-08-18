@@ -1,416 +1,135 @@
 import { Injectable } from "@nestjs/common";
-import {
-  ErrorCode,
-  type CreateCreditNoteInput,
-  type CreateDocLine,
-  type CreateRecurringProfileInput,
-  type CreditNote,
-  type CreditNoteListQuery,
-  type CreditNoteListResponse,
-  type CreditNoteStatus,
-  type CustomerSummary,
-  type DocLine,
-  type DocSummary,
-  type InvoicingOverview,
-  type RecurringInterval,
-  type RecurringProfile,
-  type RecurringListQuery,
-  type RecurringListResponse,
-  type RecurringProfileStatus,
-  type UpdateCreditNoteInput,
-  type UpdateRecurringProfileInput,
-} from "@amni/shared";
+import { ACCOUNTING_DOCTYPE, buildAutoRepeat, buildCreditNote, buildRecurringInvoiceTemplate, type ErpAutoRepeat, type ErpCreditNoteInvoice } from "@amni/erp";
+import { ErrorCode, type CreateCreditNoteInput, type CreateRecurringProfileInput, type CreditNote, type CreditNoteListQuery, type CreditNoteListResponse, type CreditNoteStatus, type DocLine, type InvoicingOverview, type RecurringInterval, type RecurringListQuery, type RecurringListResponse, type RecurringProfile, type RecurringProfileStatus, type UpdateCreditNoteInput, type UpdateRecurringProfileInput } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
+import { toIso } from "../common/frappe";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ErpGatewayService, translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
-const DAY_MS = 86_400_000;
-const iso = (daysOffset: number): string => new Date(Date.now() + daysOffset * DAY_MS).toISOString();
-const round2 = (value: number): number => Math.round(value * 100) / 100;
+const CREDIT_FIELDS = ["name", "company", "customer", "customer_name", "posting_date", "currency", "grand_total", "base_grand_total", "outstanding_amount", "base_outstanding_amount", "remarks", "return_against", "is_return", "status", "docstatus", "items", "creation", "modified"];
+const AUTO_REPEAT_FIELDS = ["name", "reference_doctype", "reference_document", "start_date", "end_date", "frequency", "repeat_on_day", "next_schedule_date", "disabled", "status", "subject", "creation", "modified"];
 
-const SORT_WHITELIST = new Set(["code", "invoiceCode", "date", "total", "status", "createdAt", "updatedAt"]);
-
-const CUSTOMERS: CustomerSummary[] = [
-  { code: "CUS-0001", name: "Serenity Interiors" },
-  { code: "CUS-0002", name: "Lumina Supplies" },
-  { code: "CUS-0003", name: "Atlas Facilities" },
-  { code: "CUS-0004", name: "Northwind Traders" },
-  { code: "CUS-0006", name: "Harbor & Sage" },
-];
-
-const INVOICE_CUSTOMER: Record<string, CustomerSummary> = {
-  "INV-0001": CUSTOMERS[4]!,
-  "INV-0002": CUSTOMERS[3]!,
-  "INV-0003": CUSTOMERS[0]!,
-  "INV-0005": CUSTOMERS[2]!,
-};
-
-const line = (lineNo: number, product: string, name: string, uom: string, qty: number, rate: number): DocLine => ({
-  lineNo,
-  product,
-  name,
-  uom,
-  qty,
-  rate,
-  amount: round2(qty * rate),
-});
-
-function summarize(lines: DocLine[]): DocSummary {
-  return { subtotal: round2(lines.reduce((sum, item) => sum + item.amount, 0)), discount: 0, tax: 0, total: round2(lines.reduce((sum, item) => sum + item.amount, 0)) };
-}
-
-const SEED_CREDIT_NOTES: CreditNote[] = [
-  {
-    code: "CRN-0001",
-    invoiceCode: "INV-0002",
-    customer: CUSTOMERS[3]!,
-    status: "applied",
-    date: iso(-40),
-    currency: "USD",
-    summary: summarize([line(1, "PRD-0004", "Linea lateral file cabinet", "pcs", 2, 340)]),
-    items: [line(1, "PRD-0004", "Linea lateral file cabinet", "pcs", 2, 340)],
-    reason: "Damaged units returned by customer",
-    createdAt: iso(-42),
-    updatedAt: iso(-38),
-  },
-  {
-    code: "CRN-0002",
-    invoiceCode: "INV-0004",
-    customer: CUSTOMERS[1]!,
-    status: "applied",
-    date: iso(-28),
-    currency: "USD",
-    summary: summarize([line(1, "PRD-0003", "Lumen task lamp", "pcs", 5, 85)]),
-    items: [line(1, "PRD-0003", "Lumen task lamp", "pcs", 5, 85)],
-    reason: "Pricing discrepancy resolved",
-    createdAt: iso(-30),
-    updatedAt: iso(-27),
-  },
-  {
-    code: "CRN-0003",
-    invoiceCode: "INV-0008",
-    customer: CUSTOMERS[3]!,
-    status: "issued",
-    date: iso(-6),
-    currency: "USD",
-    summary: summarize([line(1, "PRD-0003", "Lumen task lamp", "pcs", 3, 85)]),
-    items: [line(1, "PRD-0003", "Lumen task lamp", "pcs", 3, 85)],
-    reason: "Early-delivery discount agreed",
-    createdAt: iso(-7),
-    updatedAt: iso(-6),
-  },
-  {
-    code: "CRN-0004",
-    invoiceCode: "INV-0009",
-    customer: CUSTOMERS[0]!,
-    status: "draft",
-    date: iso(-1),
-    currency: "USD",
-    summary: summarize([line(1, "PRD-0002", "Aria ergonomic chair", "pcs", 1, 620)]),
-    items: [line(1, "PRD-0002", "Aria ergonomic chair", "pcs", 1, 620)],
-    reason: "Awaiting return authorization",
-    createdAt: iso(-2),
-    updatedAt: iso(-1),
-  },
-];
-
-const SEED_RECURRING: RecurringProfile[] = [
-  {
-    code: "RINV-0001",
-    customer: CUSTOMERS[0]!,
-    name: "Monthly facilities retainer",
-    interval: "monthly",
-    dayOfPeriod: 1,
-    currency: "USD",
-    summary: summarize([line(1, "SVC-001", "Facilities management retainer", "mo", 1, 1200)]),
-    items: [line(1, "SVC-001", "Facilities management retainer", "mo", 1, 1200)],
-    nextRun: iso(22),
-    lastRun: iso(-8),
-    status: "active",
-    createdAt: iso(-120),
-    updatedAt: iso(-8),
-  },
-  {
-    code: "RINV-0002",
-    customer: CUSTOMERS[1]!,
-    name: "Quarterly design subscription",
-    interval: "quarterly",
-    dayOfPeriod: 15,
-    currency: "USD",
-    summary: summarize([line(1, "SVC-002", "Design subscription", "qtr", 1, 2400)]),
-    items: [line(1, "SVC-002", "Design subscription", "qtr", 1, 2400)],
-    nextRun: iso(45),
-    lastRun: iso(-45),
-    status: "active",
-    createdAt: iso(-150),
-    updatedAt: iso(-45),
-  },
-  {
-    code: "RINV-0003",
-    customer: CUSTOMERS[2]!,
-    name: "Annual support contract",
-    interval: "yearly",
-    dayOfPeriod: 10,
-    currency: "USD",
-    summary: summarize([line(1, "SVC-003", "Priority support contract", "yr", 1, 7200)]),
-    items: [line(1, "SVC-003", "Priority support contract", "yr", 1, 7200)],
-    nextRun: iso(220),
-    lastRun: iso(-145),
-    status: "active",
-    createdAt: iso(-200),
-    updatedAt: iso(-145),
-  },
-  {
-    code: "RINV-0004",
-    customer: CUSTOMERS[3]!,
-    name: "Weekly asset rental",
-    interval: "weekly",
-    dayOfPeriod: 1,
-    currency: "USD",
-    summary: summarize([line(1, "SVC-004", "Asset rental", "wk", 1, 350)]),
-    items: [line(1, "SVC-004", "Asset rental", "wk", 1, 350)],
-    nextRun: iso(4),
-    lastRun: iso(-3),
-    status: "paused",
-    createdAt: iso(-60),
-    updatedAt: iso(-3),
-  },
-];
-
-const SEED_AP_BILLS = [
-  { code: "BIL-0001", supplier: "Riverside Estates", amount: 4200, dueDate: iso(3) },
-  { code: "BIL-0002", supplier: "City Power & Water", amount: 640, dueDate: iso(9) },
-  { code: "BIL-0003", supplier: "Brightline Media", amount: 2350, dueDate: iso(14) },
-];
-
-function buildLines(inputs: CreateDocLine[]): DocLine[] {
-  return inputs.map((input, index) => ({
-    lineNo: index + 1,
-    product: input.product,
-    name: input.name ?? input.product,
-    uom: input.uom ?? "pcs",
-    qty: input.qty,
-    rate: input.rate,
-    amount: round2(input.qty * input.rate),
-  }));
-}
-
-function nextCode(records: { code: string }[], prefix: string): string {
-  const max = records.reduce((highest, record) => {
-    const number = Number(record.code.slice(prefix.length));
-    return number > highest ? number : highest;
-  }, 0);
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
-}
-
-/**
- * Reference data for the Demo Co tenant. Billing center (credit notes,
- * recurring profiles) until the ERP gateway lands; the web Invoicing module
- * renders the AP register from the purchase-invoices surface.
- */
 @Injectable()
 export class InvoicingService {
-  private creditNotes: CreditNote[] = structuredClone(SEED_CREDIT_NOTES);
-  private recurring: RecurringProfile[] = structuredClone(SEED_RECURRING);
+  constructor(private readonly gateway: ErpGatewayService) {}
 
-  overview(): InvoicingOverview {
-    const creditNotesOutstanding = this.creditNotes
-      .filter((note) => note.status === "issued")
-      .reduce((sum, note) => sum + note.summary.total, 0);
-    const recurringActive = this.recurring.filter((profile) => profile.status === "active").length;
-    const dueSoonBills = [...SEED_AP_BILLS].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5);
-
-    return {
-      asOf: new Date().toISOString(),
-      kpis: [
-        { id: "billed_month", label: "Billed this month", value: 48290, format: "currency", currency: "USD", delta: 8.2, trend: "up", hint: "vs. last month" },
-        { id: "outstanding_ar", label: "Outstanding AR", value: 22480, format: "currency", currency: "USD", delta: -3.1, trend: "down", hint: "draft + issued credit notes included" },
-        { id: "credit_outstanding", label: "Open credit notes", value: round2(creditNotesOutstanding), format: "currency", currency: "USD", hint: "issued but not yet applied" },
-        { id: "recurring_active", label: "Active recurring", value: recurringActive, format: "number", hint: "schedules billing automatically" },
-      ],
-      creditNotesOutstanding: round2(creditNotesOutstanding),
-      recurringActive,
-      dueSoonBills,
-    };
+  async overview(user: GatewayUser, meta: GatewayRequestMeta): Promise<InvoicingOverview> {
+    const [sales, credits, recurring, purchases, company] = await Promise.all([
+      this.gateway.list(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, { fields: ["name", "posting_date", "base_grand_total", "base_outstanding_amount", "is_return", "docstatus"], orderBy: "posting_date desc", limitPageLength: 500 }),
+      this.listCreditDocuments(user, meta),
+      this.listAutoRepeats(user, meta),
+      this.gateway.list(user, meta, ACCOUNTING_DOCTYPE.purchaseInvoice, { fields: ["name", "supplier", "due_date", "grand_total", "outstanding_amount", "docstatus"], orderBy: "due_date asc", limitPageLength: 100 }),
+      this.companyContext(user, meta),
+    ]);
+    const month = new Date().toISOString().slice(0, 7);
+    const invoices = sales.items as Array<Record<string, unknown>>;
+    const currency = company.currency;
+    const billedMonth = invoices.filter((invoice) => !invoice.is_return && Number(invoice.docstatus) === 1 && String(invoice.posting_date ?? "").startsWith(month)).reduce((sum, invoice) => sum + Number(invoice.base_grand_total ?? 0), 0);
+    const outstandingAr = invoices.filter((invoice) => !invoice.is_return && Number(invoice.docstatus) === 1).reduce((sum, invoice) => sum + Number(invoice.base_outstanding_amount ?? 0), 0);
+    const creditNotesOutstanding = credits.filter((note) => creditStatus(note) === "issued").reduce((sum, note) => sum + Math.abs(Number(note.base_outstanding_amount ?? note.base_grand_total ?? 0)), 0);
+    const recurringActive = recurring.filter((profile) => !profile.disabled && profile.status !== "Completed").length;
+    const dueSoonBills = (purchases.items as Array<Record<string, unknown>>).filter((bill) => Number(bill.docstatus) === 1 && Number(bill.outstanding_amount ?? 0) > 0).slice(0, 5).map((bill) => ({ code: String(bill.name), supplier: String(bill.supplier ?? ""), amount: Number(bill.outstanding_amount ?? bill.grand_total ?? 0), dueDate: toIso(String(bill.due_date ?? "")) }));
+    return { asOf: new Date().toISOString(), kpis: [
+      { id: "billed_month", label: "Billed this month", value: round2(billedMonth), format: "currency", currency, hint: "submitted invoices" },
+      { id: "outstanding_ar", label: "Outstanding AR", value: round2(outstandingAr), format: "currency", currency, hint: "submitted invoices" },
+      { id: "credit_outstanding", label: "Open credit notes", value: round2(creditNotesOutstanding), format: "currency", currency, hint: "issued but not allocated" },
+      { id: "recurring_active", label: "Active recurring", value: recurringActive, format: "number", hint: "ERPNext Auto Repeat schedules" },
+    ], creditNotesOutstanding: round2(creditNotesOutstanding), recurringActive, dueSoonBills };
   }
 
-  listCreditNotes(query: CreditNoteListQuery): CreditNoteListResponse {
-    const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.creditNotes.filter((note) => {
-      if (query.status && note.status !== query.status) return false;
-      if (!q) return true;
-      return [note.code, note.invoiceCode, note.customer.code, note.customer.name, note.reason ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-
-    const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
-    const sortDir = query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...filtered].sort((a, b) => {
-      const aValue = a[sortBy as keyof CreditNote];
-      const bValue = b[sortBy as keyof CreditNote];
-      if (aValue === bValue) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return aValue < bValue ? -1 * sortDir : sortDir;
-    });
-
-    const page = query.page;
-    const pageSize = query.pageSize;
-    const start = (page - 1) * pageSize;
-    return {
-      items: sorted.slice(start, start + pageSize),
-      meta: { total: sorted.length, page, pageSize },
-    };
-  }
-
-  detailCreditNote(code: string): CreditNote {
-    const note = this.creditNotes.find((record) => record.code === code);
-    if (!note) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Credit note ${code} not found` });
-    }
-    return note;
-  }
-
-  createCreditNote(input: CreateCreditNoteInput): CreditNote {
-    const customer = INVOICE_CUSTOMER[input.invoiceCode] ?? CUSTOMERS[0]!;
-    const lines = buildLines(input.items);
-    const note: CreditNote = {
-      code: nextCode(this.creditNotes, "CRN-"),
-      invoiceCode: input.invoiceCode,
-      customer,
-      status: "draft",
-      date: input.date ?? new Date().toISOString(),
-      currency: input.currency ?? "USD",
-      summary: summarize(lines),
-      items: lines,
-      reason: input.reason,
-      notes: input.notes,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.creditNotes.push(note);
-    return note;
-  }
-
-  updateCreditNote(code: string, input: UpdateCreditNoteInput): CreditNote {
-    const note = this.detailCreditNote(code);
-    if (input.invoiceCode !== undefined) note.invoiceCode = input.invoiceCode;
-    if (input.date !== undefined) note.date = input.date;
-    if (input.currency !== undefined) note.currency = input.currency;
-    if (input.reason !== undefined) note.reason = input.reason;
-    if (input.notes !== undefined) note.notes = input.notes;
-    if (input.items !== undefined) {
-      note.items = buildLines(input.items);
-      note.summary = summarize(note.items);
-    }
-    note.updatedAt = new Date().toISOString();
-    return note;
-  }
-
-  changeCreditNoteStatus(code: string, input: { status: CreditNoteStatus }): CreditNote {
-    const note = this.detailCreditNote(code);
-    note.status = input.status;
-    note.updatedAt = new Date().toISOString();
-    return note;
-  }
-
-  removeCreditNote(code: string): void {
-    const index = this.creditNotes.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Credit note ${code} not found` });
-    }
-    this.creditNotes.splice(index, 1);
-  }
-
-  listRecurring(query: RecurringListQuery): RecurringListResponse {
-    const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.recurring.filter((profile) => {
-      if (query.status && profile.status !== query.status) return false;
-      if (!q) return true;
-      return [profile.code, profile.name, profile.customer.code, profile.customer.name]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-
+  async listCreditNotes(user: GatewayUser, meta: GatewayRequestMeta, query: CreditNoteListQuery): Promise<CreditNoteListResponse> {
+    const q = query.q?.toLowerCase().trim();
+    let items = (await this.listCreditDocuments(user, meta)).map(toCreditNote).filter((note) => (!query.status || note.status === query.status) && (!q || `${note.code} ${note.invoiceCode} ${note.customer.name} ${note.reason ?? ""}`.toLowerCase().includes(q)));
     const sortBy = query.sortBy ?? "createdAt";
-    const sortDir = query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...filtered].sort((a, b) => {
-      const aValue = a[sortBy as keyof RecurringProfile];
-      const bValue = b[sortBy as keyof RecurringProfile];
-      if (aValue === bValue) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return aValue < bValue ? -1 * sortDir : sortDir;
-    });
-
-    const page = query.page;
-    const pageSize = query.pageSize;
-    const start = (page - 1) * pageSize;
-    return {
-      items: sorted.slice(start, start + pageSize),
-      meta: { total: sorted.length, page, pageSize },
-    };
+    const direction = query.sortDir === "asc" ? 1 : -1;
+    items = items.sort((a, b) => String(a[sortBy as keyof CreditNote] ?? "").localeCompare(String(b[sortBy as keyof CreditNote] ?? "")) * direction);
+    const total = items.length;
+    const start = (query.page - 1) * query.pageSize;
+    return { items: items.slice(start, start + query.pageSize), meta: { total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailRecurring(code: string): RecurringProfile {
-    const profile = this.recurring.find((record) => record.code === code);
-    if (!profile) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Recurring profile ${code} not found` });
-    }
-    return profile;
+  async detailCreditNote(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<CreditNote> {
+    try { const document = await this.gateway.get(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, code) as unknown as ErpCreditNoteInvoice; if (!document.is_return) throw notFound(`Credit note ${code}`); return toCreditNote(document); }
+    catch (error) { translateErpError(error, `Credit note ${code}`); }
   }
 
-  createRecurring(input: CreateRecurringProfileInput): RecurringProfile {
-    const customer = CUSTOMERS.find((entry) => entry.code === input.customerCode) ?? CUSTOMERS[0]!;
-    const lines = buildLines(input.items);
-    const profile: RecurringProfile = {
-      code: nextCode(this.recurring, "RINV-"),
-      customer,
-      name: input.name,
-      interval: input.interval,
-      dayOfPeriod: input.dayOfPeriod ?? 1,
-      currency: input.currency ?? "USD",
-      summary: summarize(lines),
-      items: lines,
-      nextRun: iso(30),
-      status: "active",
-      notes: input.notes,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.recurring.push(profile);
-    return profile;
+  async createCreditNote(user: GatewayUser, meta: GatewayRequestMeta, input: CreateCreditNoteInput): Promise<CreditNote> {
+    const invoice = await this.getInvoice(user, meta, input.invoiceCode);
+    const created = await this.gateway.create(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, buildCreditNote({ ...input, customer: invoice.customer, company: invoice.company, currency: invoice.currency ?? input.currency }));
+    return toCreditNote(created as unknown as ErpCreditNoteInvoice);
   }
 
-  updateRecurring(code: string, input: UpdateRecurringProfileInput): RecurringProfile {
-    const profile = this.detailRecurring(code);
-    if (input.name !== undefined) profile.name = input.name;
-    if (input.interval !== undefined) profile.interval = input.interval as RecurringInterval;
-    if (input.dayOfPeriod !== undefined) profile.dayOfPeriod = input.dayOfPeriod;
-    if (input.currency !== undefined) profile.currency = input.currency;
-    if (input.notes !== undefined) profile.notes = input.notes;
-    if (input.items !== undefined) {
-      profile.items = buildLines(input.items);
-      profile.summary = summarize(profile.items);
-    }
-    profile.updatedAt = new Date().toISOString();
-    return profile;
+  async updateCreditNote(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateCreditNoteInput): Promise<CreditNote> {
+    const current = await this.detailCreditNote(user, meta, code);
+    if (current.status !== "draft") throw unprocessable(`Credit note ${code} is not editable`);
+    const invoiceCode = input.invoiceCode ?? current.invoiceCode;
+    const invoice = await this.getInvoice(user, meta, invoiceCode);
+    const updated = await this.gateway.update(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, code, undefined, buildCreditNote({ invoiceCode, customer: invoice.customer, company: invoice.company, date: input.date ?? current.date, currency: invoice.currency ?? input.currency ?? current.currency, reason: input.reason ?? current.reason, notes: input.notes ?? current.notes, items: input.items ?? current.items }));
+    return toCreditNote(updated as unknown as ErpCreditNoteInvoice);
   }
 
-  changeRecurringStatus(code: string, input: { status: RecurringProfileStatus }): RecurringProfile {
-    const profile = this.detailRecurring(code);
-    profile.status = input.status;
-    profile.updatedAt = new Date().toISOString();
-    return profile;
+  async changeCreditNoteStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: CreditNoteStatus }): Promise<CreditNote> {
+    const current = await this.detailCreditNote(user, meta, code);
+    if (input.status === current.status) return current;
+    if (input.status === "issued" || input.status === "applied") return toCreditNote(await this.gateway.update(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, code, "submit", {}) as unknown as ErpCreditNoteInvoice);
+    if (input.status === "void") return toCreditNote(await this.gateway.update(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, code, "cancel", {}) as unknown as ErpCreditNoteInvoice);
+    throw unprocessable("Submitted credit notes cannot return to draft");
   }
 
-  removeRecurring(code: string): void {
-    const index = this.recurring.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Recurring profile ${code} not found` });
-    }
-    this.recurring.splice(index, 1);
+  removeCreditNote(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> { return this.gateway.remove(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, code); }
+
+  async listRecurring(user: GatewayUser, meta: GatewayRequestMeta, query: RecurringListQuery): Promise<RecurringListResponse> {
+    const repeats = await this.listAutoRepeats(user, meta);
+    const profiles = await Promise.all(repeats.map((repeat) => this.toRecurring(user, meta, repeat)));
+    const q = query.q?.toLowerCase().trim();
+    let items = profiles.filter((profile) => (!query.status || profile.status === query.status) && (!q || `${profile.code} ${profile.name} ${profile.customer.name}`.toLowerCase().includes(q)));
+    const sortBy = query.sortBy ?? "createdAt";
+    const direction = query.sortDir === "asc" ? 1 : -1;
+    items = items.sort((a, b) => String(a[sortBy as keyof RecurringProfile] ?? "").localeCompare(String(b[sortBy as keyof RecurringProfile] ?? "")) * direction);
+    const total = items.length;
+    const start = (query.page - 1) * query.pageSize;
+    return { items: items.slice(start, start + query.pageSize), meta: { total, page: query.page, pageSize: query.pageSize } };
   }
+
+  async detailRecurring(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<RecurringProfile> {
+    try { return this.toRecurring(user, meta, await this.gateway.get(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, code) as unknown as ErpAutoRepeat); }
+    catch (error) { translateErpError(error, `Recurring profile ${code}`); }
+  }
+
+  async createRecurring(user: GatewayUser, meta: GatewayRequestMeta, input: CreateRecurringProfileInput): Promise<RecurringProfile> {
+    const company = await this.companyContext(user, meta);
+    const template = await this.gateway.create(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, buildRecurringInvoiceTemplate({ customer: input.customerCode, company: company.name, currency: input.currency, notes: input.notes, items: input.items }));
+    try { const repeat = await this.gateway.create(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, buildAutoRepeat({ referenceDocument: String(template.name), name: input.name, interval: input.interval, dayOfPeriod: input.dayOfPeriod })); return this.toRecurring(user, meta, repeat as unknown as ErpAutoRepeat); }
+    catch (error) { await this.gateway.remove(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, String(template.name)); throw error; }
+  }
+
+  async updateRecurring(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateRecurringProfileInput): Promise<RecurringProfile> {
+    const repeat = await this.gateway.get(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, code) as unknown as ErpAutoRepeat;
+    const current = await this.toRecurring(user, meta, repeat);
+    const company = await this.companyContext(user, meta);
+    await this.gateway.update(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, repeat.reference_document, undefined, buildRecurringInvoiceTemplate({ customer: input.customerCode ?? current.customer.code, company: company.name, currency: input.currency ?? current.currency, notes: input.notes ?? current.notes, items: input.items ?? current.items }));
+    const updated = await this.gateway.update(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, code, undefined, buildAutoRepeat({ referenceDocument: repeat.reference_document, name: input.name ?? current.name, interval: input.interval ?? current.interval, dayOfPeriod: input.dayOfPeriod ?? current.dayOfPeriod, startDate: repeat.start_date }));
+    return this.toRecurring(user, meta, updated as unknown as ErpAutoRepeat);
+  }
+
+  async changeRecurringStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: RecurringProfileStatus }): Promise<RecurringProfile> {
+    const updated = await this.gateway.update(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, code, undefined, { disabled: input.status === "active" ? 0 : 1, ...(input.status === "ended" ? { end_date: new Date().toISOString().slice(0, 10) } : {}) });
+    return this.toRecurring(user, meta, updated as unknown as ErpAutoRepeat);
+  }
+
+  async removeRecurring(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> { const repeat = await this.gateway.get(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, code) as unknown as ErpAutoRepeat; await this.gateway.remove(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, code); await this.gateway.remove(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, repeat.reference_document); }
+
+  private async listCreditDocuments(user: GatewayUser, meta: GatewayRequestMeta): Promise<ErpCreditNoteInvoice[]> { return (await this.gateway.list(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, { filters: { is_return: 1 }, fields: CREDIT_FIELDS, orderBy: "creation desc", limitPageLength: 500 })).items as unknown as ErpCreditNoteInvoice[]; }
+  private async listAutoRepeats(user: GatewayUser, meta: GatewayRequestMeta): Promise<ErpAutoRepeat[]> { return (await this.gateway.list(user, meta, ACCOUNTING_DOCTYPE.autoRepeat, { filters: { reference_doctype: ACCOUNTING_DOCTYPE.salesInvoice }, fields: AUTO_REPEAT_FIELDS, orderBy: "creation desc", limitPageLength: 200 })).items as unknown as ErpAutoRepeat[]; }
+  private async getInvoice(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<ErpCreditNoteInvoice> { try { const invoice = await this.gateway.get(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, code) as unknown as ErpCreditNoteInvoice; if (invoice.is_return) throw notFound(`Sales invoice ${code}`); return invoice; } catch (error) { translateErpError(error, `Sales invoice ${code}`); } }
+  private async companyContext(user: GatewayUser, meta: GatewayRequestMeta): Promise<{ name: string; currency: string }> { const companies = await this.gateway.list(user, meta, "Company", { fields: ["name", "default_currency"], orderBy: "creation asc", limitPageLength: 2 }); if (companies.items.length !== 1) throw unprocessable("The tenant ERP site must have exactly one company before invoicing can be configured"); const company = companies.items[0] as Record<string, unknown>; return { name: String(company.name), currency: String(company.default_currency ?? "USD") }; }
+  private async toRecurring(user: GatewayUser, meta: GatewayRequestMeta, repeat: ErpAutoRepeat): Promise<RecurringProfile> { const invoice = await this.gateway.get(user, meta, ACCOUNTING_DOCTYPE.salesInvoice, repeat.reference_document) as unknown as ErpCreditNoteInvoice; const items = toLines(invoice.items, false); const total = round2(items.reduce((sum, line) => sum + line.amount, 0)); return { code: repeat.name, customer: { code: invoice.customer, name: invoice.customer_name ?? invoice.customer }, name: String((repeat as unknown as Record<string, unknown>).subject ?? repeat.name), interval: String(repeat.frequency ?? "Monthly").toLowerCase() as RecurringInterval, dayOfPeriod: Number(repeat.repeat_on_day ?? 1), currency: invoice.currency ?? "USD", summary: { subtotal: total, discount: 0, tax: 0, total: Math.abs(Number(invoice.grand_total ?? total)) }, items, nextRun: toIso(repeat.next_schedule_date ?? repeat.start_date), lastRun: null, status: repeat.status === "Completed" ? "ended" : repeat.disabled ? "paused" : "active", notes: invoice.remarks, createdAt: toIso(repeat.creation), updatedAt: toIso(repeat.modified) }; }
 }
+
+function toCreditNote(doc: ErpCreditNoteInvoice): CreditNote { const items = toLines(doc.items, true); const total = Math.abs(Number(doc.grand_total ?? items.reduce((sum, line) => sum + line.amount, 0))); return { code: doc.name, invoiceCode: doc.return_against ?? "", customer: { code: doc.customer, name: doc.customer_name ?? doc.customer }, status: creditStatus(doc), date: toIso(doc.posting_date), currency: doc.currency ?? "USD", summary: { subtotal: total, discount: 0, tax: 0, total }, items, reason: doc.remarks || undefined, createdAt: toIso(doc.creation), updatedAt: toIso(doc.modified) }; }
+function toLines(lines: ErpCreditNoteInvoice["items"], absolute: boolean): DocLine[] { return (lines ?? []).map((line, index) => { const qty = absolute ? Math.abs(Number(line.qty ?? 0)) : Number(line.qty ?? 0); const rate = Math.abs(Number(line.rate ?? 0)); return { lineNo: index + 1, product: line.item_code, name: line.item_name ?? line.item_code, uom: line.uom ?? "pcs", qty, rate, amount: round2(qty * rate) }; }); }
+function creditStatus(doc: ErpCreditNoteInvoice): CreditNoteStatus { if (doc.docstatus === 2) return "void"; if (doc.docstatus === 0) return "draft"; return Math.abs(Number(doc.outstanding_amount ?? 0)) < 0.001 ? "applied" : "issued"; }
+function round2(value: number): number { return Math.round(value * 100) / 100; }
+function unprocessable(message: string): ApiException { return new ApiException({ code: ErrorCode.UNPROCESSABLE, status: 422, message }); }
+function notFound(label: string): ApiException { return new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `${label} not found` }); }
