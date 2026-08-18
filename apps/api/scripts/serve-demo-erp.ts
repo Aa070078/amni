@@ -32,6 +32,28 @@ function crmRecord(
   };
 }
 
+function domainRecord(
+  domain: string,
+  recordType: string,
+  recordCode: string,
+  payload: Record<string, unknown>,
+  indexes: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const recordKey = `${domain}:${recordType}:${recordCode}`;
+  return {
+    doctype: "Amni Domain Record",
+    name: recordKey,
+    record_key: recordKey,
+    domain,
+    record_type: recordType,
+    record_code: recordCode,
+    payload: JSON.stringify(payload),
+    creation: modified(-30),
+    modified: modified(-1),
+    ...indexes,
+  };
+}
+
 const docs: Record<string, unknown>[] = [
   {
     doctype: "Sales Invoice",
@@ -209,6 +231,20 @@ const docs: Record<string, unknown>[] = [
     { id: "etp-demo-1", name: "Proposal follow-up", subject: "Next steps for {{company}}", body: "Hi {{contact_name}},\n\nThank you for reviewing the proposal. Here are the agreed next steps.\n\nBest,\n{{sender_name}}", referenceType: "deal", createdAt: timestamp(-30) },
     { title: "Proposal follow-up", category: "deal", search_text: "Proposal follow-up next steps" },
   ),
+  domainRecord("equity", "share_class", "CLS-0001", { code: "CLS-0001", name: "Common stock", totalShares: 40000, outstandingShares: 40000, pricePerShare: 1, voting: true, status: "active", createdAt: timestamp(-420), updatedAt: timestamp(-30) }, { title: "Common stock", status: "active", numeric_value: 40000, search_text: "CLS-0001 Common stock" }),
+  domainRecord("equity", "share_class", "CLS-0002", { code: "CLS-0002", name: "Series Seed preferred", totalShares: 8000, outstandingShares: 8000, pricePerShare: 25, voting: true, liquidationPreference: 1, status: "active", createdAt: timestamp(-120), updatedAt: timestamp(-120) }, { title: "Series Seed preferred", status: "active", numeric_value: 8000, search_text: "CLS-0002 Series Seed preferred" }),
+  domainRecord("equity", "shareholder", "SH-0001", { code: "SH-0001", name: "Amara Osei", type: "founder", email: "amara@demo.co", totalShares: 25000, holdings: [{ classCode: "CLS-0001", shares: 25000 }], investedAmount: 10000, joinedAt: timestamp(-420), createdAt: timestamp(-420), updatedAt: timestamp(-30) }, { title: "Amara Osei", category: "founder", numeric_value: 25000, search_text: "SH-0001 Amara Osei amara@demo.co" }),
+  domainRecord("equity", "shareholder", "SH-0002", { code: "SH-0002", name: "Meridian Ventures", type: "investor", email: "funds@meridian.vc", totalShares: 8000, holdings: [{ classCode: "CLS-0002", shares: 8000 }], investedAmount: 200000, joinedAt: timestamp(-120), createdAt: timestamp(-122), updatedAt: timestamp(-120) }, { title: "Meridian Ventures", category: "investor", numeric_value: 8000, search_text: "SH-0002 Meridian Ventures funds@meridian.vc" }),
+  domainRecord("equity", "round", "RD-0001", { code: "RD-0001", name: "Seed round", type: "seed", announcedDate: timestamp(-130), closedDate: timestamp(-120), amountRaised: 200000, preMoney: 900000, postMoney: 1100000, sharesIssued: 8000, valuation: 1100000, investors: ["Meridian Ventures"], status: "closed", notes: "Priced seed round.", createdAt: timestamp(-132), updatedAt: timestamp(-120) }, { title: "Seed round", status: "closed", category: "seed", numeric_value: 200000, search_text: "RD-0001 Seed round Meridian Ventures" }),
+  domainRecord("esg", "metric", "ESG-M01", { code: "ESG-M01", pillar: "environmental", name: "Scope 1 & 2 GHG emissions", value: 182, unit: "tCO2e", period: "2026 Q2", target: 210, status: "on_track", trend: "down" }, { title: "Scope 1 & 2 GHG emissions", status: "on_track", category: "environmental", numeric_value: 182, search_text: "ESG-M01 GHG emissions environmental" }),
+  domainRecord("esg", "metric", "ESG-M02", { code: "ESG-M02", pillar: "environmental", name: "Renewable energy share", value: 46, unit: "%", period: "2026 Q2", target: 50, status: "behind", trend: "up" }, { title: "Renewable energy share", status: "behind", category: "environmental", numeric_value: 46, search_text: "ESG-M02 Renewable energy environmental" }),
+  domainRecord("esg", "policy", "POL-0001", { code: "POL-0001", name: "Data protection policy", status: "active", lastReviewed: timestamp(-60), nextReview: timestamp(305) }, { title: "Data protection policy", status: "active", search_text: "POL-0001 Data protection policy" }),
+  domainRecord("esg", "board_member", "BRD-0001", { code: "BRD-0001", name: "Amara Osei", role: "CFO", independence: "executive", since: "2021" }, { title: "Amara Osei", category: "executive", search_text: "BRD-0001 Amara Osei CFO" }),
+  domainRecord("esg", "board_member", "BRD-0002", { code: "BRD-0002", name: "Marcus Chen", role: "Independent Director", independence: "independent", since: "2023" }, { title: "Marcus Chen", category: "independent", search_text: "BRD-0002 Marcus Chen Independent Director" }),
+  domainRecord("esg", "report", "ESG-0001", { code: "ESG-0001", period: "FY 2025", status: "published", pillarScore: { environmental: 72, social: 78, governance: 85, overall: 78 }, highlights: ["Reduced Scope 1 & 2 emissions by 11% year over year.", "Board composition reached 50% independent directors."], generatedAt: timestamp(-120) }, { title: "FY 2025", status: "published", event_at: timestamp(-120), search_text: "ESG-0001 FY 2025 published" }),
+  domainRecord("sign", "template", "STMP-0001", { code: "STMP-0001", name: "Standard NDA", documentType: "contract", signerRoles: ["Counterparty"], version: 3, status: "active", createdAt: timestamp(-200), updatedAt: timestamp(-40) }, { title: "Standard NDA", status: "active", category: "contract", numeric_value: 3, search_text: "STMP-0001 Standard NDA Counterparty" }),
+  domainRecord("sign", "request", "SIG-0001", { code: "SIG-0001", title: "Facilities management retainer renewal", documentType: "contract", documentCode: "CON-0102", status: "awaiting_signature", signers: [{ code: "S-0001", name: "Nadia Rahman", email: "nadia@example.com", role: "Operations Director", status: "signed", signedAt: timestamp(-3) }, { code: "S-0002", name: "Owen Park", email: "owen@example.com", role: "Authorized Signatory", status: "pending" }], expiresAt: timestamp(8), createdBy: "admin@demo.amni", notes: "First signer completed.", createdAt: timestamp(-6), updatedAt: timestamp(-3) }, { title: "Facilities management retainer renewal", status: "awaiting_signature", category: "contract", reference_code: "CON-0102", event_at: timestamp(8), search_text: "SIG-0001 Facilities management Nadia Rahman Owen Park" }),
+  domainRecord("sign", "audit", "AUD-DEMO-1", { id: "AUD-DEMO-1", requestCode: "SIG-0001", event: "signed", actor: "Nadia Rahman", at: timestamp(-3), detail: "First signer completed" }, { status: "signed", reference_code: "SIG-0001", event_at: timestamp(-3), search_text: "SIG-0001 signed Nadia Rahman" }),
 ];
 
 async function main(): Promise<void> {

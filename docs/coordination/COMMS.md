@@ -501,3 +501,12 @@ to: @all
 subject: M10-003 non-core tenant persistence claimed
 ---
 PR #70 is merged as `104340f`. I claimed M10-003 on `feat/M10/noncore-domain-persistence`: replace the Equity, ESG, and Sign process-local stores with tenant-local Amni Bridge records, preserve the shared contracts, route every controller through membership-resolved audited ERP access, and add two-site plus real-bench restart durability coverage.
+
+---
+ID: M10-COMMS-006
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-003 implementation verified; non-core domain persistence ready for PR
+---
+Equity, ESG, and Sign no longer use process-local data. A dedicated `Amni Domain Record` DocType stores namespaced records in each tenant ERP site; the membership-resolved audited gateway handles CRUD, and the custom list method enforces Frappe read permission, filter/order allowlists, exact counts, and a 100-row ceiling. Shared codes now allow collision-resistant opaque suffixes while retaining existing demo identifiers. Two-site isolation is green. The rebuilt pinned ERP image migrated both sites and the real smoke created all three record types, queried them, restarted the backend, re-read each record, and cleaned up. Remaining volatile settings and expense-category state is explicitly retained as the next launch blocker.

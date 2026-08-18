@@ -42,7 +42,7 @@ export const signerSchema = z.object({
 });
 
 export const signRequestSchema = z.object({
-  code: z.string().regex(/^SIG-\d{4}$/),
+  code: z.string().regex(/^SIG-[A-Z0-9]{4,12}$/),
   title: z.string().min(1).max(160),
   documentType: signDocumentTypeSchema,
   documentCode: z.string().max(40).optional(),
@@ -103,7 +103,7 @@ export type SignRequestListResponse = z.infer<typeof signRequestListResponseSche
 export const signTemplateStatusSchema = z.enum(["active", "archived"]);
 
 export const signTemplateSchema = z.object({
-  code: z.string().regex(/^STMP-\d{4}$/),
+  code: z.string().regex(/^STMP-[A-Z0-9]{4,12}$/),
   name: z.string().min(1).max(160),
   documentType: signDocumentTypeSchema,
   signerRoles: z.array(z.string().min(1).max(80)),

@@ -46,6 +46,8 @@ Isolation regressions are release-blocking.
 
 CRM persistence adds a dedicated two-site repository isolation suite that exercises the real HTTP client, custom list method, per-site service credentials, and cross-tenant 404 behavior. A real-bench release check must also migrate the Amni Bridge DocType, create/list a record through Frappe REST, restart the backend, and verify the payload remains unchanged.
 
+Equity, ESG, and Sign persistence uses the equivalent `DomainRecordRepository` two-site suite. Run `powershell -File infra/erp/scripts/smoke-domain-persistence.ps1 -RestartBackend` against the pinned bench to verify DocType permissions, bounded custom queries, persistence across backend restart, and fixture cleanup. Production release automation must run the script with a provisioned restricted service token.
+
 Accounting and invoicing add a two-site isolation suite for accounts and return invoices. The real-bench check is `powershell -File infra/erp/scripts/smoke-accounting-invoicing.ps1 -RestartBackend`; it creates native Account, Journal Entry, submitted invoice, return Sales Invoice, recurring template, and Auto Repeat records, calls the bounded balance method, restarts the backend, reads every record back, and removes its fixtures. Run it with a provisioned integration token to verify the exact production role bundle.
 
 ## 6. Critical workflows (E2E)
