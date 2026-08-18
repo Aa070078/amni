@@ -528,3 +528,12 @@ to: @all
 subject: M10-004 implementation verified; specialist roles and settings durability ready for PR
 ---
 Membership roles/status, invitations, billing periods, company/team/plan/profile settings, and expense categories are now durable. Accountant, sales, and inventory permissions are enforced server-side and mirrored in role-filtered navigation. Invitations have hashed expiring tokens, queued mail, a public acceptance flow, audited membership creation, and session issuance. Fake integration and billing mutations are disabled until providers are configured. The local migration is current; real encrypted ERP credentials authenticate; four category records survived a Frappe backend restart; sales cross-domain finance access returned 403. Root lint, 14 typecheck tasks, and 491 tests pass. The known Windows/OneDrive standalone trace-copy warning remains non-fatal and is still tracked for the production-image gate.
+
+---
+ID: M10-COMMS-009
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-005 bounded queries and tenant data-plane health claimed
+---
+PR #72 merged as `d5e1bf8`. I claimed M10-005 on `feat/M10/bounded-queries-tenant-health`: eliminate unbounded native ERP reads, replace the process-local static global search index with membership-resolved tenant queries filtered by specialist role, and expose/update tenant ERP health for workspace and operator degraded-state UX.
