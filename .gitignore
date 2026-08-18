@@ -12,6 +12,8 @@ apps/web/.next-stale-backup-*/
 out/
 coverage/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 
 # Next.js
 .next/

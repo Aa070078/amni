@@ -27,11 +27,17 @@ Amni's control plane, application shell, onboarding flow, and ERP-backed modules
 - A development-only ERP stand-in with representative records is available through `pnpm --filter @amni/api demo:erp`. It is never a production substitute.
 - The landing page now has a product-led hero, responsive dashboard preview, capability narrative, guided operating flow, and stronger conversion path using the shared design system.
 
+## M10 progress
+
+- CRM organizations, contacts, tasks, notes, activities, events, call logs, email templates, WhatsApp history, notifications, saved views, and CRM settings now persist in each tenant's ERP site through the supported Amni Bridge custom DocType. API contracts are unchanged; every request derives the site from authenticated membership.
+- The CRM repository has two-tenant HTTP isolation coverage. The pinned real bench created and queried a CRM record through authenticated Frappe REST, then returned the identical JSON payload after the backend container restarted.
+- Existing sites now run `bench migrate` during ERP image bootstrap, ensuring bundled DocTypes and patches match the immutable image. The development ERP fixture includes representative CRM records without seeding customer production sites.
+
 ## Launch blockers
 
 ### P0 — several product domains still use process-local demo stores
 
-CRM, accounting, equity, ESG, signing, and parts of settings still keep representative data in process memory rather than tenant ERPNext or tenant-scoped platform persistence. That data resets on restart and is not a safe multi-tenant system of record. Replace each store, add cross-tenant tests, and remove demo-only product claims before a paid launch.
+CRM is now durable and tenant-local. Accounting, invoicing, equity, ESG, and signing still keep representative data in process memory rather than tenant ERPNext. That data resets on restart and is not a safe multi-tenant system of record. Replace each remaining store, add cross-tenant tests, and remove demo-only product claims before a paid launch.
 
 ### P1 — specialist business roles are not implemented
 

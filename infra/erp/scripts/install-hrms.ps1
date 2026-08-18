@@ -54,6 +54,9 @@ foreach ($site in ($Sites -split ",")) {
             if ($LASTEXITCODE -ne 0) { throw "Could not install $app on $site." }
         }
     }
+    Write-Host "==> Migrating $site so bundled DocTypes and patches match the immutable image"
+    & docker @composeArgs exec -T backend bench --site $site migrate
+    if ($LASTEXITCODE -ne 0) { throw "Could not migrate $site." }
 }
 
 Write-Host "==> ERP apps and SSO configuration verified"

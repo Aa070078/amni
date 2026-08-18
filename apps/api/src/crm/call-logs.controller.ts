@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -19,7 +20,8 @@ import {
   type CrmCallLogListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmCallLogsService } from "./call-logs.service";
@@ -30,29 +32,29 @@ export class CrmCallLogsController {
   constructor(private readonly callLogs: CrmCallLogsService) {}
 
   @Get()
-  list(@Query() query: unknown): CrmCallLogListResponse {
-    return this.callLogs.list(crmCallLogListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<CrmCallLogListResponse> {
+    return this.callLogs.list(userFrom(req), metaFrom(req), crmCallLogListQuerySchema.parse(query));
   }
 
   @Get(":id")
-  detail(@Param("id") id: string): CrmCallLog {
-    return this.callLogs.detail(id);
+  detail(@Req() req: AuthenticatedRequest, @Param("id") id: string): Promise<CrmCallLog> {
+    return this.callLogs.detail(userFrom(req), metaFrom(req), id);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): CrmCallLog {
-    return this.callLogs.create(createCrmCallLogInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<CrmCallLog> {
+    return this.callLogs.create(userFrom(req), metaFrom(req), createCrmCallLogInputSchema.parse(body));
   }
 
   @Patch(":id")
-  update(@Param("id") id: string, @Body() body: unknown): CrmCallLog {
-    return this.callLogs.update(id, updateCrmCallLogInputSchema.parse(body));
+  update(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() body: unknown): Promise<CrmCallLog> {
+    return this.callLogs.update(userFrom(req), metaFrom(req), id, updateCrmCallLogInputSchema.parse(body));
   }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("id") id: string): void {
-    this.callLogs.remove(id);
+  remove(@Req() req: AuthenticatedRequest, @Param("id") id: string): Promise<void> {
+    return this.callLogs.remove(userFrom(req), metaFrom(req), id);
   }
 }
