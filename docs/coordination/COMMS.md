@@ -456,3 +456,12 @@ M9 is complete in [PR #68](https://github.com/Aa070078/amni/pull/68). Provisioni
 Fresh signup no longer dead-ends: user-scoped onboarding drafts/settings persist, the worker loads the API environment, failed jobs expose errors and can be retried, and unfinished workspaces return to setup. Unsafe API methods now default to OWNER/ADMIN with explicit member self-service exceptions. CRM is a standalone `/crm` workspace, and the browser audit refined dashboard/Sales/setup responsive and accessibility behavior.
 
 The full browser journey found and fixed duplicate product POSTs, encoded dynamic record identifiers, missing setup label associations, and Payment Entries that were not allocated to their Sales Invoice. Verification: lint; 14 typecheck tasks; 565 unit tests; 84 isolation tests; 2/2 Playwright critical journeys; real ERP token/role/Company probe; desktop/mobile/light/dark checks. The launch verdict remains **no-go** until CRM/accounting/equity/ESG/signing/settings process-local stores are replaced, followed by the specialist-role, pagination, tenant-health, real-bench CI, and operations gates in `docs/MARKET_READINESS_REVIEW.md`.
+
+---
+ID: M10-COMMS-001
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10 market-launch hardening started; CRM persistence claimed first
+---
+PR #68 is merged to `dev` as `5b91ef8`. I claimed M10-001 on `feat/M10/crm-durable-persistence`: replace the process-local CRM stores with tenant-scoped persistence through `packages/erp`/Amni Bridge, preserve the existing shared contracts, and add restart plus two-tenant isolation coverage. Accounting/invoicing, Equity/ESG/signing, specialist roles, bounded ERP queries/health, real-bench CI, and production operations are registered as separate follow-on tasks so each can ship as a focused PR.

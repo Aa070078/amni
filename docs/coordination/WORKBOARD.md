@@ -119,6 +119,22 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M10 — Market launch hardening
+
+> Goal: remove the remaining no-go findings from `docs/MARKET_READINESS_REVIEW.md` without violating the two-store architecture: tenant business records stay in each tenant ERP site, authorization remains server-derived, and production operations are reproducible and tested.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M10-001 CRM durable tenant persistence** | M10 | codex-market-launch | in-progress | feat/M10/crm-durable-persistence | Replace process-local CRM stores with tenant ERP/Frappe persistence; preserve contracts; add restart and two-tenant isolation coverage. |
+| **M10-002 Accounting + invoicing durable ERP persistence** | M10 | — | planned | — | Replace seeded chart/journal/credit-note/recurring/AP state with ERPNext-backed reads and writes. |
+| **M10-003 Equity, ESG, and signing tenant persistence** | M10 | — | planned | — | Add supported Amni Bridge DocTypes and ERP-backed APIs for non-core domains. |
+| **M10-004 Specialist roles and domain authorization** | M10 | — | planned | — | Persist accountant/sales/inventory roles; enforce server-side and filter navigation/actions. |
+| **M10-005 Bounded ERP queries + tenant data-plane health** | M10 | — | planned | — | Push filtering/pagination into ERPNext and add background tenant health/degraded operator UX. |
+| **M10-006 Real-ERP release gate** | M10 | — | planned | — | Automate clean-site provisioning and critical sales/purchasing/finance paths against the pinned bench in CI. |
+| **M10-007 Production operations + staged pilot** | M10 | — | planned | — | Deployment, TLS, secrets, backups/restores, upgrades, monitoring, incident/rollback runbooks, volume/security pilot. |
+
+---
+
 ## M9 — Production-readiness, onboarding reliability, and workspace UX
 
 > Goal: make a newly registered company reach a usable workspace, enforce the product permission model server-side, separate CRM from Sales in the information architecture, audit every primary page in a real browser, and close the highest-impact usability defects without overstating launch readiness.
