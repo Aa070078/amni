@@ -37,6 +37,7 @@ const DEMO_USERS = [
     firstName: "Demo",
     lastName: "Admin",
     platformRole: "OWNER",
+    productRole: "ADMIN",
   },
   {
     email: "member@demo.amni",
@@ -44,6 +45,31 @@ const DEMO_USERS = [
     firstName: "Demo",
     lastName: "Member",
     platformRole: "MEMBER",
+    productRole: "MEMBER",
+  },
+  {
+    email: "sales@demo.amni",
+    password: "Sales12345!",
+    firstName: "Demo",
+    lastName: "Sales",
+    platformRole: "MEMBER",
+    productRole: "SALES",
+  },
+  {
+    email: "accountant@demo.amni",
+    password: "Accountant12345!",
+    firstName: "Demo",
+    lastName: "Accountant",
+    platformRole: "MEMBER",
+    productRole: "ACCOUNTANT",
+  },
+  {
+    email: "inventory@demo.amni",
+    password: "Inventory12345!",
+    firstName: "Demo",
+    lastName: "Inventory",
+    platformRole: "MEMBER",
+    productRole: "INVENTORY",
   },
 ] as const;
 
@@ -125,11 +151,11 @@ async function main() {
 
     await prisma.membership.upsert({
       where: { companyId_userId: { companyId: company.id, userId: user.id } },
-      update: { platformRole: demo.platformRole },
-      create: { companyId: company.id, userId: user.id, platformRole: demo.platformRole },
+      update: { platformRole: demo.platformRole, productRole: demo.productRole, status: "ACTIVE" },
+      create: { companyId: company.id, userId: user.id, platformRole: demo.platformRole, productRole: demo.productRole },
     });
 
-    console.log(`Demo user ready: ${demo.email} / ${demo.password} (${demo.platformRole})`);
+    console.log(`Demo user ready: ${demo.email} / ${demo.password} (${demo.platformRole}/${demo.productRole})`);
   }
 
   console.log(`Demo Co ready: tenant ACTIVE (${tenant.siteName}) → ${ERP.host} · plan TRIAL (${TRIAL_DAYS} days)`);

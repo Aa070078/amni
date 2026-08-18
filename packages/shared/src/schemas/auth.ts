@@ -51,6 +51,11 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
+export const acceptInvitationSchema = z.object({
+  token: z.string().min(1),
+  password: passwordSchema,
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
@@ -58,3 +63,4 @@ export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchem
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;

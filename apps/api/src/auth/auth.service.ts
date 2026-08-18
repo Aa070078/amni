@@ -1,9 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { prisma } from "@amni/db";
 import { ErrorCode, MailTemplate } from "@amni/shared";
 import type {
   ChangePasswordInput,
+  AcceptInvitationInput,
   LoginInput,
   RefreshInput,
   RegisterInput,
@@ -309,6 +310,39 @@ export class AuthService {
     ]);
 
     await this.audit(reset.userId, "auth.reset_password", meta);
+  }
+
+  async acceptInvitation(input: AcceptInvitationInput, res: Response, meta: RequestMeta): Promise<AuthResult> {
+    const tokenHash = createHash("sha256").update(input.token).digest("hex");
+    const invitation = await prisma.invitation.findUnique({ where: { tokenHash }, include: { company: true } });
+    if (!invitation || invitation.status !== "PENDING" || invitation.usedAt || invitation.expiresAt.getTime() <= Date.now()) {
+      throw new ApiException({ code: ErrorCode.UNPROCESSABLE, status: 400, message: "Invitation is invalid or expired" });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: invitation.email } });
+    if (existing && !(await this.passwords.verify(existing.passwordHash, input.password))) {
+      throw new ApiException({ code: ErrorCode.INVALID_CREDENTIALS, status: 401, message: "Use the password for your existing Amni account" });
+    }
+    if (existing?.status !== undefined && existing.status !== "ACTIVE") {
+      throw new ApiException({ code: ErrorCode.UNAUTHORIZED, status: 401, message: "Account unavailable" });
+    }
+    const passwordHash = existing ? undefined : await this.passwords.hash(input.password);
+
+    const user = await prisma.$transaction(async (tx) => {
+      const acceptedUser = existing ?? await tx.user.create({
+        data: { email: invitation.email, passwordHash: passwordHash!, firstName: invitation.firstName, lastName: invitation.lastName, isEmailVerified: true, emailVerifiedAt: new Date() },
+        select: USER_PUBLIC_FIELDS,
+      });
+      const membership = await tx.membership.findUnique({ where: { companyId_userId: { companyId: invitation.companyId, userId: acceptedUser.id } }, select: { id: true } });
+      if (membership) throw new ApiException({ code: ErrorCode.CONFLICT, status: 409, message: "This account already belongs to the workspace" });
+      await tx.membership.create({ data: { companyId: invitation.companyId, userId: acceptedUser.id, platformRole: invitation.platformRole, productRole: invitation.productRole } });
+      await tx.invitation.update({ where: { id: invitation.id }, data: { status: "ACCEPTED", usedAt: new Date() } });
+      await tx.auditLog.create({ data: { actorId: acceptedUser.id, actorEmail: acceptedUser.email, companyId: invitation.companyId, action: "settings.invitation.accept", resourceType: "Invitation", resourceId: invitation.id, ip: meta.ip, requestId: meta.requestId } });
+      return acceptedUser;
+    });
+
+    await this.issueSession(user.id, user.email, res, meta, "auth.accept_invitation");
+    return { user: toPublicUser(user) };
   }
 
   async changePassword(input: ChangePasswordInput, userId: string, meta: RequestMeta): Promise<void> {

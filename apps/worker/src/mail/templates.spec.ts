@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderMail, renderResetMail, renderVerificationMail, renderWelcomeMail } from "./templates";
+import { renderInvitationMail, renderMail, renderResetMail, renderVerificationMail, renderWelcomeMail } from "./templates";
 
 describe("mail templates", () => {
   it("renders a verification mail with a token link and base url", () => {
@@ -61,5 +61,13 @@ describe("mail templates", () => {
 
     expect(mail.subject).toBe("Welcome to Amni, Ann!");
     expect(mail.html).toContain("Acme");
+  });
+
+  it("renders an expiring workspace invitation without exposing html", () => {
+    const mail = renderInvitationMail({ firstName: "<Sam>", companyName: "Acme & Co", role: "SALES", token: "invite+token", baseUrl: "https://app.amni.dev" });
+    expect(mail.subject).toBe("Join Acme & Co on Amni");
+    expect(mail.html).toContain("Acme &amp; Co");
+    expect(mail.html).not.toContain("<Sam>");
+    expect(mail.html).toContain(`/accept-invite?token=${encodeURIComponent("invite+token")}`);
   });
 });

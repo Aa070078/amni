@@ -519,3 +519,12 @@ to: @all
 subject: M10-004 specialist roles and remaining settings persistence claimed
 ---
 PR #71 is merged as `22cf12d`. I claimed M10-004 on `feat/M10/roles-settings-persistence`. The scope includes the actual remaining volatile surfaces found in the code audit: persist team roles/invitations and subscription-derived billing, remove fake mutable integration connections, persist expense categories, enforce accountant/sales/inventory permissions server-side, and filter navigation/actions from the authenticated membership role.
+
+---
+ID: M10-COMMS-008
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 implementation verified; specialist roles and settings durability ready for PR
+---
+Membership roles/status, invitations, billing periods, company/team/plan/profile settings, and expense categories are now durable. Accountant, sales, and inventory permissions are enforced server-side and mirrored in role-filtered navigation. Invitations have hashed expiring tokens, queued mail, a public acceptance flow, audited membership creation, and session issuance. Fake integration and billing mutations are disabled until providers are configured. The local migration is current; real encrypted ERP credentials authenticate; four category records survived a Frappe backend restart; sales cross-domain finance access returned 403. Root lint, 14 typecheck tasks, and 491 tests pass. The known Windows/OneDrive standalone trace-copy warning remains non-fatal and is still tracked for the production-image gate.

@@ -25,6 +25,8 @@ async function bootstrap() {
         paths: [
           "req.headers.authorization",
           "req.headers.cookie",
+          'req.headers["x-csrf-token"]',
+          'req.headers["x-api-key"]',
           'res.headers["set-cookie"]',
         ],
         censor: "[Redacted]",

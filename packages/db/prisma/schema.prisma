@@ -156,12 +156,15 @@ model Membership {
   companyId    String       @db.Uuid
   userId       String       @db.Uuid
   platformRole PlatformRole @default(MEMBER)
+  productRole  ProductRole  @default(MEMBER)
+  status       MembershipStatus @default(ACTIVE)
   createdAt    DateTime     @default(now()) @db.Timestamptz(3)
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, userId])
+  @@index([companyId, status])
   @@index([userId])
   @@map("memberships")
 }
@@ -229,6 +232,7 @@ model Subscription {
   companyId   String             @db.Uuid
   planId      String             @db.Uuid
   status      SubscriptionStatus @default(TRIAL)
+  billingPeriod BillingPeriod    @default(MONTHLY)
   startsAt    DateTime           @default(now()) @db.Timestamptz(3)
   trialEndsAt DateTime?          @db.Timestamptz(3)
   endsAt      DateTime?          @db.Timestamptz(3)
@@ -275,6 +279,10 @@ model Invitation {
   companyId    String       @db.Uuid
   email        String       @db.VarChar(254)
   platformRole PlatformRole @default(MEMBER)
+  productRole  ProductRole  @default(MEMBER)
+  status       InvitationStatus @default(PENDING)
+  firstName    String       @db.VarChar(80)
+  lastName     String?      @db.VarChar(80)
   tokenHash    String       @unique @db.VarChar(255)
   expiresAt    DateTime     @db.Timestamptz(3)
   usedAt       DateTime?    @db.Timestamptz(3)
@@ -285,6 +293,7 @@ model Invitation {
   inviter User    @relation("InvitationCreatedBy", fields: [invitedById], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+  @@index([companyId, status])
   @@index([email])
   @@map("invitations")
 }
@@ -371,6 +380,31 @@ enum PlatformRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+enum ProductRole {
+  ADMIN
+  ACCOUNTANT
+  SALES
+  INVENTORY
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DISABLED
+  EXPIRED
+}
+
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
 }
 
 enum TenantStatus {
