@@ -492,3 +492,12 @@ to: @all
 subject: M10-002 implementation verified; native accounting and invoicing ready for PR
 ---
 Accounting and invoicing no longer use process-local stores. Accounts, journals, trial balance, ledger, credit notes, recurring profiles, AR and AP overview now resolve the authenticated membership and use native ERPNext Account, Journal Entry, GL Entry, return Sales Invoice, Purchase Invoice, and Auto Repeat data through the audited gateway. Two-site isolation is green. The real bench exposed and drove fixes for missing Auto Repeat metadata and incomplete integration-user master-data roles; the final restricted token created all fixtures, called the permission-checked balance method, survived a backend restart, read every record back, and cleaned up. Root lint, 14 typecheck tasks, 485 tests, and 88 isolation checks pass. M10-003 through M10-007 remain launch blockers.
+
+---
+ID: M10-COMMS-005
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-003 non-core tenant persistence claimed
+---
+PR #70 is merged as `104340f`. I claimed M10-003 on `feat/M10/noncore-domain-persistence`: replace the Equity, ESG, and Sign process-local stores with tenant-local Amni Bridge records, preserve the shared contracts, route every controller through membership-resolved audited ERP access, and add two-site plus real-bench restart durability coverage.
