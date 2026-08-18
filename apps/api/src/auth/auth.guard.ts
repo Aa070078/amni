@@ -68,10 +68,12 @@ export class AuthGuard implements CanActivate {
         status: true,
         isPlatformAdmin: true,
         memberships: {
+          where: { status: "ACTIVE" },
           orderBy: { createdAt: "asc" },
           take: 1,
           select: {
             platformRole: true,
+            productRole: true,
             company: { select: { id: true, name: true } },
           },
         },
@@ -99,10 +101,7 @@ export class AuthGuard implements CanActivate {
     }
 
     const membership = user.memberships[0];
-    const role =
-      membership?.platformRole === "OWNER" || membership?.platformRole === "ADMIN"
-        ? ProductRole.ADMIN
-        : ProductRole.MEMBER;
+    const role = membershipRole(membership);
 
     req.user = {
       id: user.id,
@@ -112,6 +111,14 @@ export class AuthGuard implements CanActivate {
       companyId: membership?.company.id,
       companyName: membership?.company.name,
     };
+
+    if (!user.isPlatformAdmin && !roleCanAccessPath(role, req.originalUrl ?? req.url ?? "")) {
+      throw new ApiException({
+        code: ErrorCode.FORBIDDEN,
+        status: 403,
+        message: "Your workspace role does not have access to this area",
+      });
+    }
 
     const memberMutationAllowed = this.reflector.getAllAndOverride<boolean>(ALLOW_MEMBER_MUTATION, [
       context.getHandler(),
@@ -126,4 +133,22 @@ export class AuthGuard implements CanActivate {
     }
     return true;
   }
+}
+
+function membershipRole(membership?: { platformRole: string; productRole: string }): ProductRoleValue {
+  if (!membership) return ProductRole.MEMBER;
+  if (membership.platformRole === "OWNER" || membership.platformRole === "ADMIN") return ProductRole.ADMIN;
+  const role = membership.productRole.toLowerCase();
+  return Object.values(ProductRole).includes(role as ProductRoleValue) ? role as ProductRoleValue : ProductRole.MEMBER;
+}
+
+export function roleCanAccessPath(role: ProductRoleValue, rawPath: string): boolean {
+  if (role === ProductRole.ADMIN) return true;
+  const path = rawPath.split("?", 1)[0]?.replace(/^\/api\/v1/, "") ?? "";
+  if (path.startsWith("/dashboard") || path.startsWith("/notifications") || path.startsWith("/hrms") || path.startsWith("/auth")) return true;
+  if (path.startsWith("/settings/profile")) return true;
+  if (role === ProductRole.SALES) return path.startsWith("/sales") || path.startsWith("/crm") || path.startsWith("/people");
+  if (role === ProductRole.INVENTORY) return path.startsWith("/inventory") || path.startsWith("/purchasing");
+  if (role === ProductRole.ACCOUNTANT) return path.startsWith("/finance");
+  return false;
 }

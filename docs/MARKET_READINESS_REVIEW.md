@@ -37,16 +37,19 @@ Amni's control plane, application shell, onboarding flow, and ERP-backed modules
 - Sales Invoice Auto Repeat is enabled idempotently through Frappe's supported Property Setter mechanism on every site migration. The real-bench gate caught and verified this configuration rather than relying on the in-process mock.
 - Equity, ESG, and Sign records now use a dedicated tenant-local `Amni Domain Record` DocType rather than API-process arrays. Namespaced keys prevent cross-domain collisions, all controllers route through membership-resolved ERP credentials, and mutations produce platform audit entries.
 - A two-site HTTP isolation suite proves tenant A cannot list, retrieve, or mutate tenant B's records. The pinned real bench created all three domain types, queried through the bounded permission-checked method, restarted the backend, read every record back, and cleaned up.
+- Settings no longer keeps team, role, plan, billing, or profile mutations in process memory. Membership product roles and status, invitations, and subscription billing periods are migrated in Postgres; expense categories are tenant-local ERP domain records. Unconfigured integrations are presented honestly and cannot be toggled into a fake connected state.
+- Accountant, sales, inventory, member, and admin roles are derived from active membership on every request. The server denies cross-domain access, while the sidebar, command navigation, and settings navigation expose only permitted areas. Real runtime probes confirmed sales access and a finance 403.
+- Team invitation links now contain expiring one-way tokens and flow through the mail queue to a dedicated acceptance page. Acceptance verifies or creates the account, creates the scoped membership, consumes the token, writes an audit record, and issues a session.
 
 ## Launch blockers
 
-### P0 — remaining settings and expense metadata use process-local demo stores
+### Closed in M10-004 — settings and expense metadata durability
 
-CRM, accounting, invoicing, Equity, ESG, and signing are now durable and tenant-local. Settings still keeps team, billing presentation, and integration connection state in API memory, while expense categories remain process-local. Replace those stores or disable unsupported mutations before a paid launch. Signing currently tracks workflow and audit state; it must not be marketed as a legally binding external e-signature service until a qualified provider and evidence package are integrated.
+CRM, accounting, invoicing, Equity, ESG, signing workflow, settings, and expense categories are now durable and tenant-scoped. Signing still tracks internal workflow and audit state only; it must not be marketed as a legally binding external e-signature service until a qualified provider and evidence package are integrated.
 
-### P1 — specialist business roles are not implemented
+### Closed in M10-004 — specialist business roles
 
-The server now consistently enforces the available platform roles: owners and admins may mutate company data, while members have read access plus narrowly declared self-service mutations. Accountant, sales, and inventory roles shown during onboarding are not yet represented in platform membership or enforced as domain-specific permissions. Define that matrix, persist the roles, filter navigation/actions, and add negative tests before inviting broader customer teams.
+Accountant, sales, inventory, member, and admin roles are persisted, enforced server-side by route domain, reflected by role-aware navigation, and covered by negative authorization tests.
 
 ### P1 — list endpoints load complete ERP datasets
 
@@ -68,7 +71,7 @@ Deployment documentation still describes an older demo posture and does not matc
 
 - `pnpm lint`: 8 workspaces passed.
 - `pnpm typecheck`: 14 tasks passed after removing the build/typecheck races.
-- `pnpm test`: 565 tests passed (API 461, worker 26, ERP 66, shared 5, web 7).
+- `pnpm test`: 491 tests passed in the M10-004 gate (API 382, worker 27, ERP 70, shared 5, web 7).
 - `pnpm test:isolation`: 84 tenant-isolation tests passed.
 - Playwright: both critical journeys passed in Chromium: signup → six-step setup → provisioning and customer → product → order → invoice → submit → allocated payment → paid dashboard.
 - `pnpm audit --audit-level high`: passed after the patched dependency override; one low-severity advisory remains below the enforced threshold.

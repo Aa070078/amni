@@ -20,7 +20,7 @@ import {
   type GatewayUser,
 } from "../erp-gateway/erp-gateway.service";
 
-export type DomainName = "equity" | "esg" | "sign";
+export type DomainName = "equity" | "esg" | "expenses" | "sign";
 
 @Injectable()
 export class DomainRecordRepository {

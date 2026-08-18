@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2, CreditCard, Plug, ShieldCheck, User, Users } from "lucide-react";
+import { ProductRole } from "@amni/shared";
+import { useMe } from "@/src/hooks/use-me";
 
 const SETTINGS_NAV = [
   { title: "Company", href: "/settings/company", icon: Building2 },
@@ -15,10 +17,12 @@ const SETTINGS_NAV = [
 
 export function SettingsNav() {
   const pathname = usePathname();
+  const { data: user } = useMe();
+  const items = user?.role === ProductRole.ADMIN ? SETTINGS_NAV : SETTINGS_NAV.filter((item) => item.href === "/settings/profile");
 
   return (
     <nav aria-label="Settings" className="space-y-1">
-      {SETTINGS_NAV.map((item) => {
+      {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link

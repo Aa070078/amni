@@ -1,8 +1,8 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CreditCard, Loader2 } from "lucide-react";
-import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@amni/ui";
+import { useQuery } from "@tanstack/react-query";
+import { Check, CreditCard } from "lucide-react";
+import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@amni/ui";
 import { formatCurrency } from "@/src/lib/format";
 import { settingsClient } from "@/src/lib/settings";
 
@@ -14,16 +14,9 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "success" | "des
 };
 
 export function PlanView() {
-  const queryClient = useQueryClient();
-
   const planQuery = useQuery({
     queryKey: ["settings", "plan"],
     queryFn: () => settingsClient.plan(),
-  });
-
-  const billingMutation = useMutation({
-    mutationFn: (billingPeriod: "monthly" | "yearly") => settingsClient.changeBilling({ billingPeriod }),
-    onSuccess: (data) => queryClient.setQueryData(["settings", "plan"], data),
   });
 
   if (planQuery.isLoading) {
@@ -77,30 +70,8 @@ export function PlanView() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-3 border-t pt-4">
-            <div className="inline-flex items-center rounded-md border p-0.5">
-              <Button
-                variant={!isYearly ? "default" : "ghost"}
-                size="sm"
-                onClick={() => !isYearly || billingMutation.mutate("monthly")}
-              >
-                Monthly
-              </Button>
-              <Button
-                variant={isYearly ? "default" : "ghost"}
-                size="sm"
-                onClick={() => isYearly || billingMutation.mutate("yearly")}
-              >
-                Yearly (2 months free)
-              </Button>
-            </div>
-            {billingMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Next payment {new Date(plan.nextPayment?.date ?? plan.renewsAt).toLocaleDateString()} ·{" "}
-                {formatCurrency(plan.nextPayment?.amount ?? price, plan.nextPayment?.currency ?? "USD")}
-              </p>
-            )}
+            <Badge variant="outline">{isYearly ? "Yearly" : "Monthly"} billing</Badge>
+            <p className="text-sm text-muted-foreground">Billing changes require provider setup. Contact support for plan changes.</p>
           </div>
         </CardContent>
       </Card>

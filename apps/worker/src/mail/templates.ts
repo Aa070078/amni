@@ -97,6 +97,17 @@ export function renderWelcomeMail(input: { firstName: string; companyName: strin
   };
 }
 
+export function renderInvitationMail(input: { firstName: string; companyName: string; role: string; token: string; baseUrl: string }): RenderedMail {
+  const link = `${normalizeBaseUrl(input.baseUrl)}/accept-invite?token=${encodeURIComponent(input.token)}`;
+  const body = `
+              <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;">Join ${escapeHtml(input.companyName)} on Amni</h1>
+              <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Hi ${escapeHtml(input.firstName)},</p>
+              <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">You have been invited as ${escapeHtml(input.role.toLowerCase())}. Set your password to accept the invitation.</p>
+              ${actionButton(link, "Accept invitation")}
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#6b7280;">This invitation expires in 7 days.</p>`;
+  return { subject: `Join ${input.companyName} on Amni`, html: layout(body), text: `Hi ${input.firstName},\n\nYou have been invited to join ${input.companyName} as ${input.role.toLowerCase()}.\n\n${link}\n\nThis invitation expires in 7 days.` };
+}
+
 export function renderMail(job: MailJob, baseUrl: string): RenderedMail {
   switch (job.template) {
     case MailTemplate.VERIFICATION:
@@ -105,5 +116,7 @@ export function renderMail(job: MailJob, baseUrl: string): RenderedMail {
       return renderResetMail({ firstName: job.firstName, token: job.token, baseUrl });
     case MailTemplate.WELCOME:
       return renderWelcomeMail({ firstName: job.firstName, companyName: job.companyName });
+    case MailTemplate.INVITATION:
+      return renderInvitationMail({ ...job, baseUrl });
   }
 }

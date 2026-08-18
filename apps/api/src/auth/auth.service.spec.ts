@@ -9,7 +9,8 @@ import { AuthService, type RequestMeta } from "./auth.service";
 vi.mock("@amni/db", () => {
   const user = { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() };
   const company = { findUnique: vi.fn(), create: vi.fn() };
-  const membership = { create: vi.fn() };
+  const membership = { create: vi.fn(), findUnique: vi.fn() };
+  const invitation = { findUnique: vi.fn(), update: vi.fn() };
   const auditLog = { create: vi.fn(async () => ({})) };
   const session = { create: vi.fn(), updateMany: vi.fn(), findFirst: vi.fn() };
   const emailVerification = { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() };
@@ -18,6 +19,7 @@ vi.mock("@amni/db", () => {
     user,
     company,
     membership,
+    invitation,
     auditLog,
     session,
     emailVerification,
@@ -149,5 +151,23 @@ describe("AuthService mail wiring", () => {
       code: ErrorCode.RESET_TOKEN_INVALID,
     });
     expect(mail.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("AuthService invitation acceptance", () => {
+  it("creates the invited user, membership, and authenticated session", async () => {
+    vi.mocked(prisma.invitation.findUnique).mockResolvedValueOnce({
+      id: "invite-1", companyId: "company-1", email: "sales@acme.co", firstName: "Sam", lastName: null,
+      platformRole: "MEMBER", productRole: "SALES", status: "PENDING", usedAt: null,
+      expiresAt: new Date(Date.now() + 60_000), company: { name: "Acme" },
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(prisma.user.create).mockResolvedValueOnce({ id: "user-2", email: "sales@acme.co", firstName: "Sam", lastName: null, status: "ACTIVE", isEmailVerified: true, isPlatformAdmin: false } as never);
+    vi.mocked(prisma.membership.findUnique).mockResolvedValueOnce(null);
+
+    await expect(createService().acceptInvitation({ token: "invitation-token", password: "StrongPass1" }, res, meta)).resolves.toMatchObject({ user: { email: "sales@acme.co" } });
+    expect(prisma.membership.create).toHaveBeenCalledWith({ data: expect.objectContaining({ companyId: "company-1", productRole: "SALES", userId: "user-2" }) });
+    expect(prisma.invitation.update).toHaveBeenCalledWith({ where: { id: "invite-1" }, data: expect.objectContaining({ status: "ACCEPTED" }) });
+    expect(tokens.setAuthCookies).toHaveBeenCalled();
   });
 });

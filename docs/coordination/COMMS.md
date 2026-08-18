@@ -510,3 +510,21 @@ to: @all
 subject: M10-003 implementation verified; non-core domain persistence ready for PR
 ---
 Equity, ESG, and Sign no longer use process-local data. A dedicated `Amni Domain Record` DocType stores namespaced records in each tenant ERP site; the membership-resolved audited gateway handles CRUD, and the custom list method enforces Frappe read permission, filter/order allowlists, exact counts, and a 100-row ceiling. Shared codes now allow collision-resistant opaque suffixes while retaining existing demo identifiers. Two-site isolation is green. The rebuilt pinned ERP image migrated both sites and the real smoke created all three record types, queried them, restarted the backend, re-read each record, and cleaned up. Remaining volatile settings and expense-category state is explicitly retained as the next launch blocker.
+
+---
+ID: M10-COMMS-007
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 specialist roles and remaining settings persistence claimed
+---
+PR #71 is merged as `22cf12d`. I claimed M10-004 on `feat/M10/roles-settings-persistence`. The scope includes the actual remaining volatile surfaces found in the code audit: persist team roles/invitations and subscription-derived billing, remove fake mutable integration connections, persist expense categories, enforce accountant/sales/inventory permissions server-side, and filter navigation/actions from the authenticated membership role.
+
+---
+ID: M10-COMMS-008
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 implementation verified; specialist roles and settings durability ready for PR
+---
+Membership roles/status, invitations, billing periods, company/team/plan/profile settings, and expense categories are now durable. Accountant, sales, and inventory permissions are enforced server-side and mirrored in role-filtered navigation. Invitations have hashed expiring tokens, queued mail, a public acceptance flow, audited membership creation, and session issuance. Fake integration and billing mutations are disabled until providers are configured. The local migration is current; real encrypted ERP credentials authenticate; four category records survived a Frappe backend restart; sales cross-domain finance access returned 403. Root lint, 14 typecheck tasks, and 491 tests pass. The known Windows/OneDrive standalone trace-copy warning remains non-fatal and is still tracked for the production-image gate.

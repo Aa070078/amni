@@ -15,7 +15,9 @@ import {
 
 import { AuthGuard } from "../auth/auth.guard";
 import { AllowMemberMutation } from "../auth/authorization.decorator";
-import { CurrentUser } from "../auth/request.decorators";
+import type { RequestMeta } from "../auth/auth.service";
+import { CurrentUser, ReqMeta } from "../auth/request.decorators";
+import type { GatewayUser } from "../erp-gateway/erp-gateway.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { SettingsService } from "./settings.service";
@@ -31,38 +33,38 @@ export class SettingsController {
   }
 
   @Patch("company")
-  updateCompany(@Body() body: unknown, @CurrentUser() user: { id: string }): Promise<CompanySettings> {
-    return this.settings.updateCompany(user.id, updateCompanySettingsInputSchema.parse(body));
+  updateCompany(@Body() body: unknown, @CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<CompanySettings> {
+    return this.settings.updateCompany(user, meta, updateCompanySettingsInputSchema.parse(body));
   }
 
   @Get("team")
-  team(): TeamMember[] {
-    return this.settings.team();
+  team(@CurrentUser() user: GatewayUser): Promise<TeamMember[]> {
+    return this.settings.team(user.id);
   }
 
   @Post("team/invites")
-  invite(@Body() body: unknown): TeamMember {
-    return this.settings.invite(inviteMemberInputSchema.parse(body));
+  invite(@Body() body: unknown, @CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<TeamMember> {
+    return this.settings.invite(user, meta, inviteMemberInputSchema.parse(body));
   }
 
   @Patch("team/:id")
-  updateMember(@Param("id") id: string, @Body() body: unknown): TeamMember {
-    return this.settings.updateMember(id, updateMemberInputSchema.parse(body));
+  updateMember(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<TeamMember> {
+    return this.settings.updateMember(user, meta, id, updateMemberInputSchema.parse(body));
   }
 
   @Get("roles")
-  roles(): SettingsRole[] {
-    return this.settings.roles();
+  roles(@CurrentUser() user: GatewayUser): Promise<SettingsRole[]> {
+    return this.settings.roles(user.id);
   }
 
   @Get("plan")
-  plan(): CurrentPlan {
-    return this.settings.plan();
+  plan(@CurrentUser() user: GatewayUser): Promise<CurrentPlan> {
+    return this.settings.plan(user.id);
   }
 
   @Patch("plan/billing")
-  changeBilling(@Body() body: unknown): CurrentPlan {
-    return this.settings.changeBilling(billingInputSchema.parse(body));
+  changeBilling(@Body() body: unknown, @CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta): Promise<CurrentPlan> {
+    return this.settings.changeBilling(user, meta, billingInputSchema.parse(body));
   }
 
   @Get("integrations")

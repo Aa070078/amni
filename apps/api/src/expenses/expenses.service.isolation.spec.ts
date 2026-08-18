@@ -5,6 +5,7 @@ import { ErrorCode } from "@amni/shared";
 import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 import { startMockFrappeServer, type MockFrappeServer } from "../erp-gateway/mock-frappe-server";
 import { ExpensesService } from "./expenses.service";
+import type { DomainRecordRepository } from "../common/domain-record.repository";
 
 const mocks = vi.hoisted(() => ({
   eRPInstance: { findUnique: vi.fn(), findFirst: vi.fn() },
@@ -27,6 +28,8 @@ const META: GatewayRequestMeta = { ip: "127.0.0.1", requestId: "req-1" };
 
 let siteA: MockFrappeServer;
 let siteB: MockFrappeServer;
+
+const createService = (): ExpensesService => new ExpensesService(new ErpGatewayService(), {} as DomainRecordRepository);
 
 function cipher(apiKey: string, apiSecret: string): string {
   return encryptServiceSecret(serializeServiceCredentials(apiKey, apiSecret));
@@ -127,7 +130,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     const bDocsBefore = [...siteB.docs.keys()];
     const bRequestsBefore = siteB.requests.length;
 
-    const service = new ExpensesService(new ErpGatewayService());
+    const service = createService();
     const created = await service.create(USER_A, META, {
       category: "software",
       description: "CRM licence",
@@ -150,7 +153,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
   it("lists only the tenant's own expenses with mapped statuses", async () => {
     mockCompanyErp("company-b", siteB);
 
-    const service = new ExpensesService(new ErpGatewayService());
+    const service = createService();
     const result = await service.list(USER_B, META, { page: 1, pageSize: 20 });
 
     expect(result.meta.total).toBe(1);
@@ -163,7 +166,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
   it("separates claims (CLM-) from expenses (EXP-) and lists tenant claims only", async () => {
     mockCompanyErp("company-b", siteB);
 
-    const service = new ExpensesService(new ErpGatewayService());
+    const service = createService();
     const result = await service.listClaims(USER_B, META, { page: 1, pageSize: 20 });
 
     expect(result.meta.total).toBe(1);
@@ -181,7 +184,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     await siteB.docs.delete("EXP-0099");
     await siteB.docs.set("EXP-0099", expenseDoc("EXP-0099", 99, 0));
 
-    const service = new ExpensesService(new ErpGatewayService());
+    const service = createService();
     await expect(service.detail(USER_A, META, "EXP-0099")).rejects.toMatchObject({ code: ErrorCode.NOT_FOUND, status: 404 });
   });
 
@@ -189,7 +192,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     mockCompanyErp("company-a", siteA);
     await siteA.docs.set("EXP-0003", expenseDoc("EXP-0003", 50, 0));
 
-    const service = new ExpensesService(new ErpGatewayService());
+    const service = createService();
     const updated = await service.changeStatus(USER_A, META, "EXP-0003", { status: "submitted" });
 
     expect(updated.code).toBe("EXP-0003");
@@ -205,7 +208,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     mockCompanyErp("company-a", siteA);
     await siteA.docs.set("EXP-0004", expenseDoc("EXP-0004", 75, 1));
 
-    const service = new ExpensesService(new ErpGatewayService());
+    const service = createService();
     const updated = await service.changeStatus(USER_A, META, "EXP-0004", { status: "paid" });
 
     expect(updated.status).toBe("paid");
