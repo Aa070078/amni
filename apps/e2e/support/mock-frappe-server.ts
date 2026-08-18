@@ -15,6 +15,7 @@ export interface MockFrappeServer {
 
 const RESOURCE_PREFIX = "/api/v1/resource/";
 const CRM_LIST_PATH = "/api/v1/method/amni_bridge.api.list_crm_records";
+const ACCOUNT_BALANCES_PATH = "/api/v1/method/amni_bridge.api.get_account_balances";
 
 /**
  * Minimal in-process stand-in for a tenant ERPNext site. It enforces the
@@ -64,6 +65,17 @@ export async function startMockFrappeServer(options: {
         .filter((doc) => Object.entries(filters).every(([field, value]) => value == null || value === "" || String(doc[field] ?? "") === String(value)))
         .filter((doc) => !term || String(doc.search_text ?? "").toLowerCase().includes(term));
       sendJson(res, 200, { message: { items: items.slice(start, start + pageLength), total: items.length } });
+      return;
+    }
+
+    if (url.pathname === ACCOUNT_BALANCES_PATH && req.method === "POST") {
+      const balances = new Map<string, number>();
+      for (const doc of docs.values()) {
+        if (doc.doctype !== "GL Entry" || Number(doc.is_cancelled ?? 0) === 1) continue;
+        const account = String(doc.account ?? "");
+        balances.set(account, (balances.get(account) ?? 0) + Number(doc.debit ?? 0) - Number(doc.credit ?? 0));
+      }
+      sendJson(res, 200, { message: { items: [...balances].map(([account, balance]) => ({ account, balance })) } });
       return;
     }
 
@@ -118,6 +130,12 @@ export async function startMockFrappeServer(options: {
             ...(body ?? {}),
           };
           if (!doc.posting_date) doc.posting_date = now.toISOString().slice(0, 10);
+          if (doctype === "Sales Invoice" && doc.grand_total == null && Array.isArray(doc.items)) {
+            doc.grand_total = doc.items.reduce((sum: number, raw) => {
+              const line = raw as Record<string, unknown>;
+              return sum + Number(line.qty ?? 0) * Number(line.rate ?? 0);
+            }, 0);
+          }
           if (doctype === "Sales Invoice" && doc.outstanding_amount == null) {
             doc.outstanding_amount = Number(doc.grand_total ?? 0);
           }

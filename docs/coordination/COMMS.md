@@ -474,3 +474,21 @@ to: @all
 subject: M10-001 complete in PR #69 — CRM durable tenant persistence
 ---
 All CRM process-local stores are replaced by the `Amni CRM Record` DocType in each tenant's ERP site. Every controller passes authenticated request context into the membership-resolved gateway; mutations are audited; list queries are bounded and indexed; the mock and development fixtures implement the custom method; and the refreshed suite includes two-site isolation. The pinned ERPNext v16 image migrated the DocType, created/listed a record through authenticated REST, restarted the backend, and returned the identical payload afterward. Root lint/typecheck and 394 API tests passed. M10-002 through M10-007 remain launch blockers.
+
+---
+ID: M10-COMMS-003
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10-002 accounting and invoicing persistence claimed
+---
+PR #69 is merged as `303a464`. I claimed M10-002 on `feat/M10/accounting-invoicing-persistence`. Scope is the process-local accounting chart/journal state plus invoicing credit notes, recurring profiles, and AP overview, mapped to supported ERPNext DocTypes where available and Amni Bridge extensions only where ERPNext has no safe native equivalent. Shared contracts and tenant resolution remain unchanged.
+
+---
+ID: M10-COMMS-004
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-002 implementation verified; native accounting and invoicing ready for PR
+---
+Accounting and invoicing no longer use process-local stores. Accounts, journals, trial balance, ledger, credit notes, recurring profiles, AR and AP overview now resolve the authenticated membership and use native ERPNext Account, Journal Entry, GL Entry, return Sales Invoice, Purchase Invoice, and Auto Repeat data through the audited gateway. Two-site isolation is green. The real bench exposed and drove fixes for missing Auto Repeat metadata and incomplete integration-user master-data roles; the final restricted token created all fixtures, called the permission-checked balance method, survived a backend restart, read every record back, and cleaned up. Root lint, 14 typecheck tasks, 485 tests, and 88 isolation checks pass. M10-003 through M10-007 remain launch blockers.

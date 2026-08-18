@@ -18,3 +18,5 @@ app_email = "support@amni.dev"
 # Inject the Amni theme into the Frappe desk (app_include_*) and portal (web_include_*).
 app_include_css = ["/assets/amni_bridge/css/amni-theme.css"]
 web_include_css = ["/assets/amni_bridge/css/amni-theme.css"]
+
+after_migrate = ["amni_bridge.setup.configure_erp_features"]

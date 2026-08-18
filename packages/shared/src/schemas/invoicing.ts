@@ -15,8 +15,8 @@ export const CREDIT_NOTE_STATUSES = [
 ] as const;
 
 export const creditNoteSchema = z.object({
-  code: z.string().regex(/^CRN-\d{4}$/),
-  invoiceCode: z.string().regex(/^INV-\d{4}$/),
+  code: z.string().min(1).max(160),
+  invoiceCode: z.string().min(1).max(160),
   customer: customerSummarySchema,
   status: creditNoteStatusSchema,
   date: z.string().datetime(),
@@ -30,7 +30,7 @@ export const creditNoteSchema = z.object({
 });
 
 export const createCreditNoteInputSchema = z.object({
-  invoiceCode: z.string().regex(/^INV-\d{4}$/),
+  invoiceCode: z.string().min(1).max(160),
   date: z.string().datetime().optional(),
   currency: currencySchema.default("USD"),
   reason: z.string().trim().max(2_000).optional(),
@@ -75,7 +75,7 @@ export const RECURRING_PROFILE_STATUSES = [
 ] as const;
 
 export const recurringProfileSchema = z.object({
-  code: z.string().regex(/^RINV-\d{4}$/),
+  code: z.string().min(1).max(160),
   customer: customerSummarySchema,
   name: z.string().min(1).max(160),
   interval: recurringIntervalSchema,
@@ -92,7 +92,7 @@ export const recurringProfileSchema = z.object({
 });
 
 export const createRecurringProfileInputSchema = z.object({
-  customerCode: z.string().min(1).max(40),
+  customerCode: z.string().min(1).max(160),
   name: z.string().trim().min(1).max(160),
   interval: recurringIntervalSchema,
   dayOfPeriod: z.coerce.number().int().min(1).max(31).default(1),

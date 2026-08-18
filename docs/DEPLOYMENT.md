@@ -1,6 +1,6 @@
 # Deployment — Railway
 
-Reference for hosting the Amni demo on Railway. The stack is web (Next.js) + API (NestJS) + Postgres + Redis. No ERPNext cluster is required for the demo: every API module serves in-memory reference data.
+Legacy reference for hosting a UI-only Amni demo on Railway. It is not a production deployment guide: the current product requires the worker and a real per-tenant ERPNext/HRMS/Amni Bridge data plane for CRM, sales, inventory, purchasing, finance, accounting, and invoicing. Do not use the development stand-in or this four-service topology for customer data; the production operations topology is tracked in M10-007.
 
 Local verification of the exact Docker artifacts lives in `infra/docker/compose.preview.yaml` and the Dockerfiles in `infra/docker/`.
 

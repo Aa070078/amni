@@ -16,10 +16,10 @@ export const ACCOUNT_TYPES = [
 export const accountStatusSchema = z.enum(["active", "archived"]);
 
 export const accountSchema = z.object({
-  code: z.string().regex(/^AC-\d{4}$/),
+  code: z.string().min(1).max(160),
   name: z.string().min(1).max(160),
   type: accountTypeSchema,
-  group: z.string().min(1).max(80),
+  group: z.string().min(1).max(160),
   currency: currencySchema.default("USD"),
   openingBalance: z.number().finite().default(0),
   balance: z.number().finite().default(0),
@@ -32,7 +32,7 @@ export const accountSchema = z.object({
 export const createAccountInputSchema = z.object({
   name: z.string().trim().min(1).max(160),
   type: accountTypeSchema,
-  group: z.string().trim().min(1).max(80),
+  group: z.string().trim().min(1).max(160),
   currency: currencySchema.default("USD"),
   openingBalance: z.coerce.number().finite().default(0),
   isGroup: z.boolean().default(false),
@@ -67,17 +67,17 @@ export const JOURNAL_ENTRY_STATUSES = [
 ] as const;
 
 export const journalEntryLineSchema = z.object({
-  accountCode: z.string().regex(/^AC-\d{4}$/),
+  accountCode: z.string().min(1).max(160),
   accountName: z.string().min(1).max(160),
   debit: z.number().nonnegative().finite().default(0),
   credit: z.number().nonnegative().finite().default(0),
 });
 
 export const journalEntrySchema = z.object({
-  code: z.string().regex(/^GL-\d{4}$/),
+  code: z.string().min(1).max(160),
   date: z.string().datetime(),
   referenceType: z.string().max(40).optional(),
-  referenceCode: z.string().max(40).optional(),
+  referenceCode: z.string().max(160).optional(),
   entries: z.array(journalEntryLineSchema).min(2),
   status: journalEntryStatusSchema,
   memo: z.string().max(2_000),
@@ -90,12 +90,12 @@ export const journalEntrySchema = z.object({
 export const createJournalEntryInputSchema = z.object({
   date: z.string().datetime().optional(),
   referenceType: z.string().trim().max(40).optional(),
-  referenceCode: z.string().trim().max(40).optional(),
+  referenceCode: z.string().trim().max(160).optional(),
   memo: z.string().trim().min(1).max(2_000),
   entries: z
     .array(
       z.object({
-        accountCode: z.string().regex(/^AC-\d{4}$/),
+        accountCode: z.string().min(1).max(160),
         debit: z.coerce.number().nonnegative().finite().default(0),
         credit: z.coerce.number().nonnegative().finite().default(0),
       }),
@@ -129,7 +129,7 @@ export type JournalEntryListQuery = z.infer<typeof journalEntryListQuerySchema>;
 export type JournalEntryListResponse = z.infer<typeof journalEntryListResponseSchema>;
 
 export const trialBalanceRowSchema = z.object({
-  accountCode: z.string().min(1).max(40),
+  accountCode: z.string().min(1).max(160),
   name: z.string().min(1).max(160),
   type: accountTypeSchema,
   debit: z.number().finite(),
@@ -149,7 +149,7 @@ export type TrialBalance = z.infer<typeof trialBalanceSchema>;
 
 export const ledgerMovementSchema = z.object({
   date: z.string().datetime(),
-  entryCode: z.string().min(1).max(40),
+  entryCode: z.string().min(1).max(160),
   memo: z.string().min(1).max(2_000),
   debit: z.number().finite(),
   credit: z.number().finite(),
@@ -157,7 +157,7 @@ export const ledgerMovementSchema = z.object({
 });
 
 export const ledgerSchema = z.object({
-  accountCode: z.string().min(1).max(40),
+  accountCode: z.string().min(1).max(160),
   name: z.string().min(1).max(160),
   openingBalance: z.number().finite(),
   movements: z.array(ledgerMovementSchema),

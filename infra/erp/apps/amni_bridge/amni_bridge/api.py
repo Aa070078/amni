@@ -11,14 +11,18 @@ import frappe
 from frappe import _
 from frappe.auth import LoginManager
 from frappe.exceptions import AuthenticationError
+from frappe.query_builder.functions import Sum
 
 INTEGRATION_ROLES = (
     "Accounts User",
     "Accounts Manager",
+    "Item Manager",
     "Purchase User",
     "Purchase Manager",
+    "Purchase Master Manager",
     "Sales User",
     "Sales Manager",
+    "Sales Master Manager",
     "Stock User",
     "Stock Manager",
 )
@@ -76,6 +80,9 @@ def list_crm_records(
     page_length: int = 20,
 ) -> dict:
     """Return one bounded page of tenant-local CRM records plus an exact count."""
+    if not frappe.has_permission("Amni CRM Record", ptype="read"):
+        frappe.throw(_("Not permitted to read CRM records."), frappe.PermissionError)
+
     normalized_type = (record_type or "").strip()
     if not normalized_type:
         frappe.throw(_("CRM record type is required."))
@@ -113,6 +120,24 @@ def list_crm_records(
     )
     total = frappe.db.count("Amni CRM Record", filters=db_filters)
     return {"items": items, "total": total}
+
+
+@frappe.whitelist()
+def get_account_balances() -> dict:
+    """Aggregate uncancelled GL balances inside the current tenant database."""
+    if not frappe.has_permission("GL Entry", ptype="read"):
+        frappe.throw(_("Not permitted to read account balances."), frappe.PermissionError)
+
+    gl_entry = frappe.qb.DocType("GL Entry")
+    balance = (Sum(gl_entry.debit) - Sum(gl_entry.credit)).as_("balance")
+    items = (
+        frappe.qb.from_(gl_entry)
+        .select(gl_entry.account, balance)
+        .where(gl_entry.is_cancelled == 0)
+        .groupby(gl_entry.account)
+        .limit(2000)
+    ).run(as_dict=True)
+    return {"items": items}
 
 # ---------------------------------------------------------------------------
 # Amni HRMS SSO bridge.
