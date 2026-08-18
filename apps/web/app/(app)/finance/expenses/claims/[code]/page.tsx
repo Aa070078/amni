@@ -7,7 +7,7 @@ export default async function ExpenseClaimDetailPage({ params }: { params: Promi
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <ExpenseClaimDetailView code={code} />
+      <ExpenseClaimDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

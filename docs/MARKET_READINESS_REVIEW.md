@@ -2,7 +2,17 @@
 
 ## Executive assessment
 
-Amni's control plane, application shell, and ERP-backed modules can run coherently in local development, but the product is **not ready for production launch yet**. This review fixed the immediate login/dashboard failures, a dashboard authorization leak, sensitive-token logging, three ERP list mapping crashes, and flaky Windows verification. The remaining release blockers are concentrated in tenant provisioning, cross-module authorization, real ERP deployment, and production-scale data access.
+Amni's control plane, application shell, onboarding flow, and ERP-backed modules now run coherently against both the development fixture and a real pinned ERPNext v16 bench, but the product is **not ready for production launch yet**. M9 closes the three P0 blockers identified in the first review: provisioning now creates usable encrypted ERP credentials and roles, the owner/admin/member authorization baseline is enforced server-side, and the repository can build and bootstrap a real reproducible ERP stack. Remaining release blockers are concentrated in demo-only domain stores, production-scale data access, operations, and automated release gates.
+
+## Fixed in M9 product-readiness work
+
+- Registration and onboarding drafts are persisted per user and can no longer attach a new signup to the shared demo company. Company/profile settings now persist to the authenticated user's company and profile.
+- The worker reliably loads its local database/Redis environment. Failed provisioning is visible and retryable, unfinished workspaces are redirected to setup, and the failed-job retry path is idempotent.
+- The bench driver installs ERPNext, HRMS, and Amni Bridge; runs ERPNext's supported programmatic setup flow; creates a dedicated integration user; assigns eight operational roles; rotates API credentials; encrypts them at rest; and probes the authenticated user plus Company access before activation.
+- Unsafe API methods now default to owner/admin authorization. Explicit member self-service exceptions are limited to onboarding, profile/password, and notification state; negative tests and a live 403 probe cover the boundary.
+- CRM is a first-class `/crm` workspace instead of a Sales child. Legacy URLs redirect, Sales is a compact quote-to-cash launchpad, and the dashboard hierarchy/responsive grid no longer leaves an empty KPI column or collides with its decorative hero.
+- The real browser journey now exercises signup, all six setup steps, customer and product creation, order and invoice creation, invoice submission, allocated payment, and the paid dashboard state. It also fixed duplicate product POSTs, encoded document identifiers on every detail route, setup-label accessibility, and invoice payments that were not allocated to their ERPNext invoice.
+- `infra/erp/scripts/build-image.ps1` and `bootstrap.ps1` build a pinned image and reproducibly start MariaDB, Redis, Frappe, ERPNext, HRMS, and Amni Bridge. The bootstrap was exercised from image build through real HTTP ping, app installation, company configuration, token authentication, role verification, and REST Company access.
 
 ## Fixed in M8-000
 
@@ -19,17 +29,13 @@ Amni's control plane, application shell, and ERP-backed modules can run coherent
 
 ## Launch blockers
 
-### P0 — provisioning does not produce usable tenant ERP credentials
+### P0 — several product domains still use process-local demo stores
 
-`BenchDriver.createServiceAccount()` creates a Frappe user but does not generate and persist an API key/secret or assign the operational role bundle required for ERP DocType access. Newly provisioned tenants therefore cannot use the product without manual bench intervention. Fix this against a real v16 bench and add a two-tenant provisioning-to-dashboard integration test.
+CRM, accounting, equity, ESG, signing, and parts of settings still keep representative data in process memory rather than tenant ERPNext or tenant-scoped platform persistence. That data resets on restart and is not a safe multi-tenant system of record. Replace each store, add cross-tenant tests, and remove demo-only product claims before a paid launch.
 
-### P0 — authorization is not consistently enforced by product role
+### P1 — specialist business roles are not implemented
 
-The dashboard boundary is fixed, and platform-admin routes have `AdminGuard`, but most domain controllers rely only on authentication and tenant membership. Before launch, define the permission matrix for owner/admin/member and specialist roles, enforce it server-side on every read and mutation, hide unavailable navigation/actions, and add negative authorization tests.
-
-### P0 — no reproducible real ERPNext deployment is present
-
-`DEVELOPMENT.md` says the frappe_docker wrapper lives under `infra/erp`, but this checkout contains only the custom app and an installation script; no compose files are present. This machine also has no Frappe/ERPNext images, containers, or volumes. Supply a reproducible pinned deployment or an explicit bootstrap script and verify backups, restore, upgrades, and tenant routing.
+The server now consistently enforces the available platform roles: owners and admins may mutate company data, while members have read access plus narrowly declared self-service mutations. Accountant, sales, and inventory roles shown during onboarding are not yet represented in platform membership or enforced as domain-specific permissions. Define that matrix, persist the roles, filter navigation/actions, and add negative tests before inviting broader customer teams.
 
 ### P1 — list endpoints load complete ERP datasets
 
@@ -51,14 +57,17 @@ Deployment documentation still describes an older demo posture and does not matc
 
 - `pnpm lint`: 8 workspaces passed.
 - `pnpm typecheck`: 14 tasks passed after removing the build/typecheck races.
-- `pnpm test`: 562 tests passed, including 458 API tests and the tenant-isolation suites.
+- `pnpm test`: 565 tests passed (API 461, worker 26, ERP 66, shared 5, web 7).
+- `pnpm test:isolation`: 84 tenant-isolation tests passed.
+- Playwright: both critical journeys passed in Chromium: signup → six-step setup → provisioning and customer → product → order → invoice → submit → allocated payment → paid dashboard.
 - `pnpm audit --audit-level high`: passed after the patched dependency override; one low-severity advisory remains below the enforced threshold.
 - Production builds completed for API and web; the Next.js standalone trace warning remains recorded above.
-- Local services verified on web `:3000`, API `:4000`, and development ERP stand-in `:8080`; Postgres and Redis were healthy in Docker.
+- The pinned real ERP stack was built and bootstrapped in Docker at `:8080`. A clean `readiness.localhost` site installed ERPNext, HRMS, and Amni Bridge; its dedicated token authenticated as `amni-integration@readiness.local`, carried eight operational roles, and read its configured Company through REST.
+- A fresh platform signup was driven through setup and provisioning. The worker consumed the job, the tenant reached `ACTIVE`, the company reached `READY`, and an encrypted healthy ERP instance was persisted. Postgres and Redis were healthy in Docker.
 - Admin and member login both returned 201. Dashboard snapshot returned 200 in 76 ms and 20 ms respectively during the first runtime pass.
 - Ten representative module endpoints returned 200 in 12–168 ms with the development fixture.
-- Browser checks passed at desktop and 390 px mobile widths. Admin received four KPIs and operational panels; member received only revenue data with restricted panels empty.
+- Browser checks passed in light/dark themes at desktop and 390 px mobile widths across the landing page, dashboard, Sales, standalone CRM, and company settings. Admin received four KPIs and operational panels; member received only permitted data and unsafe member mutation returned 403.
 
 ## Release recommendation
 
-Do not market Amni as production-ready until all P0 items are closed on a real ERPNext bench. After that, close the P1 performance, health, integration, and operations gates, run a staged tenant pilot with production-like data volume, and perform an external security review.
+Do not market Amni as production-ready while process-local demo stores remain in customer-facing domains. After replacing those stores, close the P1 role, performance, health, automated real-bench, deployment, and operations gates; run a staged tenant pilot with production-like volume; and perform an external security review.

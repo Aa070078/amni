@@ -7,7 +7,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ cod
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <NoteDetailView code={code} />
+      <NoteDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

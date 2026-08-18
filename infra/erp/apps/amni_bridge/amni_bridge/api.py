@@ -4,12 +4,24 @@ import hmac
 import json
 import os
 import time
+from datetime import date
 from urllib.parse import urlparse
 
 import frappe
 from frappe import _
 from frappe.auth import LoginManager
 from frappe.exceptions import AuthenticationError
+
+INTEGRATION_ROLES = (
+    "Accounts User",
+    "Accounts Manager",
+    "Purchase User",
+    "Purchase Manager",
+    "Sales User",
+    "Sales Manager",
+    "Stock User",
+    "Stock Manager",
+)
 
 # ---------------------------------------------------------------------------
 # Amni HRMS SSO bridge.
@@ -100,6 +112,93 @@ def _desk_user(email: str) -> str:
     )
     user.insert(ignore_permissions=True, ignore_mandatory=True)
     return user.name
+
+
+def provision_service_account(email: str) -> dict:
+    """Create or repair Amni's integration user and rotate its API keys.
+
+    This function is intentionally not whitelisted. The provisioning worker
+    invokes it through ``bench execute`` inside the trusted ERP cluster.
+    """
+    normalized = (email or "").strip().lower()
+    if not normalized or "@" not in normalized:
+        frappe.throw(_("A valid integration email is required."))
+
+    if frappe.db.exists("User", normalized):
+        user = frappe.get_doc("User", normalized)
+    else:
+        user = frappe.get_doc(
+            {
+                "doctype": "User",
+                "email": normalized,
+                "first_name": "Amni",
+                "last_name": "Integration",
+                "enabled": 1,
+                "send_welcome_email": 0,
+                "user_type": "System User",
+            }
+        )
+        user.insert(ignore_permissions=True)
+
+    user.enabled = 1
+    user.user_type = "System User"
+    user.role_profile_name = ""
+    user.set("roles", [])
+    user.append_roles(*INTEGRATION_ROLES)
+    user.api_key = frappe.generate_hash(length=15)
+    api_secret = frappe.generate_hash(length=32)
+    user.api_secret = api_secret
+    user.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    result = {
+        "api_key": user.api_key,
+        "api_secret": api_secret,
+        "roles": list(INTEGRATION_ROLES),
+    }
+    # bench execute prints Python repr for return values; emit one strict JSON
+    # line so the worker can parse credentials without unsafe eval.
+    print(json.dumps(result, separators=(",", ":")))
+    return result
+
+
+def configure_company(company_name: str, abbreviation: str, country: str, currency: str) -> dict:
+    """Idempotently create or repair the tenant's primary ERPNext company."""
+    values = {
+        "company_name": (company_name or "").strip(),
+        "abbr": (abbreviation or "").strip().upper(),
+        "country": (country or "").strip(),
+        "default_currency": (currency or "").strip().upper(),
+    }
+    if not all(values.values()):
+        frappe.throw(_("Company name, abbreviation, country, and currency are required."))
+
+    existing = frappe.db.get_value("Company", {"company_name": values["company_name"]}, "name")
+    if existing:
+        company = frappe.get_doc("Company", existing)
+        company.update(values)
+        company.save(ignore_permissions=True)
+    else:
+        from erpnext.setup.setup_wizard.setup_wizard import setup_complete
+
+        year = date.today().year
+        setup_complete(
+            frappe._dict(
+                {
+                    "country": values["country"],
+                    "fy_start_date": f"{year}-01-01",
+                    "fy_end_date": f"{year}-12-31",
+                    "company_name": values["company_name"],
+                    "company_abbr": values["abbr"],
+                    "currency": values["default_currency"],
+                    "chart_of_accounts": "Standard",
+                    "domain": "Distribution",
+                }
+            )
+        )
+        company = frappe.get_doc("Company", values["company_name"])
+    frappe.db.commit()
+    return {"name": company.name, "created": not bool(existing)}
 
 
 @frappe.whitelist(allow_guest=True)

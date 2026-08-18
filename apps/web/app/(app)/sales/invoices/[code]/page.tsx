@@ -7,7 +7,7 @@ export default async function SalesInvoiceDetailPage({ params }: { params: Promi
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <SalesInvoiceDetailView code={code} />
+      <SalesInvoiceDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

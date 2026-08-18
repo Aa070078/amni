@@ -7,7 +7,7 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <QuotationDetailView code={code} />
+      <QuotationDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

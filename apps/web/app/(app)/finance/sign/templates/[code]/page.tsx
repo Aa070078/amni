@@ -11,7 +11,7 @@ export default async function SignTemplateDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <SignTemplateDetailView code={code} />
+      <SignTemplateDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

@@ -22,7 +22,7 @@ export function ContactsTable({ data, loading }: ContactsTableProps) {
             return (
               <div className="flex flex-col">
                 <Link
-                  href={`/sales/crm/contacts/${contact.code}`}
+                  href={`/crm/contacts/${contact.code}`}
                   className="font-medium text-foreground hover:text-primary hover:underline"
                 >
                   {name}
@@ -40,7 +40,7 @@ export function ContactsTable({ data, loading }: ContactsTableProps) {
             if (contact.organizationCode) {
               return (
                 <Link
-                  href={`/sales/crm/organizations/${contact.organizationCode}`}
+                  href={`/crm/organizations/${contact.organizationCode}`}
                   className="text-sm text-muted-foreground hover:text-foreground hover:underline"
                 >
                   {contact.company || contact.organizationCode}

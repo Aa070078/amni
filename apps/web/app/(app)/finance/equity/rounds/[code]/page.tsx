@@ -11,7 +11,7 @@ export default async function RoundDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <RoundDetailView code={code} />
+      <RoundDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

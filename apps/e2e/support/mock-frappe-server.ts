@@ -72,10 +72,13 @@ export async function startMockFrappeServer(options: {
       switch (req.method) {
         case "GET": {
           if (!name) {
-            const limit = Number(url.searchParams.get("limit_page_length") ?? 20);
+            const requestedLimit = Number(url.searchParams.get("limit_page_length") ?? 20);
             const start = Number(url.searchParams.get("start") ?? 0);
             const filters = parseFilters(url.searchParams.get("filters"));
-            const all = [...docs.values()].filter((doc) => matchesFilters(doc, filters));
+            const all = [...docs.values()]
+              .filter((doc) => !doc.doctype || doc.doctype === doctype)
+              .filter((doc) => matchesFilters(doc, filters));
+            const limit = requestedLimit === 0 ? all.length : requestedLimit;
             sendJson(res, 200, { data: all.slice(start, start + limit) });
             return;
           }
@@ -90,7 +93,19 @@ export async function startMockFrappeServer(options: {
         case "POST": {
           const body = await readJson(req);
           const docName = String(body?.name ?? `${doctype}-${nextName++}`);
-          const doc = { name: docName, ...(body ?? {}) };
+          const now = new Date();
+          const doc: Record<string, unknown> = {
+            name: docName,
+            doctype,
+            docstatus: 0,
+            creation: now.toISOString(),
+            modified: now.toISOString(),
+            ...(body ?? {}),
+          };
+          if (!doc.posting_date) doc.posting_date = now.toISOString().slice(0, 10);
+          if (doctype === "Sales Invoice" && doc.outstanding_amount == null) {
+            doc.outstanding_amount = Number(doc.grand_total ?? 0);
+          }
           docs.set(docName, doc);
           sendJson(res, 200, { data: doc });
           return;
@@ -106,6 +121,12 @@ export async function startMockFrappeServer(options: {
           }
           const body = await readJson(req);
           const doc = { ...(docs.get(name) ?? {}), ...(body ?? {}) };
+          const action = url.searchParams.get("action");
+          if (action === "submit") doc.docstatus = 1;
+          if (action === "cancel") doc.docstatus = 2;
+          if (doctype === "Payment Entry" && action === "submit") {
+            allocatePayment(doc, docs);
+          }
           docs.set(name, doc);
           sendJson(res, 200, { data: doc });
           return;
@@ -143,6 +164,25 @@ export async function startMockFrappeServer(options: {
 }
 
 type FilterClause = [string, string, unknown];
+
+function allocatePayment(
+  payment: Record<string, unknown>,
+  docs: Map<string, Record<string, unknown>>,
+): void {
+  const references = Array.isArray(payment.references) ? payment.references : [];
+  for (const raw of references) {
+    if (!raw || typeof raw !== "object") continue;
+    const reference = raw as Record<string, unknown>;
+    if (reference.reference_doctype !== "Sales Invoice") continue;
+    const name = String(reference.reference_name ?? "");
+    const invoice = docs.get(name);
+    if (!invoice) continue;
+    const outstanding = Number(invoice.outstanding_amount ?? invoice.grand_total ?? 0);
+    const allocated = Number(reference.allocated_amount ?? 0);
+    invoice.outstanding_amount = Math.max(outstanding - allocated, 0);
+    invoice.modified = new Date().toISOString();
+  }
+}
 
 /** Accepts Frappe filters in object form (`{"email_id":"x"}`) or array form (`[["email_id","=","x"]]`). */
 function parseFilters(raw: string | null): FilterClause[] {

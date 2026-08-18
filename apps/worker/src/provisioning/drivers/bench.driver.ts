@@ -14,10 +14,10 @@ interface BenchConfig {
 }
 
 const loadConfig = (): BenchConfig => ({
-  container: process.env.BENCH_CONTAINER ?? "frappe-bench",
-  dbRootPassword: process.env.BENCH_DB_ROOT_PASSWORD ?? "",
-  adminPassword: process.env.BENCH_ADMIN_PASSWORD ?? "",
-  installApps: (process.env.ERPNEXT_INSTALL_APPS ?? "erpnext,hrms")
+  container: process.env.ERPNEXT_BENCH_CONTAINER ?? process.env.BENCH_CONTAINER ?? "frappe-backend-1",
+  dbRootPassword: process.env.BENCH_DB_ROOT_PASSWORD ?? (process.env.NODE_ENV === "production" ? "" : "admin"),
+  adminPassword: process.env.BENCH_ADMIN_PASSWORD ?? (process.env.NODE_ENV === "production" ? "" : "admin"),
+  installApps: (process.env.ERPNEXT_INSTALL_APPS ?? "erpnext,hrms,amni_bridge")
     .split(",")
     .map((app) => app.trim())
     .filter(Boolean),
@@ -36,11 +36,11 @@ const loadConfig = (): BenchConfig => ({
 export class BenchDriver implements ProvisioningDriver {
   readonly name = "bench";
 
-  private async runBench(args: string[]): Promise<{ stdout: string; code: number }> {
+  private async runBench(args: string[], timeout = 60_000): Promise<{ stdout: string; code: number }> {
     const config = loadConfig();
     try {
       const { stdout, stderr } = await execFileAsync("docker", ["exec", config.container, "bench", ...args], {
-        timeout: 60_000,
+        timeout,
         maxBuffer: 2 * 1024 * 1024,
       });
       const combined = [stdout, stderr].filter(Boolean).join("\n");
@@ -52,15 +52,33 @@ export class BenchDriver implements ProvisioningDriver {
   }
 
   async preflight(ctx: ProvisioningContext): Promise<StepResult> {
+    const config = loadConfig();
+    if (!config.dbRootPassword || !config.adminPassword) {
+      return { ok: false, detail: "bench database-root and Administrator passwords are required" };
+    }
     const { code } = await this.runBench(["--site", ctx.siteName, "list-apps"]);
     if (code === 0) {
-      return { ok: false, detail: `site ${ctx.siteName} already exists` };
+      return { ok: true, detail: `site ${ctx.siteName} already exists and will be repaired idempotently` };
     }
     return { ok: true, detail: `site ${ctx.siteName} is free to create` };
   }
 
   async createSite(ctx: ProvisioningContext): Promise<StepResult> {
     const config = loadConfig();
+    const existing = await this.runBench(["--site", ctx.siteName, "list-apps"]);
+    if (existing.code === 0) {
+      for (const app of config.installApps) {
+        if (!hasInstalledApp(existing.stdout, app)) {
+          const install = await this.runBench(["--site", ctx.siteName, "install-app", app], 5 * 60_000);
+          if (install.code !== 0) return { ok: false, detail: `install ${app} failed: ${install.stdout}` };
+        }
+      }
+      return {
+        ok: true,
+        detail: `site ${ctx.siteName} already exists; required apps verified`,
+        installApps: config.installApps,
+      };
+    }
     const installFlags = config.installApps.flatMap((app) => ["--install-app", app]);
     const { code, stdout } = await this.runBench([
       "new-site",
@@ -69,7 +87,7 @@ export class BenchDriver implements ProvisioningDriver {
       `--db-root-password=${config.dbRootPassword}`,
       `--admin-password=${config.adminPassword}`,
       ...installFlags,
-    ]);
+    ], 15 * 60_000);
     if (code !== 0) {
       return { ok: false, detail: `new-site failed: ${stdout}` };
     }
@@ -81,21 +99,19 @@ export class BenchDriver implements ProvisioningDriver {
   }
 
   async configureCompany(ctx: ProvisioningContext): Promise<StepResult> {
-    const company = JSON.stringify({
-      doctype: "Company",
-      company_name: ctx.companyName,
-      abbr: ctx.companyAbbreviation,
-      country: ctx.country,
-      default_currency: ctx.currency,
-    });
     const { code, stdout } = await this.runBench([
       "--site",
       ctx.siteName,
       "execute",
-      "frappe.client.insert",
+      "amni_bridge.api.configure_company",
       "--kwargs",
-      company,
-    ]);
+      JSON.stringify({
+        company_name: ctx.companyName,
+        abbreviation: ctx.companyAbbreviation,
+        country: ctx.country,
+        currency: ctx.currency,
+      }),
+    ], 5 * 60_000);
     if (code !== 0) {
       return { ok: false, detail: `configure company failed: ${stdout}` };
     }
@@ -103,28 +119,27 @@ export class BenchDriver implements ProvisioningDriver {
   }
 
   async createServiceAccount(ctx: ProvisioningContext): Promise<StepResult> {
-    const user = JSON.stringify({
-      doctype: "User",
-      email: ctx.serviceAccountEmail,
-      first_name: "Amni",
-      last_name: "Integration",
-      send_welcome_email: 0,
-    });
     const { code, stdout } = await this.runBench([
       "--site",
       ctx.siteName,
       "execute",
-      "frappe.client.insert",
+      "amni_bridge.api.provision_service_account",
       "--kwargs",
-      user,
+      JSON.stringify({ email: ctx.serviceAccountEmail }),
     ]);
     if (code !== 0) {
       return { ok: false, detail: `service account creation failed: ${stdout}` };
+    }
+
+    const credentials = parseProvisioningCredentials(stdout);
+    if (!credentials) {
+      return { ok: false, detail: "service account creation returned no usable credentials" };
     }
     return {
       ok: true,
       detail: `service account ${ctx.serviceAccountEmail} created`,
       host: ctx.siteUrl,
+      serviceCredentials: credentials,
     };
   }
 
@@ -133,10 +148,37 @@ export class BenchDriver implements ProvisioningDriver {
   }
 
   async validate(ctx: ProvisioningContext): Promise<StepResult> {
+    const config = loadConfig();
     const { code, stdout } = await this.runBench(["--site", ctx.siteName, "list-apps"]);
     if (code !== 0) {
       return { ok: false, detail: `validate ping failed: ${stdout}` };
     }
-    return { ok: true, detail: `site ${ctx.siteName} responds` };
+    const missing = config.installApps.filter((app) => !hasInstalledApp(stdout, app));
+    if (missing.length) {
+      return { ok: false, detail: `site ${ctx.siteName} is missing required apps: ${missing.join(", ")}` };
+    }
+    return { ok: true, detail: `site ${ctx.siteName} responds with all required apps` };
   }
+}
+
+function hasInstalledApp(output: string, app: string): boolean {
+  return output.split(/\r?\n/).some((line) => line.trim().split(/\s+/)[0] === app);
+}
+
+function parseProvisioningCredentials(output: string): { apiKey: string; apiSecret: string } | undefined {
+  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).reverse();
+  for (const line of lines) {
+    const start = line.indexOf("{");
+    const end = line.lastIndexOf("}");
+    if (start < 0 || end <= start) continue;
+    try {
+      const value = JSON.parse(line.slice(start, end + 1)) as { api_key?: unknown; api_secret?: unknown };
+      if (typeof value.api_key === "string" && value.api_key && typeof value.api_secret === "string" && value.api_secret) {
+        return { apiKey: value.api_key, apiSecret: value.api_secret };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
 }

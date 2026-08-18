@@ -26,10 +26,12 @@ export function DashboardHero() {
         aria-hidden
         className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_62%)]"
       />
-      <Hero3D />
+      <div className="hidden lg:block" aria-hidden="true">
+        <Hero3D />
+      </div>
 
       <div className="relative flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="max-w-xl">
           <p className="text-sm font-medium text-muted-foreground">Your workspace</p>
           <h1 className="mt-1.5 text-2xl font-semibold tracking-tight sm:text-3xl">
             {greeting}

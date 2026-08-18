@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CommandMenu } from "./command-menu";
+import { WorkspaceGate } from "./workspace-gate";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -25,7 +26,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <div className="flex min-h-screen flex-col lg:pl-64">
         <Topbar onMenuClick={() => setMobileOpen(true)} onSearchClick={() => setCommandOpen(true)} />
-        <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-6 lg:px-8">
+          <WorkspaceGate>{children}</WorkspaceGate>
+        </main>
       </div>
       <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} />
     </div>

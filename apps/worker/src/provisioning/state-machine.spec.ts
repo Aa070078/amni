@@ -1,4 +1,5 @@
 import { Logger } from "@nestjs/common";
+import { decryptServiceSecret } from "@amni/erp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SimulationDriver } from "./drivers/simulate.driver";
@@ -62,6 +63,7 @@ vi.mock("@amni/db", () => ({
 }));
 
 const FIXED_NOW = () => new Date("2026-01-01T00:00:00.000Z");
+const TEST_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 const freshRecord = (overrides: Partial<JobRecord> = {}): JobRecord => ({
   id: "job-1",
@@ -88,6 +90,7 @@ describe("runProvisioningJob", () => {
     jobRecord = freshRecord();
     tenantStatus = "CREATING";
     erpRecord = null;
+    process.env.ENCRYPTION_KEY = TEST_KEY;
   });
 
   const params = {
@@ -107,7 +110,11 @@ describe("runProvisioningJob", () => {
     const steps = jobRecord.steps as { key: string; status: string }[];
     expect(steps).toHaveLength(7);
     for (const step of steps) expect(step.status).toBe("done");
-    expect(erpRecord).toMatchObject({ tenantId: "tenant-1", host: "https://demo-co.amni.dev" });
+    expect(erpRecord).toMatchObject({ tenantId: "tenant-1", host: "http://127.0.0.1:8080" });
+    expect(JSON.parse(decryptServiceSecret((erpRecord as { serviceKeyCipher: string }).serviceKeyCipher))).toEqual({
+      apiKey: "demo-api-key",
+      apiSecret: "demo-api-secret",
+    });
   });
 
   it("resumes from the failing step instead of re-running done steps", async () => {

@@ -5,7 +5,7 @@
   "packageManager": "pnpm@9.15.0",
   "prettier": "@amni/config/prettier",
   "scripts": {
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev --filter=@amni/api --filter=@amni/web --filter=@amni/worker",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

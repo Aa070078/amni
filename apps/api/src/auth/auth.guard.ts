@@ -1,4 +1,7 @@
 import { Injectable, type CanActivate, type ExecutionContext } from "@nestjs/common";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { Reflector } from "@nestjs/core";
 import { prisma } from "@amni/db";
 import type { Request } from "express";
 
@@ -8,6 +11,7 @@ import { ACCESS_COOKIE, CSRF_COOKIE } from "./tokens.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { TokensService } from "./tokens.service";
+import { ALLOW_MEMBER_MUTATION } from "./authorization.decorator";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -15,6 +19,7 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: ProductRoleValue;
     isPlatformAdmin: boolean;
+    companyId?: string;
     companyName?: string;
   };
 }
@@ -28,7 +33,10 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly tokens: TokensService) {}
+  constructor(
+    private readonly tokens: TokensService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -64,7 +72,7 @@ export class AuthGuard implements CanActivate {
           take: 1,
           select: {
             platformRole: true,
-            company: { select: { name: true } },
+            company: { select: { id: true, name: true } },
           },
         },
       },
@@ -101,8 +109,21 @@ export class AuthGuard implements CanActivate {
       email: user.email,
       role,
       isPlatformAdmin: user.isPlatformAdmin,
+      companyId: membership?.company.id,
       companyName: membership?.company.name,
     };
+
+    const memberMutationAllowed = this.reflector.getAllAndOverride<boolean>(ALLOW_MEMBER_MUTATION, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!SAFE_METHODS.has(method) && role === ProductRole.MEMBER && !user.isPlatformAdmin && !memberMutationAllowed) {
+      throw new ApiException({
+        code: ErrorCode.FORBIDDEN,
+        status: 403,
+        message: "This action requires a workspace administrator",
+      });
+    }
     return true;
   }
 }

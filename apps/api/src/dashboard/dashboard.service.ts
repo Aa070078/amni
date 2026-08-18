@@ -213,7 +213,7 @@ function buildCashKpi(payments: ErpPaymentRaw[], months: MonthPoint[]): Dashboar
     delta,
     deltaLabel: "vs last month",
     trend: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
-    hint: `${entries} payment entries`,
+    hint: `${entries} ${entries === 1 ? "payment entry" : "payment entries"}`,
     sparkline,
   };
 }

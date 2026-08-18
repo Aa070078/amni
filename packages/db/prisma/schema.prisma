@@ -14,21 +14,23 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model User {
-  id               String             @id @default(uuid()) @db.Uuid
-  email            String             @unique @db.VarChar(254)
-  passwordHash     String             @db.VarChar(255)
-  firstName        String             @db.VarChar(80)
-  lastName         String?            @db.VarChar(80)
-  status           UserStatus         @default(ACTIVE)
-  isEmailVerified  Boolean            @default(false)
-  emailVerifiedAt  DateTime?          @db.Timestamptz(3)
-  isPlatformAdmin  Boolean            @default(false)
-  failedLoginCount Int                @default(0)
-  lockedUntil      DateTime?          @db.Timestamptz(3)
-  lastLoginAt      DateTime?          @db.Timestamptz(3)
+  id               String     @id @default(uuid()) @db.Uuid
+  email            String     @unique @db.VarChar(254)
+  passwordHash     String     @db.VarChar(255)
+  firstName        String     @db.VarChar(80)
+  lastName         String?    @db.VarChar(80)
+  avatarUrl        String?    @db.VarChar(500)
+  jobTitle         String?    @db.VarChar(120)
+  status           UserStatus @default(ACTIVE)
+  isEmailVerified  Boolean    @default(false)
+  emailVerifiedAt  DateTime?  @db.Timestamptz(3)
+  isPlatformAdmin  Boolean    @default(false)
+  failedLoginCount Int        @default(0)
+  lockedUntil      DateTime?  @db.Timestamptz(3)
+  lastLoginAt      DateTime?  @db.Timestamptz(3)
   locale           Json?
-  createdAt        DateTime           @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime           @updatedAt @db.Timestamptz(3)
+  createdAt        DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @db.Timestamptz(3)
 
   memberships        Membership[]
   sessions           Session[]
@@ -38,23 +40,37 @@ model User {
   auditLogs          AuditLog[]
   notifications      Notification[]
   provisionedJobs    ProvisioningJob[]
-  invitedBy          Invitation[]     @relation("InvitationCreatedBy")
+  invitedBy          Invitation[]        @relation("InvitationCreatedBy")
   importsInitiated   DataImportJob[]
-  importsCompletedBy DataImportJob[]  @relation("DataImportCompletedBy")
+  importsCompletedBy DataImportJob[]     @relation("DataImportCompletedBy")
+  onboardingDraft    OnboardingDraft?
 
   @@map("users")
 }
 
+model OnboardingDraft {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @unique @db.Uuid
+  data        Json
+  submittedAt DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("onboarding_drafts")
+}
+
 model Session {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @db.Uuid
-  refreshTokenHash String   @db.VarChar(255)
-  userAgent        String?  @db.VarChar(500)
-  ip               String?  @db.VarChar(64)
-  expiresAt        DateTime @db.Timestamptz(3)
-  lastUsedAt       DateTime @default(now()) @db.Timestamptz(3)
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @db.VarChar(255)
+  userAgent        String?   @db.VarChar(500)
+  ip               String?   @db.VarChar(64)
+  expiresAt        DateTime  @db.Timestamptz(3)
+  lastUsedAt       DateTime  @default(now()) @db.Timestamptz(3)
   revokedAt        DateTime? @db.Timestamptz(3)
-  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -92,15 +108,15 @@ model PasswordReset {
 }
 
 model ApiKey {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String?   @db.Uuid
-  name        String    @db.VarChar(120)
-  keyHash     String    @unique @db.VarChar(255)
-  scopes      String[]  @default([])
-  lastUsedAt  DateTime? @db.Timestamptz(3)
-  expiresAt   DateTime? @db.Timestamptz(3)
-  revokedAt   DateTime? @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String?   @db.Uuid
+  name       String    @db.VarChar(120)
+  keyHash    String    @unique @db.VarChar(255)
+  scopes     String[]  @default([])
+  lastUsedAt DateTime? @db.Timestamptz(3)
+  expiresAt  DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -109,17 +125,21 @@ model ApiKey {
 }
 
 model Company {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @db.VarChar(120)
-  legalName   String?   @db.VarChar(200)
-  slug        String    @unique @db.VarChar(120)
-  industry    String?   @db.VarChar(80)
-  country     String?   @db.VarChar(3)
-  taxId       String?   @db.VarChar(40)
-  address     String?   @db.VarChar(300)
-  status      CompanyStatus @default(ONBOARDING)
-  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  id              String        @id @default(uuid()) @db.Uuid
+  name            String        @db.VarChar(120)
+  legalName       String?       @db.VarChar(200)
+  slug            String        @unique @db.VarChar(120)
+  industry        String?       @db.VarChar(80)
+  country         String?       @db.VarChar(3)
+  taxId           String?       @db.VarChar(40)
+  address         String?       @db.VarChar(300)
+  email           String?       @db.VarChar(254)
+  phone           String?       @db.VarChar(40)
+  website         String?       @db.VarChar(200)
+  fiscalYearStart String?       @db.VarChar(10)
+  status          CompanyStatus @default(ONBOARDING)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
 
   memberships   Membership[]
   tenant        Tenant?
@@ -147,20 +167,20 @@ model Membership {
 }
 
 model Tenant {
-  id            String           @id @default(uuid()) @db.Uuid
-  companyId     String           @unique @db.Uuid
-  siteName      String           @unique @db.VarChar(63)
-  siteUrl       String           @db.VarChar(255)
-  status        TenantStatus     @default(CREATING)
-  planTier      PlanTier         @default(TRIAL)
-  erpnextVersion String          @default("16.30.0") @db.VarChar(32)
-  hrmsInstalled Boolean          @default(false) @map("hrms_installed")
-  locale        Json
-  region        String           @default("us") @db.VarChar(16)
-  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime         @updatedAt @db.Timestamptz(3)
+  id             String       @id @default(uuid()) @db.Uuid
+  companyId      String       @unique @db.Uuid
+  siteName       String       @unique @db.VarChar(63)
+  siteUrl        String       @db.VarChar(255)
+  status         TenantStatus @default(CREATING)
+  planTier       PlanTier     @default(TRIAL)
+  erpnextVersion String       @default("16.30.0") @db.VarChar(32)
+  hrmsInstalled  Boolean      @default(false) @map("hrms_installed")
+  locale         Json
+  region         String       @default("us") @db.VarChar(16)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(3)
 
-  company          Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   erpInstance      ERPInstance?
   provisioningJobs ProvisioningJob[]
   dataImports      DataImportJob[]
@@ -170,16 +190,16 @@ model Tenant {
 }
 
 model ERPInstance {
-  id               String        @id @default(uuid()) @db.Uuid
-  tenantId         String        @unique @db.Uuid
-  host             String        @db.VarChar(255)
-  cluster          String        @default("default") @db.VarChar(64)
-  capacityGroup    String        @default("shared") @db.VarChar(64)
-  health           TenantHealth  @default(UNKNOWN)
+  id                String       @id @default(uuid()) @db.Uuid
+  tenantId          String       @unique @db.Uuid
+  host              String       @db.VarChar(255)
+  cluster           String       @default("default") @db.VarChar(64)
+  capacityGroup     String       @default("shared") @db.VarChar(64)
+  health            TenantHealth @default(UNKNOWN)
   lastHealthCheckAt DateTime?    @db.Timestamptz(3)
-  serviceKeyCipher String?       @db.Text
-  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+  serviceKeyCipher  String?      @db.Text
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -188,16 +208,16 @@ model ERPInstance {
 }
 
 model Plan {
-  id          String   @id @default(uuid()) @db.Uuid
-  code        String   @unique @db.VarChar(40)
-  name        String   @db.VarChar(120)
-  tier        PlanTier @unique
-  price       Decimal  @default(0) @db.Decimal(12, 2)
-  limits      Json     @default("{}")
-  features    Json     @default("{}")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(40)
+  name      String   @db.VarChar(120)
+  tier      PlanTier @unique
+  price     Decimal  @default(0) @db.Decimal(12, 2)
+  limits    Json     @default("{}")
+  features  Json     @default("{}")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   subscriptions Subscription[]
 
@@ -205,16 +225,16 @@ model Plan {
 }
 
 model Subscription {
-  id          String           @id @default(uuid()) @db.Uuid
-  companyId   String           @db.Uuid
-  planId      String           @db.Uuid
+  id          String             @id @default(uuid()) @db.Uuid
+  companyId   String             @db.Uuid
+  planId      String             @db.Uuid
   status      SubscriptionStatus @default(TRIAL)
-  startsAt    DateTime         @default(now()) @db.Timestamptz(3)
-  trialEndsAt DateTime?        @db.Timestamptz(3)
-  endsAt      DateTime?        @db.Timestamptz(3)
-  cancelledAt DateTime?        @db.Timestamptz(3)
-  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime         @updatedAt @db.Timestamptz(3)
+  startsAt    DateTime           @default(now()) @db.Timestamptz(3)
+  trialEndsAt DateTime?          @db.Timestamptz(3)
+  endsAt      DateTime?          @db.Timestamptz(3)
+  cancelledAt DateTime?          @db.Timestamptz(3)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   plan    Plan    @relation(fields: [planId], references: [id])
@@ -225,25 +245,25 @@ model Subscription {
 }
 
 model ProvisioningJob {
-  id               String    @id @default(uuid()) @db.Uuid
-  tenantId         String    @db.Uuid
-  type             ProvisioningJobType @default(PROVISION)
-  state            ProvisioningJobState @default(CREATED)
-  attempts         Int       @default(0)
-  maxAttempts      Int       @default(5)
-  steps            Json      @default("[]")
-  logs             Json      @default("[]")
-  lastError        String?   @db.Text
-  runAt            DateTime? @db.Timestamptz(3)
-  startedAt        DateTime? @db.Timestamptz(3)
-  finishedAt       DateTime? @db.Timestamptz(3)
-  createdBy        String?   @db.Uuid
-  idempotencyKey   String    @unique
-  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  id             String               @id @default(uuid()) @db.Uuid
+  tenantId       String               @db.Uuid
+  type           ProvisioningJobType  @default(PROVISION)
+  state          ProvisioningJobState @default(CREATED)
+  attempts       Int                  @default(0)
+  maxAttempts    Int                  @default(5)
+  steps          Json                 @default("[]")
+  logs           Json                 @default("[]")
+  lastError      String?              @db.Text
+  runAt          DateTime?            @db.Timestamptz(3)
+  startedAt      DateTime?            @db.Timestamptz(3)
+  finishedAt     DateTime?            @db.Timestamptz(3)
+  createdBy      String?              @db.Uuid
+  idempotencyKey String               @unique
+  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  creator   User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator User?  @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([tenantId, state])
   @@index([state])
@@ -251,15 +271,15 @@ model ProvisioningJob {
 }
 
 model Invitation {
-  id          String         @id @default(uuid()) @db.Uuid
-  companyId   String         @db.Uuid
-  email       String         @db.VarChar(254)
-  platformRole PlatformRole  @default(MEMBER)
-  tokenHash   String         @unique @db.VarChar(255)
-  expiresAt   DateTime       @db.Timestamptz(3)
-  usedAt      DateTime?      @db.Timestamptz(3)
-  invitedById String         @db.Uuid
-  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  id           String       @id @default(uuid()) @db.Uuid
+  companyId    String       @db.Uuid
+  email        String       @db.VarChar(254)
+  platformRole PlatformRole @default(MEMBER)
+  tokenHash    String       @unique @db.VarChar(255)
+  expiresAt    DateTime     @db.Timestamptz(3)
+  usedAt       DateTime?    @db.Timestamptz(3)
+  invitedById  String       @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   inviter User    @relation("InvitationCreatedBy", fields: [invitedById], references: [id], onDelete: Cascade)
@@ -270,17 +290,17 @@ model Invitation {
 }
 
 model AuditLog {
-  id           String    @id @default(uuid()) @db.Uuid
-  actorId      String?   @db.Uuid
-  actorEmail   String?   @db.VarChar(254)
-  companyId    String?   @db.Uuid
-  action       String    @db.VarChar(120)
-  resourceType String    @db.VarChar(120)
-  resourceId   String?   @db.VarChar(255)
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String?  @db.Uuid
+  actorEmail   String?  @db.VarChar(254)
+  companyId    String?  @db.Uuid
+  action       String   @db.VarChar(120)
+  resourceType String   @db.VarChar(120)
+  resourceId   String?  @db.VarChar(255)
   metadata     Json?
-  ip           String?   @db.VarChar(64)
-  requestId    String?   @db.VarChar(64)
-  at           DateTime  @default(now()) @db.Timestamptz(3)
+  ip           String?  @db.VarChar(64)
+  requestId    String?  @db.VarChar(64)
+  at           DateTime @default(now()) @db.Timestamptz(3)
 
   actor   User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -292,25 +312,25 @@ model AuditLog {
 }
 
 model DataImportJob {
-  id           String           @id @default(uuid()) @db.Uuid
-  tenantId     String           @db.Uuid
-  companyId    String           @db.Uuid
-  kind         String           @db.VarChar(40)
-  stage        ImportStage      @default(PRE_IMPORT)
-  fileMetadata Json?
-  mapping      Json?
-  validation   Json?
-  summary      Json?
-  errorRowsUrl String?          @db.VarChar(512)
-  initiatedById String          @db.Uuid
-  completedById String?         @db.Uuid
-  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+  id            String      @id @default(uuid()) @db.Uuid
+  tenantId      String      @db.Uuid
+  companyId     String      @db.Uuid
+  kind          String      @db.VarChar(40)
+  stage         ImportStage @default(PRE_IMPORT)
+  fileMetadata  Json?
+  mapping       Json?
+  validation    Json?
+  summary       Json?
+  errorRowsUrl  String?     @db.VarChar(512)
+  initiatedById String      @db.Uuid
+  completedById String?     @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
 
-  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  initiatedBy User   @relation(fields: [initiatedById], references: [id], onDelete: Cascade)
-  completedBy User?  @relation("DataImportCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  initiatedBy User    @relation(fields: [initiatedById], references: [id], onDelete: Cascade)
+  completedBy User?   @relation("DataImportCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, stage])
   @@index([companyId, createdAt])

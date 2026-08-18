@@ -11,7 +11,7 @@ export default async function EsgMetricDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <EsgMetricDetailView code={code} />
+      <EsgMetricDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

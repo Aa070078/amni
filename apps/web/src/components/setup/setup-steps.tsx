@@ -57,12 +57,15 @@ function Field({
 }: {
   label: string;
   hint?: string;
-  children: React.ReactNode;
+  children: React.ReactElement<{ id?: string }>;
 }) {
+  const generatedId = React.useId();
+  const controlId = children.props.id ?? generatedId;
+
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      {children}
+      <Label htmlFor={controlId}>{label}</Label>
+      {React.cloneElement(children, { id: controlId })}
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
