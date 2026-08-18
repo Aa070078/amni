@@ -44,6 +44,8 @@ For **every** ERP data path and tenant-scoped API:
 
 Isolation regressions are release-blocking.
 
+CRM persistence adds a dedicated two-site repository isolation suite that exercises the real HTTP client, custom list method, per-site service credentials, and cross-tenant 404 behavior. A real-bench release check must also migrate the Amni Bridge DocType, create/list a record through Frappe REST, restart the backend, and verify the payload remains unchanged.
+
 ## 6. Critical workflows (E2E)
 
 The core proof the platform works (Playwright):

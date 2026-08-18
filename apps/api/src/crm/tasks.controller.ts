@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { z } from "zod";
@@ -21,7 +22,8 @@ import {
   type CrmTaskListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmTasksService } from "./tasks.service";
@@ -32,42 +34,42 @@ export class CrmTasksController {
   constructor(private readonly tasks: CrmTasksService) {}
 
   @Get("board")
-  board(@Query() query: unknown): CrmTaskBoard {
+  board(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<CrmTaskBoard> {
     const parsed = crmTaskListQuerySchema.parse(query);
-    return this.tasks.board({ q: parsed.q });
+    return this.tasks.board(userFrom(req), metaFrom(req), { q: parsed.q });
   }
 
   @Get()
-  list(@Query() query: unknown): CrmTaskListResponse {
-    return this.tasks.list(crmTaskListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<CrmTaskListResponse> {
+    return this.tasks.list(userFrom(req), metaFrom(req), crmTaskListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): CrmTask {
-    return this.tasks.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<CrmTask> {
+    return this.tasks.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): CrmTask {
-    return this.tasks.create(createCrmTaskInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<CrmTask> {
+    return this.tasks.create(userFrom(req), metaFrom(req), createCrmTaskInputSchema.parse(body));
   }
 
   @Patch(":code/status")
-  setStatus(@Param("code") code: string, @Body() body: unknown): CrmTask {
+  setStatus(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<CrmTask> {
     const parsed = setStatusInputSchema.parse(body);
-    return this.tasks.setStatus(code, parsed.status);
+    return this.tasks.setStatus(userFrom(req), metaFrom(req), code, parsed.status);
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): CrmTask {
-    return this.tasks.update(code, updateCrmTaskInputSchema.parse(body));
+  update(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<CrmTask> {
+    return this.tasks.update(userFrom(req), metaFrom(req), code, updateCrmTaskInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.tasks.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.tasks.remove(userFrom(req), metaFrom(req), code);
   }
 }
 

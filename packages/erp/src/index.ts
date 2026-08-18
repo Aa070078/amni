@@ -1,5 +1,14 @@
 export { ErpClient } from "./client.js";
 export {
+  AMNI_CRM_RECORD_DOCTYPE,
+  buildCrmRecordDocument,
+  listCrmRecords,
+  parseCrmRecordDocument,
+  type CrmRecordIndexes,
+  type ErpCrmRecordDocument,
+  type ListCrmRecordsOptions,
+} from "./crm.js";
+export {
   decryptServiceSecret,
   encryptServiceSecret,
   getEncryptionKey,

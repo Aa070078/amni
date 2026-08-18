@@ -107,6 +107,8 @@ Key rules:
 - `Membership`: userId + companyId + platformRole. **Tenant resolution is always server-side from Membership; never from client input.**
 - Secrets: `ERPInstance.serviceKeyCipher` (encrypted service-account api_key:api_secret) — decrypted only inside the ERP client.
 
+Tenant CRM records that do not map cleanly to an ERPNext core DocType use the supported `amni_bridge` extension app's `Amni CRM Record` DocType. Indexed columns provide bounded filtering and ordering while a JSON payload preserves the shared API contract. These records live in the tenant's MariaDB site—not Postgres—and are accessed only through `packages/erp` and the membership-resolved gateway.
+
 ---
 
 ## 5. Multi-tenancy model

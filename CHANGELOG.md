@@ -5,6 +5,7 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 ## [Unreleased]
 
 ### Added (dev)
+- **M10-001 durable tenant CRM persistence** — replaces all process-local CRM stores with the tenant-local `Amni CRM Record` DocType in the supported Amni Bridge app. Organizations, contacts, tasks, notes, activities, events, calls, templates, WhatsApp history, notifications, saved views, and settings now use membership-resolved ERP access with audited mutations, bounded indexed queries, refreshed tests, and two-tenant isolation coverage. Existing ERP sites migrate during bootstrap; the pinned real bench retained a CRM payload across a backend restart; the development fixture now includes representative CRM data.
 - **M7-001 SaaS admin demo (PR #63)** — first half of M7 (demo seed + tenant provisioning, fixing the post-M5 dashboard 409s where the old `seed-demo-user.ts` seeded both demo users in one company with no `Tenant`/`ERPInstance`):
   - `apps/api/scripts/seed-saas-admin.ts`: idempotently upserts `owner@amni.com` as a **pure SaaS platform admin** (`isPlatformAdmin: true`, ACTIVE, verified email, **no** company membership — clears any existing memberships) → lands on the `/admin` console.
   - Post-login redirect: `apps/web/app/login/{login-form,quick-login}.tsx` route platform admins to `/admin` (all other users keep `next`, default `/dashboard`) using `isPlatformAdmin` from the login response.

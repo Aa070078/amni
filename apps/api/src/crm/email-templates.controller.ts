@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -19,7 +20,8 @@ import {
   type CrmEmailTemplatePreview,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmEmailTemplatesService } from "./email-templates.service";
@@ -30,35 +32,35 @@ export class CrmEmailTemplatesController {
   constructor(private readonly emailTemplates: CrmEmailTemplatesService) {}
 
   @Get()
-  list(): CrmEmailTemplateListResponse {
-    return this.emailTemplates.list();
+  list(@Req() req: AuthenticatedRequest): Promise<CrmEmailTemplateListResponse> {
+    return this.emailTemplates.list(userFrom(req), metaFrom(req));
   }
 
   @Post("preview")
   @HttpCode(HttpStatus.OK)
-  preview(@Body() body: unknown): CrmEmailTemplatePreview {
-    return this.emailTemplates.preview(crmEmailTemplatePreviewInputSchema.parse(body));
+  preview(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<CrmEmailTemplatePreview> {
+    return this.emailTemplates.preview(userFrom(req), metaFrom(req), crmEmailTemplatePreviewInputSchema.parse(body));
   }
 
   @Get(":id")
-  detail(@Param("id") id: string): CrmEmailTemplate {
-    return this.emailTemplates.detail(id);
+  detail(@Req() req: AuthenticatedRequest, @Param("id") id: string): Promise<CrmEmailTemplate> {
+    return this.emailTemplates.detail(userFrom(req), metaFrom(req), id);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): CrmEmailTemplate {
-    return this.emailTemplates.create(createCrmEmailTemplateInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<CrmEmailTemplate> {
+    return this.emailTemplates.create(userFrom(req), metaFrom(req), createCrmEmailTemplateInputSchema.parse(body));
   }
 
   @Patch(":id")
-  update(@Param("id") id: string, @Body() body: unknown): CrmEmailTemplate {
-    return this.emailTemplates.update(id, updateCrmEmailTemplateInputSchema.parse(body));
+  update(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() body: unknown): Promise<CrmEmailTemplate> {
+    return this.emailTemplates.update(userFrom(req), metaFrom(req), id, updateCrmEmailTemplateInputSchema.parse(body));
   }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("id") id: string): void {
-    this.emailTemplates.remove(id);
+  remove(@Req() req: AuthenticatedRequest, @Param("id") id: string): Promise<void> {
+    return this.emailTemplates.remove(userFrom(req), metaFrom(req), id);
   }
 }

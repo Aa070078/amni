@@ -82,7 +82,7 @@ The API package includes a small authenticated, in-memory Frappe stand-in for lo
 pnpm --filter @amni/api demo:erp
 ```
 
-It listens on `127.0.0.1:8080` by default and uses the same development credentials as `seed-demo-company.ts`. It contains representative dashboard, sales, customer, warehouse, item, and stock records. This process is **development-only**: it does not implement Frappe permissions, workflows, validation, provisioning, or persistence and must never be used as production evidence or deployed with Amni.
+It listens on `127.0.0.1:8080` by default and uses the same development credentials as `seed-demo-company.ts`. It contains representative dashboard, sales, CRM, customer, warehouse, item, and stock records. This process is **development-only**: it does not implement Frappe permissions, workflows, validation, provisioning, or persistence and must never be used as production evidence or deployed with Amni.
 
 ### 5.1 HRMS (Frappe HR + Amni SSO)
 

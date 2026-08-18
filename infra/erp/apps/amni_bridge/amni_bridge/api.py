@@ -23,6 +23,97 @@ INTEGRATION_ROLES = (
     "Stock Manager",
 )
 
+CRM_RECORD_FIELDS = (
+    "name",
+    "record_type",
+    "record_code",
+    "title",
+    "email",
+    "status",
+    "category",
+    "state_group",
+    "assigned_to",
+    "reference_type",
+    "reference_code",
+    "event_at",
+    "numeric_value",
+    "payload",
+    "creation",
+    "modified",
+)
+
+CRM_FILTER_FIELDS = {
+    "status",
+    "category",
+    "state_group",
+    "assigned_to",
+    "reference_type",
+    "reference_code",
+    "email",
+}
+
+CRM_ORDER_FIELDS = {
+    "record_code",
+    "title",
+    "email",
+    "status",
+    "category",
+    "assigned_to",
+    "event_at",
+    "numeric_value",
+    "creation",
+    "modified",
+}
+
+
+@frappe.whitelist()
+def list_crm_records(
+    record_type: str,
+    filters: dict | str | None = None,
+    q: str | None = None,
+    order_by: str = "modified desc",
+    start: int = 0,
+    page_length: int = 20,
+) -> dict:
+    """Return one bounded page of tenant-local CRM records plus an exact count."""
+    normalized_type = (record_type or "").strip()
+    if not normalized_type:
+        frappe.throw(_("CRM record type is required."))
+
+    parsed_filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+    if not isinstance(parsed_filters, dict):
+        frappe.throw(_("CRM filters must be an object."))
+
+    db_filters: list = [["record_type", "=", normalized_type]]
+    for field, value in parsed_filters.items():
+        if field not in CRM_FILTER_FIELDS:
+            frappe.throw(_("Unsupported CRM filter: {0}").format(field))
+        if value is not None and value != "":
+            db_filters.append([field, "=", value])
+
+    term = (q or "").strip()
+    if term:
+        db_filters.append(["search_text", "like", f"%{term[:120]}%"])
+
+    parts = (order_by or "modified desc").strip().split()
+    order_field = parts[0] if parts else "modified"
+    order_direction = parts[1].lower() if len(parts) > 1 else "desc"
+    if order_field not in CRM_ORDER_FIELDS or order_direction not in {"asc", "desc"}:
+        frappe.throw(_("Unsupported CRM ordering."))
+
+    bounded_start = max(0, int(start or 0))
+    bounded_length = min(100, max(1, int(page_length or 20)))
+    items = frappe.get_all(
+        "Amni CRM Record",
+        filters=db_filters,
+        fields=list(CRM_RECORD_FIELDS),
+        order_by=f"{order_field} {order_direction}",
+        start=bounded_start,
+        page_length=bounded_length,
+    )
+    total = frappe.db.count("Amni CRM Record", filters=db_filters)
+    return {"items": items, "total": total}
+
 # ---------------------------------------------------------------------------
 # Amni HRMS SSO bridge.
 #
