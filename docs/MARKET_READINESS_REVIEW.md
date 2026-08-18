@@ -35,12 +35,14 @@ Amni's control plane, application shell, onboarding flow, and ERP-backed modules
 - Accounting and invoicing now use native tenant ERP records: `Account`, `Journal Entry`, `GL Entry`, return `Sales Invoice`, and `Auto Repeat`. A bounded Amni Bridge query supplies account balances without copying ledger data into Postgres.
 - The restricted provisioning account now includes ERPNext's Item, Sales Master, and Purchase Master manager roles in addition to the operational roles. A live token created master data and every finance fixture, survived a backend restart, read each record back, and removed the fixtures successfully.
 - Sales Invoice Auto Repeat is enabled idempotently through Frappe's supported Property Setter mechanism on every site migration. The real-bench gate caught and verified this configuration rather than relying on the in-process mock.
+- Equity, ESG, and Sign records now use a dedicated tenant-local `Amni Domain Record` DocType rather than API-process arrays. Namespaced keys prevent cross-domain collisions, all controllers route through membership-resolved ERP credentials, and mutations produce platform audit entries.
+- A two-site HTTP isolation suite proves tenant A cannot list, retrieve, or mutate tenant B's records. The pinned real bench created all three domain types, queried through the bounded permission-checked method, restarted the backend, read every record back, and cleaned up.
 
 ## Launch blockers
 
-### P0 — several product domains still use process-local demo stores
+### P0 — remaining settings and expense metadata use process-local demo stores
 
-CRM, accounting, and invoicing are now durable and tenant-local. Equity, ESG, and signing still keep representative data in process memory rather than tenant ERPNext. That data resets on restart and is not a safe multi-tenant system of record. Replace each remaining store, add cross-tenant tests, and remove demo-only product claims before a paid launch.
+CRM, accounting, invoicing, Equity, ESG, and signing are now durable and tenant-local. Settings still keeps team, billing presentation, and integration connection state in API memory, while expense categories remain process-local. Replace those stores or disable unsupported mutations before a paid launch. Signing currently tracks workflow and audit state; it must not be marketed as a legally binding external e-signature service until a qualified provider and evidence package are integrated.
 
 ### P1 — specialist business roles are not implemented
 

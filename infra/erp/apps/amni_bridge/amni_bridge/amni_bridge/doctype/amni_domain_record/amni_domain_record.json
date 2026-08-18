@@ -1,0 +1,48 @@
+{
+  "actions": [],
+  "allow_rename": 0,
+  "autoname": "field:record_key",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "record_key",
+    "domain",
+    "record_type",
+    "record_code",
+    "title",
+    "status",
+    "category",
+    "reference_code",
+    "event_at",
+    "numeric_value",
+    "search_text",
+    "payload"
+  ],
+  "fields": [
+    { "fieldname": "record_key", "fieldtype": "Data", "label": "Record Key", "reqd": 1, "unique": 1, "search_index": 1 },
+    { "fieldname": "domain", "fieldtype": "Data", "in_list_view": 1, "label": "Domain", "reqd": 1, "search_index": 1 },
+    { "fieldname": "record_type", "fieldtype": "Data", "in_list_view": 1, "label": "Record Type", "reqd": 1, "search_index": 1 },
+    { "fieldname": "record_code", "fieldtype": "Data", "in_list_view": 1, "label": "Record Code", "reqd": 1, "search_index": 1 },
+    { "fieldname": "title", "fieldtype": "Data", "in_list_view": 1, "label": "Title", "search_index": 1 },
+    { "fieldname": "status", "fieldtype": "Data", "in_list_view": 1, "label": "Status", "search_index": 1 },
+    { "fieldname": "category", "fieldtype": "Data", "label": "Category", "search_index": 1 },
+    { "fieldname": "reference_code", "fieldtype": "Data", "label": "Reference Code", "search_index": 1 },
+    { "fieldname": "event_at", "fieldtype": "Datetime", "label": "Event At" },
+    { "fieldname": "numeric_value", "fieldtype": "Currency", "label": "Numeric Value" },
+    { "fieldname": "search_text", "fieldtype": "Small Text", "label": "Search Text" },
+    { "fieldname": "payload", "fieldtype": "Code", "label": "Payload", "options": "JSON", "reqd": 1 }
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "module": "Amni Bridge",
+  "name": "Amni Domain Record",
+  "naming_rule": "By fieldname",
+  "permissions": [
+    { "create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "Accounts Manager", "share": 1, "write": 1 },
+    { "read": 1, "report": 1, "role": "Accounts User" }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 1
+}

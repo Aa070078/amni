@@ -24,6 +24,15 @@ export {
   type ListCrmRecordsOptions,
 } from "./crm.js";
 export {
+  AMNI_DOMAIN_RECORD_DOCTYPE,
+  buildDomainRecordDocument,
+  domainRecordKey,
+  listDomainRecords,
+  parseDomainRecordDocument,
+  type DomainRecordIndexes,
+  type ListDomainRecordsOptions,
+} from "./domain-record.js";
+export {
   decryptServiceSecret,
   encryptServiceSecret,
   getEncryptionKey,

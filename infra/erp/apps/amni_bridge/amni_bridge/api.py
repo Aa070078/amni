@@ -69,6 +69,36 @@ CRM_ORDER_FIELDS = {
     "modified",
 }
 
+DOMAIN_RECORD_FIELDS = (
+    "name",
+    "record_key",
+    "domain",
+    "record_type",
+    "record_code",
+    "title",
+    "status",
+    "category",
+    "reference_code",
+    "event_at",
+    "numeric_value",
+    "payload",
+    "creation",
+    "modified",
+)
+
+DOMAIN_FILTER_FIELDS = {"status", "category", "reference_code"}
+DOMAIN_ORDER_FIELDS = {
+    "record_code",
+    "title",
+    "status",
+    "category",
+    "reference_code",
+    "event_at",
+    "numeric_value",
+    "creation",
+    "modified",
+}
+
 
 @frappe.whitelist()
 def list_crm_records(
@@ -119,6 +149,60 @@ def list_crm_records(
         page_length=bounded_length,
     )
     total = frappe.db.count("Amni CRM Record", filters=db_filters)
+    return {"items": items, "total": total}
+
+
+@frappe.whitelist()
+def list_domain_records(
+    domain: str,
+    record_type: str,
+    filters: dict | str | None = None,
+    q: str | None = None,
+    order_by: str = "modified desc",
+    start: int = 0,
+    page_length: int = 20,
+) -> dict:
+    """Return one bounded page of tenant-local non-core domain records."""
+    if not frappe.has_permission("Amni Domain Record", ptype="read"):
+        frappe.throw(_("Not permitted to read domain records."), frappe.PermissionError)
+
+    normalized_domain = (domain or "").strip()
+    normalized_type = (record_type or "").strip()
+    if not normalized_domain or not normalized_type:
+        frappe.throw(_("Domain and record type are required."))
+
+    parsed_filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+    if not isinstance(parsed_filters, dict):
+        frappe.throw(_("Domain record filters must be an object."))
+
+    db_filters: list = [["domain", "=", normalized_domain], ["record_type", "=", normalized_type]]
+    for field, value in parsed_filters.items():
+        if field not in DOMAIN_FILTER_FIELDS:
+            frappe.throw(_("Unsupported domain record filter: {0}").format(field))
+        if value is not None and value != "":
+            db_filters.append([field, "=", value])
+
+    term = (q or "").strip()
+    if term:
+        db_filters.append(["search_text", "like", f"%{term[:120]}%"])
+
+    parts = (order_by or "modified desc").strip().split()
+    order_field = parts[0] if parts else "modified"
+    order_direction = parts[1].lower() if len(parts) > 1 else "desc"
+    if order_field not in DOMAIN_ORDER_FIELDS or order_direction not in {"asc", "desc"}:
+        frappe.throw(_("Unsupported domain record ordering."))
+
+    bounded_start = max(0, int(start or 0))
+    bounded_length = min(100, max(1, int(page_length or 20)))
+    items = frappe.get_all(
+        "Amni Domain Record",
+        filters=db_filters,
+        fields=list(DOMAIN_RECORD_FIELDS),
+        order_by=f"{order_field} {order_direction}",
+        start=bounded_start,
+        page_length=bounded_length,
+    )
+    total = frappe.db.count("Amni Domain Record", filters=db_filters)
     return {"items": items, "total": total}
 
 

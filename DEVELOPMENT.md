@@ -74,6 +74,7 @@ powershell -File infra/erp/scripts/bootstrap.ps1
 - Verify manually at `http://localhost:8080/api/method/ping`; local-only login is `Administrator` / `admin`.
 - The worker reaches `frappe-backend-1` and provisions tenant sites with `erpnext,hrms,amni_bridge` by default.
 - Verify the native accounting and invoicing configuration, including restart durability, with `powershell -File infra/erp/scripts/smoke-accounting-invoicing.ps1 -RestartBackend`. For the production-equivalent permission gate, pass API credentials created by `amni_bridge.api.provision_service_account` through `-ApiKey` and `-ApiSecret`; never commit or print those credentials.
+- Verify tenant-local Equity, ESG, and Sign persistence plus bounded queries and restart durability with `powershell -File infra/erp/scripts/smoke-domain-persistence.ps1 -RestartBackend`. Pass a provisioned service account through `-ApiKey` and `-ApiSecret` for the restricted-permission gate.
 
 ### 5.0.1 Development stand-in when a bench is unavailable
 

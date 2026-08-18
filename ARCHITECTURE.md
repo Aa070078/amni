@@ -109,6 +109,8 @@ Key rules:
 
 Tenant CRM records that do not map cleanly to an ERPNext core DocType use the supported `amni_bridge` extension app's `Amni CRM Record` DocType. Indexed columns provide bounded filtering and ordering while a JSON payload preserves the shared API contract. These records live in the tenant's MariaDB site—not Postgres—and are accessed only through `packages/erp` and the membership-resolved gateway.
 
+Equity, ESG, and Sign workflow records use the same supported-extension pattern through `Amni Domain Record`. The document name is a globally unique `domain:record_type:record_code` key, queryable fields are indexed separately from the JSON contract payload, and list access is capped at 100 rows per ERP request. The platform DB never stores these tenant business records.
+
 ---
 
 ## 5. Multi-tenancy model

@@ -15,6 +15,7 @@ export interface MockFrappeServer {
 
 const RESOURCE_PREFIX = "/api/v1/resource/";
 const CRM_LIST_PATH = "/api/v1/method/amni_bridge.api.list_crm_records";
+const DOMAIN_LIST_PATH = "/api/v1/method/amni_bridge.api.list_domain_records";
 const ACCOUNT_BALANCES_PATH = "/api/v1/method/amni_bridge.api.get_account_balances";
 
 /**
@@ -59,6 +60,20 @@ export async function startMockFrappeServer(options: {
       const pageLength = Math.min(100, Math.max(1, Number(body.page_length ?? 20)));
       const items = [...docs.values()].filter((doc) => doc.doctype === "Amni CRM Record")
         .filter((doc) => String(doc.record_type) === String(body.record_type))
+        .filter((doc) => Object.entries(filters).every(([field, value]) => value == null || value === "" || String(doc[field] ?? "") === String(value)))
+        .filter((doc) => !term || String(doc.search_text ?? "").toLowerCase().includes(term));
+      sendJson(res, 200, { message: { items: items.slice(start, start + pageLength), total: items.length } });
+      return;
+    }
+
+    if (url.pathname === DOMAIN_LIST_PATH && req.method === "POST") {
+      const body = (await readJson(req)) ?? {};
+      const filters = body.filters && typeof body.filters === "object" ? body.filters as Record<string, unknown> : {};
+      const term = String(body.q ?? "").toLowerCase();
+      const start = Math.max(0, Number(body.start ?? 0));
+      const pageLength = Math.min(100, Math.max(1, Number(body.page_length ?? 20)));
+      const items = [...docs.values()].filter((doc) => doc.doctype === "Amni Domain Record")
+        .filter((doc) => String(doc.domain) === String(body.domain) && String(doc.record_type) === String(body.record_type))
         .filter((doc) => Object.entries(filters).every(([field, value]) => value == null || value === "" || String(doc[field] ?? "") === String(value)))
         .filter((doc) => !term || String(doc.search_text ?? "").toLowerCase().includes(term));
       sendJson(res, 200, { message: { items: items.slice(start, start + pageLength), total: items.length } });
@@ -119,7 +134,8 @@ export async function startMockFrappeServer(options: {
         }
         case "POST": {
           const body = await readJson(req);
-          const docName = String(body?.name ?? (doctype === "Amni CRM Record" ? body?.record_code : undefined) ?? `${doctype}-${nextName++}`);
+          const customName = doctype === "Amni CRM Record" ? body?.record_code : doctype === "Amni Domain Record" ? body?.record_key : undefined;
+          const docName = String(body?.name ?? customName ?? `${doctype}-${nextName++}`);
           const now = new Date();
           const doc: Record<string, unknown> = {
             name: docName,
