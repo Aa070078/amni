@@ -32,9 +32,9 @@ Security is a first-class requirement. This document defines the threat model, c
 
 ## 3. Authorization model
 
-- Platform roles: `Owner`, `Admin`, `Sales`, `Purchasing`, `Inventory`, `Accounts`, `Employee` (mapped per tenant via `Membership`).
-- NestJS guards enforce: authentication, role requirements (`@Roles(...)`), and tenant scope (a `TenantScope` interceptor resolves tenant from membership + validates membership before any scoped handler).
-- ERPNext side: the tenant's **service account** has a scoped role bundle (business roles needed by Amni's flows — not Administrator); per-user desk accounts get the roles from their platform role mapping. Least privilege is a standing requirement; the bundle is reviewed per release.
+- Platform membership roles are `Owner`, `Admin`, and `Member`. Owner/Admin may mutate tenant business data; Member is read-only except for explicitly allow-listed self-service actions (profile, password, notifications). Specialized Sales, Purchasing, Inventory, Accounts, and Employee bundles remain a post-MVP capability and must not be presented as enforced until the platform schema supports them.
+- The authentication guard derives membership, company, and product role from the server-side session on every protected request. Unsafe methods default to Owner/Admin-only; a handler must opt into Member mutation explicitly. ERP gateway calls independently resolve the company again from `Membership` and never accept a client tenant id.
+- ERPNext side: the tenant's **service account** has the Accounts, Purchase, Sales, and Stock User/Manager roles required by Amni workflows — never Administrator or System Manager. Provisioning rotates API credentials, encrypts them with AES-GCM before persistence, and validates the token against the tenant REST API before activation.
 
 ## 4. Tenant isolation
 

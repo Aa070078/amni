@@ -1,6 +1,7 @@
 import type { Logger } from "@nestjs/common";
 import type { Prisma } from "@amni/db";
 import { prisma, type Company, type ProvisioningJob, type Tenant } from "@amni/db";
+import { createErpClientForTenant, encryptServiceSecret, serializeServiceCredentials } from "@amni/erp";
 
 import type { ProvisioningContext, ProvisioningDriver, StepResult } from "./drivers/provisioning-driver";
 
@@ -145,6 +146,14 @@ export async function runProvisioningJob(params: ProvisioningParams): Promise<{ 
       if (!result.ok) {
         throw new Error(result.detail ?? `step ${key} failed`);
       }
+      if (key === "validate" && driver.name === "bench") {
+        const client = await createErpClientForTenant({ tenantId, requestId: `provision:${jobId}` });
+        const loggedUser = await client.call<string>("frappe.auth.get_logged_user");
+        if (loggedUser.toLowerCase() !== ctx.serviceAccountEmail.toLowerCase()) {
+          throw new Error("ERP service credentials authenticated as an unexpected user");
+        }
+        await client.list<{ name: string }>("Company", { fields: ["name"], limitPageLength: 1 });
+      }
       await afterStep(jobId, tenantId, key, result);
       await markStepDone(jobId, key, now);
       logger.log(`provisioning job ${jobId}: step ${key} done`);
@@ -173,13 +182,17 @@ async function afterStep(
     return;
   }
 
-  if (key !== "service_account" || !result.host) return;
+  if (key !== "service_account" || !result.host || !result.serviceCredentials) return;
+
+  const serviceKeyCipher = encryptServiceSecret(
+    serializeServiceCredentials(result.serviceCredentials.apiKey, result.serviceCredentials.apiSecret),
+  );
 
   const existing = await prisma.eRPInstance.findUnique({ where: { tenantId } });
   if (existing) {
     await prisma.eRPInstance.update({
       where: { id: existing.id },
-      data: result.serviceKey ? { host: result.host, serviceKeyCipher: result.serviceKey } : { host: result.host },
+      data: { host: result.host, serviceKeyCipher },
     });
   } else {
     await prisma.eRPInstance.create({
@@ -189,7 +202,7 @@ async function afterStep(
         cluster: "default",
         capacityGroup: "shared",
         health: "UNKNOWN",
-        serviceKeyCipher: result.serviceKey,
+        serviceKeyCipher,
       },
     });
   }
@@ -252,7 +265,7 @@ function buildContext(tenant: Tenant & { company: Company }, _record: Provisioni
     dateFormat: locale.dateFormat ?? "YYYY-MM-DD",
     numberFormat: locale.numberFormat ?? "1,000.00",
     language: locale.language ?? "en",
-    serviceAccountEmail: `amni-integration@${tenant.siteName}`,
+    serviceAccountEmail: `amni-integration+${tenant.siteName}@amni.local`,
   };
 }
 

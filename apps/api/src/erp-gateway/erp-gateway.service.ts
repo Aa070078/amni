@@ -10,6 +10,7 @@ export interface GatewayUser {
   id: string;
   email: string;
   role: string;
+  companyId?: string;
 }
 
 export interface GatewayRequestMeta {

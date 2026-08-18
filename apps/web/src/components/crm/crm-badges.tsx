@@ -26,13 +26,13 @@ export const CRM_REFERENCE_LABELS: Record<CrmReferenceType, string> = {
 export function crmReferenceHref(type: CrmReferenceType, code: string): string {
   switch (type) {
     case "organization":
-      return `/sales/crm/organizations/${encodeURIComponent(code)}`;
+      return `/crm/organizations/${encodeURIComponent(code)}`;
     case "contact":
-      return `/sales/crm/contacts/${encodeURIComponent(code)}`;
+      return `/crm/contacts/${encodeURIComponent(code)}`;
     case "task":
-      return `/sales/crm/tasks/${encodeURIComponent(code)}`;
+      return `/crm/tasks/${encodeURIComponent(code)}`;
     case "note":
-      return `/sales/crm/notes/${encodeURIComponent(code)}`;
+      return `/crm/notes/${encodeURIComponent(code)}`;
     case "deal":
       return `/sales/deals/${encodeURIComponent(code)}`;
     case "lead":

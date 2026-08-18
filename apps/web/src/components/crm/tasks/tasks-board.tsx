@@ -79,7 +79,7 @@ export function TasksBoard({ columns, onMoveStatus }: TasksBoardProps) {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <Link
-                      href={`/sales/crm/tasks/${task.code}`}
+                      href={`/crm/tasks/${task.code}`}
                       className="text-sm font-medium leading-snug text-foreground hover:text-primary hover:underline"
                     >
                       {task.subject}

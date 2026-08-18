@@ -27,4 +27,7 @@ export const provisioningClient = {
   status(): Promise<ProvisioningStatus> {
     return apiRequest<ProvisioningStatus>("/provisioning", "/status");
   },
+  retry(): Promise<{ jobId: string }> {
+    return apiRequest<{ jobId: string }>("/provisioning", "/retry", { method: "POST" });
+  },
 };

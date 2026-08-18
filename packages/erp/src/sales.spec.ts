@@ -104,8 +104,20 @@ describe("sales doc builders", () => {
   });
 
   it("builds a Payment Entry as a Customer Receive", () => {
-    const doc = buildSalesPaymentEntryDoc({ party: "Acme Ltd", paidAmount: 250, method: "bank_transfer" });
+    const doc = buildSalesPaymentEntryDoc({
+      party: "Acme Ltd",
+      paidAmount: 250,
+      invoice: "INV-0001",
+      method: "bank_transfer",
+    });
     expect(doc).toMatchObject({ party: "Acme Ltd", paid_amount: 250, party_type: "Customer", payment_type: "Receive" });
+    expect(doc.references).toEqual([
+      {
+        reference_doctype: "Sales Invoice",
+        reference_name: "INV-0001",
+        allocated_amount: 250,
+      },
+    ]);
   });
 });
 

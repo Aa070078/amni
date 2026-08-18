@@ -14,6 +14,7 @@ import {
 } from "@amni/shared";
 
 import { AuthGuard } from "../auth/auth.guard";
+import { AllowMemberMutation } from "../auth/authorization.decorator";
 import { CurrentUser } from "../auth/request.decorators";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -25,13 +26,13 @@ export class SettingsController {
   constructor(private readonly settings: SettingsService) {}
 
   @Get("company")
-  company(): CompanySettings {
-    return this.settings.company();
+  company(@CurrentUser() user: { id: string }): Promise<CompanySettings> {
+    return this.settings.company(user.id);
   }
 
   @Patch("company")
-  updateCompany(@Body() body: unknown): CompanySettings {
-    return this.settings.updateCompany(updateCompanySettingsInputSchema.parse(body));
+  updateCompany(@Body() body: unknown, @CurrentUser() user: { id: string }): Promise<CompanySettings> {
+    return this.settings.updateCompany(user.id, updateCompanySettingsInputSchema.parse(body));
   }
 
   @Get("team")
@@ -75,12 +76,13 @@ export class SettingsController {
   }
 
   @Get("profile")
-  profile(@CurrentUser() user: { id: string; email: string; name?: string }): ProfileSettings {
+  profile(@CurrentUser() user: { id: string; email: string }): Promise<ProfileSettings> {
     return this.settings.profile(user);
   }
 
   @Patch("profile")
-  updateProfile(@Body() body: unknown, @CurrentUser() user: { id: string; email: string; name?: string }): ProfileSettings {
+  @AllowMemberMutation()
+  updateProfile(@Body() body: unknown, @CurrentUser() user: { id: string; email: string }): Promise<ProfileSettings> {
     return this.settings.updateProfile(user, updateProfileInputSchema.parse(body));
   }
 }

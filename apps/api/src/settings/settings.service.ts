@@ -1,4 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { prisma } from "@amni/db";
+import type { Prisma } from "@amni/db";
 import {
   ErrorCode,
   type BillingInput,
@@ -18,23 +20,6 @@ import { ApiException } from "../common/api.exception";
 
 const DAY_MS = 86_400_000;
 const iso = (daysFromNow: number): string => new Date(Date.now() + daysFromNow * DAY_MS).toISOString();
-
-const COMPANY: CompanySettings = {
-  name: "Demo Co.",
-  legalName: "Demo Co. Ltd",
-  slug: "demo-co",
-  industry: "Furniture & interiors",
-  country: "GB",
-  taxId: "GB123456789",
-  address: "14 Harbourside Way, Bristol BS1 4UP, United Kingdom",
-  email: "hello@democo.example",
-  phone: "+44 117 000 1234",
-  website: "https://democo.example",
-  currency: "GBP",
-  fiscalYearStart: "2025-01-01",
-  timezone: "Europe/London",
-  createdAt: iso(-120),
-};
 
 const TEAM: TeamMember[] = [
   { id: "usr-1", email: "demo@amni.dev", firstName: "Amara", lastName: "Osei", role: "OWNER", status: "active", lastActive: iso(-1), joinedAt: iso(-120) },
@@ -89,17 +74,76 @@ const INTEGRATIONS: Integration[] = [
  */
 @Injectable()
 export class SettingsService {
-  private companyRecord: CompanySettings = { ...COMPANY };
   private teamRecords: TeamMember[] = [...TEAM];
   private billingRecord: CurrentPlan = { ...PLAN, plan: { ...PLAN.plan }, nextPayment: PLAN.nextPayment ? { ...PLAN.nextPayment } : undefined, invoices: PLAN.invoices.map((invoice) => ({ ...invoice })) };
 
-  company(): CompanySettings {
-    return this.companyRecord;
+  async company(userId: string): Promise<CompanySettings> {
+    const membership = await prisma.membership.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { company: { include: { tenant: true } } },
+    });
+    if (!membership) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "No company is linked to this account" });
+    }
+    const company = membership.company;
+    const locale = (company.tenant?.locale ?? {}) as { currency?: string; timezone?: string };
+    return {
+      name: company.name,
+      legalName: company.legalName ?? undefined,
+      slug: company.slug,
+      industry: company.industry ?? "Other",
+      country: company.country ?? "US",
+      taxId: company.taxId ?? undefined,
+      address: company.address ?? undefined,
+      email: company.email ?? undefined,
+      phone: company.phone ?? undefined,
+      website: company.website ?? undefined,
+      currency: locale.currency ?? "USD",
+      fiscalYearStart: company.fiscalYearStart ?? undefined,
+      timezone: locale.timezone ?? "UTC",
+      createdAt: company.createdAt.toISOString(),
+    };
   }
 
-  updateCompany(input: UpdateCompanySettingsInput): CompanySettings {
-    this.companyRecord = { ...this.companyRecord, ...input };
-    return this.companyRecord;
+  async updateCompany(userId: string, input: UpdateCompanySettingsInput): Promise<CompanySettings> {
+    const membership = await prisma.membership.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { company: { include: { tenant: true } } },
+    });
+    if (!membership) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "No company is linked to this account" });
+    }
+    await prisma.company.update({
+      where: { id: membership.companyId },
+      data: {
+        name: input.name,
+        legalName: input.legalName,
+        industry: input.industry,
+        country: input.country,
+        taxId: input.taxId,
+        address: input.address,
+        email: input.email,
+        phone: input.phone,
+        website: input.website,
+        fiscalYearStart: input.fiscalYearStart,
+      },
+    });
+    if (membership.company.tenant && (input.currency || input.timezone)) {
+      const locale = (membership.company.tenant.locale ?? {}) as Record<string, unknown>;
+      await prisma.tenant.update({
+        where: { id: membership.company.tenant.id },
+        data: {
+          locale: {
+            ...locale,
+            ...(input.currency ? { currency: input.currency } : {}),
+            ...(input.timezone ? { timezone: input.timezone } : {}),
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+    return this.company(userId);
   }
 
   team(): TeamMember[] {
@@ -174,18 +218,35 @@ export class SettingsService {
     return integration;
   }
 
-  profile(user: { id: string; email: string; name?: string }): ProfileSettings {
+  async profile(user: { id: string; email: string }): Promise<ProfileSettings> {
+    const record = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { email: true, firstName: true, lastName: true, avatarUrl: true, jobTitle: true, locale: true },
+    });
+    if (!record) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "User profile not found" });
+    }
     return {
-      email: user.email,
-      firstName: "Amara",
-      lastName: "Osei",
-      jobTitle: "Operations Lead",
-      locale: { currency: "USD", timezone: "Europe/London", dateFormat: "DD-MM-YYYY", numberFormat: "1,000.00", country: "GB", language: "en" },
+      email: record.email,
+      firstName: record.firstName,
+      lastName: record.lastName ?? undefined,
+      avatarUrl: record.avatarUrl,
+      jobTitle: record.jobTitle ?? undefined,
+      locale: record.locale as ProfileSettings["locale"],
     };
   }
 
-  updateProfile(user: { id: string; email: string; name?: string }, input: UpdateProfileInput): ProfileSettings {
-    const current = this.profile(user);
-    return { ...current, ...input };
+  async updateProfile(user: { id: string; email: string }, input: UpdateProfileInput): Promise<ProfileSettings> {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        avatarUrl: input.avatarUrl,
+        jobTitle: input.jobTitle,
+        locale: input.locale as Prisma.InputJsonValue | undefined,
+      },
+    });
+    return this.profile(user);
   }
 }

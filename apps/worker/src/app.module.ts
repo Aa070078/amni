@@ -15,7 +15,7 @@ import { MailerService } from "./mail/mailer.service";
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: [".env.local", ".env"],
+      envFilePath: [".env.local", ".env", "../api/.env"],
     }),
     BullModule.forRootAsync({
       inject: [ConfigService],

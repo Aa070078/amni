@@ -1,23 +1,70 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorCode } from "@amni/shared";
 
 import { SettingsService } from "./settings.service";
 
+let companyRecord: Record<string, unknown>;
+let userRecord: Record<string, unknown>;
+
+vi.mock("@amni/db", () => ({
+  Prisma: {},
+  prisma: {
+    membership: { findFirst: vi.fn(async () => ({ companyId: "company-1", company: companyRecord })) },
+    company: { update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => Object.assign(companyRecord, data)) },
+    tenant: {
+      update: vi.fn(async ({ data }: { data: { locale: Record<string, unknown> } }) => {
+        (companyRecord.tenant as Record<string, unknown>).locale = data.locale;
+      }),
+    },
+    user: {
+      findUnique: vi.fn(async () => userRecord),
+      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => Object.assign(userRecord, data)),
+    },
+  },
+}));
+
 describe("SettingsService", () => {
   const createService = () => new SettingsService();
 
+  beforeEach(() => {
+    companyRecord = {
+      id: "company-1",
+      name: "Demo Co.",
+      legalName: "Demo Co. Ltd",
+      slug: "demo-co",
+      industry: "Furniture & interiors",
+      country: "GB",
+      taxId: "GB123456789",
+      address: "Bristol",
+      email: "hello@demo.test",
+      phone: null,
+      website: "https://demo.test",
+      fiscalYearStart: "2025-01-01",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      tenant: { id: "tenant-1", locale: { currency: "GBP", timezone: "Europe/London" } },
+    };
+    userRecord = {
+      email: "demo@amni.dev",
+      firstName: "Amara",
+      lastName: "Osei",
+      avatarUrl: null,
+      jobTitle: "Operations Lead",
+      locale: { currency: "GBP", timezone: "Europe/London", dateFormat: "DD-MM-YYYY", numberFormat: "1,000.00", country: "GB", language: "en" },
+    };
+  });
+
   describe("company", () => {
-    it("returns the company profile", () => {
-      const company = createService().company();
+    it("returns the authenticated user's company profile", async () => {
+      const company = await createService().company("usr-1");
 
       expect(company.name).toBe("Demo Co.");
       expect(company.slug).toBe("demo-co");
       expect(company.currency).toBe("GBP");
     });
 
-    it("updates editable fields", () => {
+    it("updates editable fields", async () => {
       const service = createService();
-      const company = service.updateCompany({ name: "Demo Co. Renamed", website: "https://new.example" });
+      const company = await service.updateCompany("usr-1", { name: "Demo Co. Renamed", website: "https://new.example" });
 
       expect(company.name).toBe("Demo Co. Renamed");
       expect(company.website).toBe("https://new.example");
@@ -111,16 +158,16 @@ describe("SettingsService", () => {
   });
 
   describe("profile", () => {
-    it("returns the current user profile", () => {
-      const profile = createService().profile({ id: "usr-1", email: "demo@amni.dev" });
+    it("returns the current user profile", async () => {
+      const profile = await createService().profile({ id: "usr-1", email: "demo@amni.dev" });
 
       expect(profile.email).toBe("demo@amni.dev");
       expect(profile.firstName).toBe("Amara");
     });
 
-    it("updates editable profile fields", () => {
+    it("updates editable profile fields", async () => {
       const service = createService();
-      const profile = service.updateProfile({ id: "usr-1", email: "demo@amni.dev" }, { firstName: "Aria" });
+      const profile = await service.updateProfile({ id: "usr-1", email: "demo@amni.dev" }, { firstName: "Aria" });
 
       expect(profile.firstName).toBe("Aria");
       expect(profile.email).toBe("demo@amni.dev");

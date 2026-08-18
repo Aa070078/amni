@@ -4,7 +4,7 @@ app_name = "amni_bridge"
 app_title = "Amni Bridge"
 app_publisher = "Amni"
 app_description = (
-    "Amni platform SSO + theming bridge for tenant ERP sites. "
+    "Amni provisioning, SSO + theming bridge for tenant ERP sites. "
     "Provides the /api/method/amni_bridge.api.login endpoint (mints a "
     "Frappe desk session from an Amni-signed JWT) and injects the Amni "
     "design theme into the desk. No core modifications — this is a "

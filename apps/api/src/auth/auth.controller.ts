@@ -7,6 +7,7 @@ import type { RequestMeta } from "./auth.service";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AuthService } from "./auth.service";
 import { AuthGuard, type AuthenticatedRequest } from "./auth.guard";
+import { AllowMemberMutation } from "./authorization.decorator";
 import { CurrentUser, ReqMeta } from "./request.decorators";
 import {
   changePasswordSchema,
@@ -76,6 +77,7 @@ export class AuthController {
 
   @Post("change-password")
   @UseGuards(AuthGuard)
+  @AllowMemberMutation()
   async changePassword(@Body() body: unknown, @Req() req: AuthenticatedRequest, @ReqMeta() meta: RequestMeta) {
     const input = changePasswordSchema.parse(body);
     await this.auth.changePassword(input, req.user!.id, meta);

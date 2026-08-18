@@ -7,7 +7,7 @@ export default async function PurchaseInvoiceDetailPage({ params }: { params: Pr
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <PurchaseInvoiceDetailView code={code} />
+      <PurchaseInvoiceDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

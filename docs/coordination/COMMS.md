@@ -443,3 +443,16 @@ subject: M8-000 runtime stabilization complete; P0 launch blockers documented
 Reproduced the admin/member dashboard failure: Postgres + Redis were healthy, but no ERP/Frappe service existed on this machine, so all ERP-backed modules returned `erp_unreachable`. M8-000 now consolidates the dashboard into one snapshot request, derives roles from server-side membership, removes the query-role override, and filters every dashboard data surface by role. Also fixed sales-document list crashes when Frappe omits child arrays, response `Set-Cookie` token leakage in pino logs, Windows Turbo/Prisma verification races, and the generic/offline dashboard UX. Added a development-only ERP stand-in for local UI checks and redesigned the public landing page.
 
 Verification: lint 8/8 workspaces; typecheck 14/14 tasks; test 562 total (API 458/458); admin/member live dashboard and ten representative module endpoints all 200; desktop + 390 px browser checks passed. Real bench was not available. P0 blockers remain: provisioning does not create API keys/roles, cross-module product-role guards are incomplete, and the reproducible real ERP deployment is missing. Full review: `docs/MARKET_READINESS_REVIEW.md`.
+
+---
+ID: M9-COMMS-001
+date: 2026-08-18
+from: codex-product-readiness
+to: @all
+subject: M9 product-readiness complete in PR #68; original P0s closed, launch remains no-go
+---
+M9 is complete in [PR #68](https://github.com/Aa070078/amni/pull/68). Provisioning now uses supported Frappe/ERPNext mechanisms to configure a company, create a dedicated integration user, assign eight operational roles, rotate API credentials, encrypt them in `ERPInstance`, and verify the token identity plus Company access before activation. The pinned Docker build/bootstrap was exercised on a clean `readiness.localhost` site with ERPNext, HRMS, and Amni Bridge.
+
+Fresh signup no longer dead-ends: user-scoped onboarding drafts/settings persist, the worker loads the API environment, failed jobs expose errors and can be retried, and unfinished workspaces return to setup. Unsafe API methods now default to OWNER/ADMIN with explicit member self-service exceptions. CRM is a standalone `/crm` workspace, and the browser audit refined dashboard/Sales/setup responsive and accessibility behavior.
+
+The full browser journey found and fixed duplicate product POSTs, encoded dynamic record identifiers, missing setup label associations, and Payment Entries that were not allocated to their Sales Invoice. Verification: lint; 14 typecheck tasks; 565 unit tests; 84 isolation tests; 2/2 Playwright critical journeys; real ERP token/role/Company probe; desktop/mobile/light/dark checks. The launch verdict remains **no-go** until CRM/accounting/equity/ESG/signing/settings process-local stores are replaced, followed by the specialist-role, pagination, tenant-health, real-bench CI, and operations gates in `docs/MARKET_READINESS_REVIEW.md`.

@@ -8,7 +8,7 @@ const PRODUCT_SKU = "E2E-100";
 const PRODUCT_NAME = "E2E Ergonomic Chair";
 const QTY = "3";
 const RATE = "120";
-const AMOUNT = "$360.00";
+const AMOUNT = "$360";
 
 test.describe("Sales journey", () => {
   test("creates customer → product → order → invoice → payment and the dashboard reflects the business", async ({
@@ -96,13 +96,13 @@ test.describe("Sales journey", () => {
     await page.goto("/dashboard");
     await expect(page.getByText("Revenue", { exact: true })).toBeVisible();
     await expect(page.getByText("Invoiced this month", { exact: true })).toBeVisible();
-    await expect(page.getByText("1 invoice outstanding", { exact: true })).toBeVisible();
-    await expect(page.getByText("1 payment entries", { exact: true })).toBeVisible();
-    await expect(page.getByText("1 invoice are overdue", { exact: true })).toBeVisible();
+    await expect(page.getByText("0 invoices outstanding", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 payment entry", { exact: true })).toBeVisible();
+    await expect(page.getByText("All clear", { exact: true })).toBeVisible();
     await expect(page.getByText("Submitted invoice", { exact: true })).toBeVisible();
     await expect(page.getByText("Created sales order", { exact: true })).toBeVisible();
     await expect(page.getByText("Added customer", { exact: true })).toBeVisible();
-    // Revenue, AR and Cash all settle on 360.00 (count-up animation included).
+    // Revenue, cash KPI and cash-position chart settle on 360 while paid AR is zero.
     await expect(page.getByText(AMOUNT, { exact: true })).toHaveCount(3);
   });
 });

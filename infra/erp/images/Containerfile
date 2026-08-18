@@ -1,0 +1,10 @@
+ARG BASE_IMAGE=amni/erpnext-base:v16.30.0
+FROM ${BASE_IMAGE}
+
+USER root
+COPY --chown=frappe:frappe infra/erp/apps/amni_bridge /home/frappe/frappe-bench/apps/amni_bridge
+RUN sed -i 's/\r$//' /usr/local/bin/nginx-entrypoint.sh
+USER frappe
+
+RUN /home/frappe/frappe-bench/env/bin/pip install --no-cache-dir -e /home/frappe/frappe-bench/apps/amni_bridge \
+    && bench build --app amni_bridge

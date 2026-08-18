@@ -21,7 +21,7 @@ export interface AppModule {
 export const appModules: AppModule[] = [
   { title: "Dashboard", intent: "Business overview", href: "/dashboard", icon: LayoutDashboard },
   { title: "Sales", intent: "Customers, quotes, orders", href: "/sales", icon: Handshake },
-  { title: "CRM", intent: "Contacts, tasks, calls, outreach", href: "/sales/crm", icon: ContactRound },
+  { title: "CRM", intent: "Contacts, tasks, calls, outreach", href: "/crm", icon: ContactRound },
   { title: "Purchasing", intent: "Suppliers, purchase orders", href: "/purchasing", icon: ShoppingCart },
   { title: "Inventory", intent: "Items, stock levels", href: "/inventory", icon: Package },
   { title: "Import data", intent: "Customers, products, suppliers", href: "/imports", icon: Upload },

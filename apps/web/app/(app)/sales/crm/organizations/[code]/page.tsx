@@ -7,7 +7,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <OrganizationDetailView code={code} />
+      <OrganizationDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

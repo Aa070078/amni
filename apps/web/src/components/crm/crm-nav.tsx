@@ -19,17 +19,17 @@ import {
 import { cn } from "@amni/ui";
 
 const CRM_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/sales/crm", label: "Overview", icon: ClipboardList },
-  { href: "/sales/crm/organizations", label: "Companies", icon: Users },
-  { href: "/sales/crm/contacts", label: "Contacts", icon: UserRound },
-  { href: "/sales/crm/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/sales/crm/notes", label: "Notes", icon: StickyNote },
-  { href: "/sales/crm/call-logs", label: "Calls", icon: PhoneCall },
-  { href: "/sales/crm/email-templates", label: "Email templates", icon: FileText },
-  { href: "/sales/crm/events", label: "Events", icon: CalendarDays },
-  { href: "/sales/crm/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/sales/crm/notifications", label: "Notifications", icon: Bell },
-  { href: "/sales/crm/settings", label: "Settings", icon: Settings2 },
+  { href: "/crm", label: "Overview", icon: ClipboardList },
+  { href: "/crm/organizations", label: "Companies", icon: Users },
+  { href: "/crm/contacts", label: "Contacts", icon: UserRound },
+  { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/crm/notes", label: "Notes", icon: StickyNote },
+  { href: "/crm/call-logs", label: "Calls", icon: PhoneCall },
+  { href: "/crm/email-templates", label: "Email templates", icon: FileText },
+  { href: "/crm/events", label: "Events", icon: CalendarDays },
+  { href: "/crm/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/crm/notifications", label: "Notifications", icon: Bell },
+  { href: "/crm/settings", label: "Settings", icon: Settings2 },
 ];
 
 export function CrmNav() {
