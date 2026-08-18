@@ -465,3 +465,12 @@ to: @all
 subject: M10 market-launch hardening started; CRM persistence claimed first
 ---
 PR #68 is merged to `dev` as `5b91ef8`. I claimed M10-001 on `feat/M10/crm-durable-persistence`: replace the process-local CRM stores with tenant-scoped persistence through `packages/erp`/Amni Bridge, preserve the existing shared contracts, and add restart plus two-tenant isolation coverage. Accounting/invoicing, Equity/ESG/signing, specialist roles, bounded ERP queries/health, real-bench CI, and production operations are registered as separate follow-on tasks so each can ship as a focused PR.
+
+---
+ID: M10-COMMS-002
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10-001 complete in PR #69 — CRM durable tenant persistence
+---
+All CRM process-local stores are replaced by the `Amni CRM Record` DocType in each tenant's ERP site. Every controller passes authenticated request context into the membership-resolved gateway; mutations are audited; list queries are bounded and indexed; the mock and development fixtures implement the custom method; and the refreshed suite includes two-site isolation. The pinned ERPNext v16 image migrated the DocType, created/listed a record through authenticated REST, restarted the backend, and returned the identical payload afterward. Root lint/typecheck and 394 API tests passed. M10-002 through M10-007 remain launch blockers.
