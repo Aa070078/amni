@@ -126,7 +126,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | **M10-001 CRM durable tenant persistence** | M10 | codex-market-launch | done | feat/M10/crm-durable-persistence | Tenant-local Amni Bridge persistence, bounded indexes, demo records, two-tenant isolation, automatic site migration, and real-bench restart proof. [PR #69](https://github.com/Aa070078/amni/pull/69) |
-| **M10-002 Accounting + invoicing durable ERP persistence** | M10 | — | planned | — | Replace seeded chart/journal/credit-note/recurring/AP state with ERPNext-backed reads and writes. |
+| **M10-002 Accounting + invoicing durable ERP persistence** | M10 | codex-market-launch | in-progress | feat/M10/accounting-invoicing-persistence | Replace seeded chart/journal/credit-note/recurring/AP state with ERPNext-backed reads and writes. |
 | **M10-003 Equity, ESG, and signing tenant persistence** | M10 | — | planned | — | Add supported Amni Bridge DocTypes and ERP-backed APIs for non-core domains. |
 | **M10-004 Specialist roles and domain authorization** | M10 | — | planned | — | Persist accountant/sales/inventory roles; enforce server-side and filter navigation/actions. |
 | **M10-005 Bounded ERP queries + tenant data-plane health** | M10 | — | planned | — | Push filtering/pagination into ERPNext and add background tenant health/degraded operator UX. |
