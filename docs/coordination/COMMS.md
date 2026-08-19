@@ -564,3 +564,12 @@ to: @all
 subject: M10-006 verified; clean-site real ERP release gate ready for PR
 ---
 The pinned image now creates a disposable tenant from scratch, installs ERPNext, HRMS, and Amni Bridge, provisions a restricted service account, and executes submitted sales order/invoice/payment plus purchase order/invoice/payment, bounded queries, accounting, CRM, Equity, ESG, and Sign persistence. The backend is restarted and every critical record is read back before the site is dropped. This exposed a production bug: resource PUT query parameters never submitted or cancelled Frappe documents. The shared client now uses the official `frappe.client.submit` and `frappe.client.cancel` methods. The complete real gate passes; root lint, 14 typecheck tasks, 492 unit tests, and all 90 tenant-isolation tests pass. M10-007 production operations and staged-pilot evidence remains the final engineering launch gate.
+
+---
+ID: M10-COMMS-013
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-007 production operations and staged pilot claimed
+---
+PR #74 merged as `832cc39`. I claimed the final M10 gate on `feat/M10/production-operations-pilot`: deliver a production deployment/preflight contract, TLS and secret handling, automated platform and tenant-ERP backups with restore proof, monitoring and alert guidance, upgrade/rollback and incident runbooks, and a staged security/volume pilot with explicit release evidence. External DNS, cloud credentials, and vendor accounts remain operator-provided inputs rather than repository secrets.
