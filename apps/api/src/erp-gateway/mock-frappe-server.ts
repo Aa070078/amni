@@ -17,6 +17,7 @@ const RESOURCE_PREFIX = "/api/v1/resource/";
 const CRM_LIST_PATH = "/api/v1/method/amni_bridge.api.list_crm_records";
 const DOMAIN_LIST_PATH = "/api/v1/method/amni_bridge.api.list_domain_records";
 const ACCOUNT_BALANCES_PATH = "/api/v1/method/amni_bridge.api.get_account_balances";
+const NATIVE_QUERY_PATH = "/api/v1/method/amni_bridge.api.query_native_records";
 
 /**
  * Minimal in-process stand-in for a tenant ERPNext site. It enforces the
@@ -88,6 +89,21 @@ export async function startMockFrappeServer(options: {
         balances.set(account, (balances.get(account) ?? 0) + Number(doc.debit ?? 0) - Number(doc.credit ?? 0));
       }
       sendJson(res, 200, { message: { items: [...balances].map(([account, balance]) => ({ account, balance })) } });
+      return;
+    }
+
+    if (url.pathname === NATIVE_QUERY_PATH && req.method === "POST") {
+      const body = (await readJson(req)) ?? {};
+      const doctype = String(body.doctype ?? "");
+      const filters = body.filters && typeof body.filters === "object" ? body.filters as Record<string, unknown> : {};
+      const term = String(body.q ?? "").toLowerCase();
+      const start = Math.max(0, Number(body.start ?? 0));
+      const pageLength = Math.min(100, Math.max(1, Number(body.page_length ?? 20)));
+      const items = [...docs.values()]
+        .filter((doc) => !doc.doctype || doc.doctype === doctype)
+        .filter((doc) => Object.entries(filters).every(([field, value]) => String(doc[field] ?? "") === String(value)))
+        .filter((doc) => !term || Object.values(doc).some((value) => String(value ?? "").toLowerCase().includes(term)));
+      sendJson(res, 200, { message: { items: items.slice(start, start + pageLength), total: items.length } });
       return;
     }
 

@@ -9,6 +9,7 @@ import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "..
 const mocks = vi.hoisted(() => {
   const client = {
     list: vi.fn(),
+    query: vi.fn(),
     get: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -42,9 +43,19 @@ const ITEM_DOCS = [
 ];
 
 function mockItemList() {
-  mocks.client.list.mockImplementation(async (doctype: string) => {
-    if (doctype === "Item") return { items: ITEM_DOCS, hasMore: false };
-    return { items: [], hasMore: false };
+  mocks.client.query.mockImplementation(async (_doctype: string, options: { filters?: Record<string, unknown>; q?: string; orderBy?: string; start?: number; pageLength?: number }) => {
+    const q = (options.q ?? "").toLowerCase();
+    const filtered = ITEM_DOCS.filter((doc) => Object.entries(options.filters ?? {}).every(([field, value]) => String(doc[field as keyof typeof doc] ?? "") === String(value)))
+      .filter((doc) => !q || Object.values(doc).some((value) => String(value ?? "").toLowerCase().includes(q)));
+    const [field, direction] = (options.orderBy ?? "creation desc").split(" ");
+    filtered.sort((a, b) => {
+      const left = a[field as keyof typeof a];
+      const right = b[field as keyof typeof b];
+      const compared = typeof left === "number" && typeof right === "number" ? left - right : String(left ?? "").localeCompare(String(right ?? ""));
+      return compared * (direction === "asc" ? 1 : -1);
+    });
+    const start = options.start ?? 0;
+    return { items: filtered.slice(start, start + (options.pageLength ?? 20)), total: filtered.length };
   });
 }
 

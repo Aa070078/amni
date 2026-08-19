@@ -40,6 +40,19 @@ export interface ErpListResult<T> {
   hasMore: boolean;
 }
 
+export interface ErpQueryOptions {
+  filters?: Record<string, unknown>;
+  q?: string;
+  orderBy?: string;
+  start?: number;
+  pageLength?: number;
+}
+
+export interface ErpQueryResult<T> {
+  items: T[];
+  total: number;
+}
+
 export interface ErpLoginResult {
   sid: string;
   loggedUser: string;

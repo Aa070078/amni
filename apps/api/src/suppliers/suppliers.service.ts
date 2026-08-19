@@ -15,33 +15,7 @@ import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 
-const SORT_WHITELIST = new Set([
-  "code",
-  "name",
-  "group",
-  "currency",
-  "status",
-  "outstanding",
-  "totalPurchases",
-  "createdAt",
-  "updatedAt",
-]);
-
-const LIST_FIELDS = [
-  "name",
-  SUPPLIER_FIELDS.name,
-  SUPPLIER_FIELDS.group,
-  SUPPLIER_FIELDS.email,
-  SUPPLIER_FIELDS.phone,
-  SUPPLIER_FIELDS.currency,
-  SUPPLIER_FIELDS.paymentTerms,
-  SUPPLIER_FIELDS.taxId,
-  SUPPLIER_FIELDS.status,
-  SUPPLIER_FIELDS.outstanding,
-  SUPPLIER_FIELDS.totalPurchases,
-  "creation",
-  "modified",
-];
+const SORT_FIELDS: Record<string, string> = { code: "name", name: "supplier_name", group: "supplier_group", currency: "default_currency", status: "disabled", outstanding: "outstanding_amount", totalPurchases: "total_receipt_amount", createdAt: "creation", updatedAt: "modified" };
 
 function toSupplier(doc: Record<string, unknown>): Supplier {
   const now = new Date().toISOString();
@@ -62,10 +36,6 @@ function toSupplier(doc: Record<string, unknown>): Supplier {
   };
 }
 
-function sortValue(supplier: Supplier, sortBy: string): unknown {
-  return supplier[sortBy as keyof Supplier];
-}
-
 function notFound(code: string): ApiException {
   return new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Supplier ${code} not found` });
 }
@@ -77,50 +47,29 @@ function notFound(code: string): ApiException {
  * audits every mutation. The platform code IS the ERPNext doc name, so no
  * separate code registry exists.
  *
- * Search/sort/pagination run in the service because the Frappe list API does
- * not return a total count; the tenant-side data set is small enough that
- * fetching the doctype list and paging locally keeps the shared contract
- * exact. If a tenant outgrows this, M5-007's integration tier can push the
- * predicates down to Frappe filters.
+ * Search, sorting, filtering, pagination, and exact counts execute inside the
+ * tenant ERP through Amni's allow-listed bridge query.
  */
 @Injectable()
 export class SuppliersService {
   constructor(private readonly gateway: ErpGatewayService) {}
 
   async list(user: GatewayUser, meta: GatewayRequestMeta, query: SupplierListQuery): Promise<SupplierListResponse> {
-    const { items } = await this.gateway.list(user, meta, PURCHASING_DOCTYPE.supplier, {
-      fields: LIST_FIELDS,
-      limitPageLength: 500,
+    const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
+    const filters: Record<string, unknown> = {};
+    if (query.status) filters.disabled = query.status === "inactive" ? 1 : 0;
+    const { items, total } = await client.query<Record<string, unknown>>(PURCHASING_DOCTYPE.supplier, {
+      filters,
+      q: query.q,
+      orderBy: `${SORT_FIELDS[query.sortBy ?? ""] ?? "creation"} ${query.sortDir === "asc" ? "asc" : "desc"}`,
+      start: (query.page - 1) * query.pageSize,
+      pageLength: query.pageSize,
     });
-    const records = items.map(toSupplier);
-
-    const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = records.filter((supplier) => {
-      if (query.status && supplier.status !== query.status) return false;
-      if (!q) return true;
-      return [supplier.code, supplier.name, supplier.group, supplier.email ?? "", supplier.taxId ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-
-    const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
-    const sortDir = query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...filtered].sort((a, b) => {
-      const aValue = sortValue(a, sortBy);
-      const bValue = sortValue(b, sortBy);
-      if (aValue === bValue) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return aValue < bValue ? -1 * sortDir : sortDir;
-    });
-
     const page = query.page;
     const pageSize = query.pageSize;
-    const start = (page - 1) * pageSize;
     return {
-      items: sorted.slice(start, start + pageSize),
-      meta: { total: sorted.length, page, pageSize },
+      items: items.map(toSupplier),
+      meta: { total, page, pageSize },
     };
   }
 

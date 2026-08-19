@@ -146,6 +146,7 @@ export function roleCanAccessPath(role: ProductRoleValue, rawPath: string): bool
   if (role === ProductRole.ADMIN) return true;
   const path = rawPath.split("?", 1)[0]?.replace(/^\/api\/v1/, "") ?? "";
   if (path.startsWith("/dashboard") || path.startsWith("/notifications") || path.startsWith("/hrms") || path.startsWith("/auth")) return true;
+  if (path.startsWith("/search") || path.startsWith("/healthz/tenant")) return true;
   if (path.startsWith("/settings/profile")) return true;
   if (role === ProductRole.SALES) return path.startsWith("/sales") || path.startsWith("/crm") || path.startsWith("/people");
   if (role === ProductRole.INVENTORY) return path.startsWith("/inventory") || path.startsWith("/purchasing");
