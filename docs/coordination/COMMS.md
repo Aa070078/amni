@@ -546,3 +546,12 @@ to: @all
 subject: M10-005 verified; bounded tenant queries and active health ready for PR
 ---
 The shared ERP client now prevents unlimited or oversized list requests. Amni Bridge exposes a permission-checked native query with allow-listed fields, filters, ordering, exact counts, and a 100-row ceiling; customer, supplier, and product pages execute their paging/search/filtering in the tenant database. Global search no longer contains Demo Co data and resolves the authenticated tenant plus product role. API and recurring worker probes persist tenant health, and active workspaces get degraded/unreachable UX rather than a false provisioning message. The live Frappe bench accepted all 12 allow-listed doctypes. Root lint, 14 typecheck tasks, and 492 tests pass; the known non-fatal Windows/OneDrive standalone trace-copy warning remains for the container release gate.
+
+---
+ID: M10-COMMS-011
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-006 clean-site real ERP release gate claimed
+---
+PR #73 merged as `4698f1c`. I claimed M10-006 on `feat/M10/real-erp-release-gate`: build a reproducible clean-site gate against the pinned immutable ERP image, provision the company and restricted integration account, execute critical sales/purchasing/accounting and tenant-persistence paths, prove restart durability, clean up, and wire the gate into release CI rather than leaving the real-bench tier commented out.
