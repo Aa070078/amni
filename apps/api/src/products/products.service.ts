@@ -19,7 +19,7 @@ import { toIso } from "../common/frappe";
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
-const SORT_WHITELIST = new Set(["name", "price", "cost", "category", "createdAt"]);
+const SORT_FIELDS: Record<string, string> = { name: "item_name", price: "standard_rate", cost: "valuation_rate", category: "item_group", createdAt: "creation" };
 
 type ErpItemRaw = ErpItemDoc & { creation?: string; modified?: string };
 
@@ -60,44 +60,20 @@ export class ProductsService {
     query: ProductListQuery,
   ): Promise<ProductListResponse> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
-    const { items: docs } = await client.list<ErpItemRaw>(INVENTORY_DOCTYPE.item, {
-      limitPageLength: 0,
+    const sortField = SORT_FIELDS[query.sortBy ?? ""] ?? "creation";
+    const filters: Record<string, unknown> = {};
+    if (query.category) filters.item_group = query.category;
+    if (query.status) filters.disabled = query.status === "disabled" ? 1 : 0;
+    const { items: docs, total } = await client.query<ErpItemRaw>(INVENTORY_DOCTYPE.item, {
+      filters,
+      q: query.q,
+      orderBy: `${sortField} ${query.sortDir === "asc" ? "asc" : "desc"}`,
+      start: (query.page - 1) * query.pageSize,
+      pageLength: query.pageSize,
     });
-
-    let records = docs.map(toProduct);
-    if (query.category) {
-      records = records.filter((product) => product.category === query.category);
-    }
-    if (query.status) {
-      records = records.filter((product) => product.status === query.status);
-    }
-
-    const q = (query.q ?? "").toLowerCase().trim();
-    if (q) {
-      records = records.filter((product) =>
-        [product.name, product.sku, product.category, product.unit, product.description ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
-    }
-
-    const whitelisted = query.sortBy !== undefined && SORT_WHITELIST.has(query.sortBy);
-    const sortBy = whitelisted ? query.sortBy : "createdAt";
-    const sortDir = whitelisted && query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...records].sort((a, b) => {
-      const aValue = a[sortBy as keyof Product];
-      const bValue = b[sortBy as keyof Product];
-      if (aValue === bValue) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return aValue < bValue ? -1 * sortDir : sortDir;
-    });
-
-    const start = (query.page - 1) * query.pageSize;
     return {
-      items: sorted.slice(start, start + query.pageSize),
-      meta: { total: sorted.length, page: query.page, pageSize: query.pageSize },
+      items: docs.map(toProduct),
+      meta: { total, page: query.page, pageSize: query.pageSize },
     };
   }
 

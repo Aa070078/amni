@@ -79,6 +79,15 @@ describe("ErpClient resource CRUD", () => {
     expect(result.hasMore).toBe(false);
   });
 
+  it("always sends a bounded list page length", async () => {
+    const { lastUrl } = installFetch(() => jsonResponse(200, { data: [] }));
+    const client = makeClient();
+    await client.list("Customer", { limitPageLength: 0 });
+    expect(lastUrl().searchParams.get("limit_page_length")).toBe("100");
+    await client.list("Customer", { limitPageLength: 500 });
+    expect(lastUrl().searchParams.get("limit_page_length")).toBe("100");
+  });
+
   it("gets a single resource by name", async () => {
     const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "C-1", customer_name: "Acme" } }));
     const client = makeClient();
@@ -115,6 +124,15 @@ describe("ErpClient resource CRUD", () => {
     const result = await client.call<{ name: string }>("some.whitelisted.method", { doc: { x: 1 } });
     expect(result).toEqual({ name: "SO-1" });
     expect(String(lastUrl())).toBe(`${BASE_URL}/api/v1/method/some.whitelisted.method`);
+  });
+
+  it("queries one bounded native page through the allow-listed bridge", async () => {
+    const { lastUrl, lastInit } = installFetch(() => jsonResponse(200, { message: { items: [{ name: "C-1" }], total: 42 } }));
+    const client = makeClient();
+    const result = await client.query<{ name: string }>("Customer", { q: "acme", start: 20, pageLength: 500, orderBy: "modified desc" });
+    expect(result).toEqual({ items: [{ name: "C-1" }], total: 42 });
+    expect(String(lastUrl())).toBe(`${BASE_URL}/api/v1/method/amni_bridge.api.query_native_records`);
+    expect(JSON.parse(String(lastInit().body))).toMatchObject({ doctype: "Customer", q: "acme", start: 20, page_length: 100 });
   });
 });
 

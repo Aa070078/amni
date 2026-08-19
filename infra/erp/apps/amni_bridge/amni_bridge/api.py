@@ -99,6 +99,54 @@ DOMAIN_ORDER_FIELDS = {
     "modified",
 }
 
+NATIVE_QUERY_SPECS = {
+    "Customer": {"fields": ["name", "customer_name", "customer_type", "customer_group", "territory", "email_id", "mobile_no", "default_currency", "payment_terms", "disabled", "creation", "modified"], "filters": {"disabled", "customer_type", "customer_group", "territory"}, "search": ["name", "customer_name", "customer_group", "territory", "email_id"]},
+    "Supplier": {"fields": ["name", "supplier_name", "supplier_group", "country", "supplier_type", "email_id", "mobile_no", "default_currency", "payment_terms", "tax_id", "disabled", "outstanding_amount", "total_receipt_amount", "creation", "modified"], "filters": {"disabled", "supplier_group", "country", "supplier_type"}, "search": ["name", "supplier_name", "supplier_group", "tax_id"]},
+    "Item": {"fields": ["name", "item_code", "item_name", "item_group", "stock_uom", "standard_rate", "valuation_rate", "disabled", "description", "safety_stock", "is_stock_item", "is_sales_item", "is_purchase_item", "creation", "modified"], "filters": {"disabled", "item_group", "is_stock_item", "is_sales_item", "is_purchase_item"}, "search": ["name", "item_code", "item_name", "item_group", "description"]},
+    "Lead": {"fields": ["name", "lead_name", "company_name", "email_id", "mobile_no", "status", "source", "territory", "creation", "modified"], "filters": {"status", "source", "territory"}, "search": ["name", "lead_name", "company_name", "email_id"]},
+    "Quotation": {"fields": ["name", "quotation_to", "party_name", "transaction_date", "valid_till", "currency", "grand_total", "status", "docstatus", "owner", "creation", "modified"], "filters": {"status", "docstatus", "quotation_to", "party_name"}, "search": ["name", "party_name", "owner"]},
+    "Sales Order": {"fields": ["name", "customer", "customer_name", "transaction_date", "delivery_date", "currency", "net_total", "grand_total", "status", "docstatus", "owner", "creation", "modified"], "filters": {"status", "docstatus", "customer"}, "search": ["name", "customer", "customer_name", "owner"]},
+    "Sales Invoice": {"fields": ["name", "customer", "customer_name", "posting_date", "due_date", "currency", "net_total", "grand_total", "outstanding_amount", "status", "docstatus", "owner", "creation", "modified"], "filters": {"status", "docstatus", "customer"}, "search": ["name", "customer", "customer_name", "owner"]},
+    "Purchase Order": {"fields": ["name", "supplier", "supplier_name", "transaction_date", "schedule_date", "currency", "net_total", "grand_total", "status", "docstatus", "owner", "creation", "modified"], "filters": {"status", "docstatus", "supplier"}, "search": ["name", "supplier", "supplier_name", "owner"]},
+    "Purchase Invoice": {"fields": ["name", "supplier", "supplier_name", "posting_date", "due_date", "currency", "net_total", "grand_total", "outstanding_amount", "status", "docstatus", "owner", "creation", "modified"], "filters": {"status", "docstatus", "supplier"}, "search": ["name", "supplier", "supplier_name", "owner"]},
+    "Payment Entry": {"fields": ["name", "payment_type", "party_type", "party", "posting_date", "paid_amount", "received_amount", "paid_from_account_currency", "paid_to_account_currency", "reference_no", "docstatus", "creation", "modified"], "filters": {"payment_type", "party_type", "party", "docstatus"}, "search": ["name", "party", "reference_no"]},
+    "Expense Claim": {"fields": ["name", "employee", "employee_name", "posting_date", "total_claimed_amount", "total_sanctioned_amount", "total_amount_reimbursed", "status", "docstatus", "creation", "modified"], "filters": {"employee", "status", "docstatus"}, "search": ["name", "employee", "employee_name"]},
+    "Warehouse": {"fields": ["name", "warehouse_name", "is_group", "disabled", "company", "creation", "modified"], "filters": {"is_group", "disabled", "company"}, "search": ["name", "warehouse_name", "company"]},
+}
+
+
+@frappe.whitelist()
+def query_native_records(doctype: str, filters: dict | str | None = None, q: str | None = None, order_by: str = "modified desc", start: int = 0, page_length: int = 20) -> dict:
+    """Return an allow-listed, permission-checked page and exact count."""
+    spec = NATIVE_QUERY_SPECS.get((doctype or "").strip())
+    if not spec:
+        frappe.throw(_("Unsupported native record type."))
+    if not frappe.has_permission(doctype, ptype="read"):
+        frappe.throw(_("Not permitted to read {0}.").format(doctype), frappe.PermissionError)
+    parsed_filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+    if not isinstance(parsed_filters, dict):
+        frappe.throw(_("Native record filters must be an object."))
+    db_filters = []
+    for field, value in parsed_filters.items():
+        if field not in spec["filters"]:
+            frappe.throw(_("Unsupported {0} filter: {1}").format(doctype, field))
+        if value is not None and value != "":
+            db_filters.append([field, "=", value])
+    parts = (order_by or "modified desc").strip().split()
+    order_field = parts[0] if parts else "modified"
+    order_direction = parts[1].lower() if len(parts) > 1 else "desc"
+    if order_field not in spec["fields"] or order_direction not in {"asc", "desc"}:
+        frappe.throw(_("Unsupported native record ordering."))
+    term = (q or "").strip()[:120]
+    or_filters = [[field, "like", f"%{term}%"] for field in spec["search"]] if term else None
+    bounded_start = max(0, int(start or 0))
+    bounded_length = min(100, max(1, int(page_length or 20)))
+    query_args = {"filters": db_filters, "or_filters": or_filters}
+    items = frappe.get_list(doctype, fields=spec["fields"], order_by=f"{order_field} {order_direction}", start=bounded_start, page_length=bounded_length, **query_args)
+    count_rows = frappe.get_list(doctype, fields=[{"COUNT": "name", "as": "total"}], page_length=1, **query_args)
+    total = int(count_rows[0].get("total", 0)) if count_rows else 0
+    return {"items": items, "total": total}
+
 
 @frappe.whitelist()
 def list_crm_records(
@@ -220,6 +268,26 @@ def get_account_balances() -> dict:
         .where(gl_entry.is_cancelled == 0)
         .groupby(gl_entry.account)
         .limit(2000)
+    ).run(as_dict=True)
+    return {"items": items}
+
+
+@frappe.whitelist()
+def get_customer_sales_totals(customers: list | str) -> dict:
+    """Aggregate invoice totals for at most one visible customer page."""
+    if not frappe.has_permission("Sales Invoice", ptype="read"):
+        frappe.throw(_("Not permitted to read sales totals."), frappe.PermissionError)
+    parsed = frappe.parse_json(customers) if isinstance(customers, str) else customers
+    names = [str(value) for value in (parsed or []) if value][:100]
+    if not names:
+        return {"items": []}
+    invoice = frappe.qb.DocType("Sales Invoice")
+    items = (
+        frappe.qb.from_(invoice)
+        .select(invoice.customer, Sum(invoice.grand_total).as_("total_sales"), Sum(invoice.outstanding_amount).as_("outstanding"))
+        .where((invoice.docstatus != 2) & invoice.customer.isin(names))
+        .groupby(invoice.customer)
+        .limit(100)
     ).run(as_dict=True)
     return {"items": items}
 
