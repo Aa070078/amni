@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=amni/erpnext-base:v16.30.0
+ARG BASE_IMAGE=amni/erpnext-base:v16.31.0
 FROM ${BASE_IMAGE}
 
 USER root

@@ -1,0 +1,43 @@
+name: Real ERP release gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: real-erp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clean-site-critical-paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build immutable ERP image and start pinned cluster
+        shell: pwsh
+        run: ./infra/erp/scripts/bootstrap.ps1 -ComposeProject frappe -Site bootstrap.localhost
+      - name: Run clean-site restricted-account release gate
+        shell: pwsh
+        run: ./infra/erp/scripts/release-gate.ps1 -Site market-gate.localhost -BackendContainer frappe-backend-1
+      - name: Capture ERP logs on failure
+        if: failure()
+        run: |
+          docker logs frappe-backend-1 --tail 500 > backend.log 2>&1 || true
+          docker logs frappe-queue-short-1 --tail 300 > queue-short.log 2>&1 || true
+          docker logs frappe-scheduler-1 --tail 300 > scheduler.log 2>&1 || true
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-erp-failure-logs
+          path: |
+            backend.log
+            queue-short.log
+            scheduler.log
+          retention-days: 14

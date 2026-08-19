@@ -75,6 +75,8 @@ powershell -File infra/erp/scripts/bootstrap.ps1
 - The worker reaches `frappe-backend-1` and provisions tenant sites with `erpnext,hrms,amni_bridge` by default.
 - Verify the native accounting and invoicing configuration, including restart durability, with `powershell -File infra/erp/scripts/smoke-accounting-invoicing.ps1 -RestartBackend`. For the production-equivalent permission gate, pass API credentials created by `amni_bridge.api.provision_service_account` through `-ApiKey` and `-ApiSecret`; never commit or print those credentials.
 - Verify tenant-local Equity, ESG, and Sign persistence plus bounded queries and restart durability with `powershell -File infra/erp/scripts/smoke-domain-persistence.ps1 -RestartBackend`. Pass a provisioned service account through `-ApiKey` and `-ApiSecret` for the restricted-permission gate.
+- Run the complete production release proof with `powershell -File infra/erp/scripts/release-gate.ps1`. It creates and destroys only `market-gate.localhost`, uses generated restricted credentials without printing or persisting them, submits real sales/purchasing/invoice/payment documents, restarts the backend, and runs accounting plus non-core durability gates. Use `-KeepSite` only for deliberate local debugging.
+- Image inputs are immutable: frappe_docker commit `616ffd417797031f760e7a6c9669923a5febed66`, Frappe `v16.31.0`, ERPNext `v16.32.1`, and HRMS `v16.16.0`.
 
 ### 5.0.1 Development stand-in when a bench is unavailable
 

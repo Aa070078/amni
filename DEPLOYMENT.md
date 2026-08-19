@@ -96,5 +96,6 @@ Test restores regularly; a backup that cannot be restored is not a backup.
 ## 11. Release process
 
 1. Merge to `dev` → CI (integration + isolation + e2e).
-2. Tag release candidate → staging deploy → smoke test (critical journey).
-3. Merge to `main` → release: migrate platform DB → rolling deploy `api`/`worker`/`web` → run ERP migrations if version bump → smoke + health checks → changelog.
+2. Tag release candidate → staging deploy → pass `infra/erp/scripts/release-gate.ps1` against the immutable ERP image and complete the browser critical journey.
+3. Open the release PR to `main`; the `Real ERP release gate` required check rebuilds the pinned image and provisions a clean restricted-account site. Do not override this check.
+4. Merge to `main` → release: migrate platform DB → rolling deploy `api`/`worker`/`web` → run ERP migrations if version bump → smoke + health checks → changelog.

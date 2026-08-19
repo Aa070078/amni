@@ -97,7 +97,7 @@ describe("ErpClient resource CRUD", () => {
   });
 
   it("create, update, submit, cancel and delete hit the right endpoints", async () => {
-    const { fetchMock, lastUrl, lastInit } = installFetch(() => jsonResponse(200, { data: { name: "C-1" } }));
+    const { fetchMock, lastUrl, lastInit } = installFetch(() => jsonResponse(200, { data: { name: "C-1" }, message: { name: "C-1" } }));
     const client = makeClient();
 
     await client.create("Customer", { customer_name: "Acme" });
@@ -109,13 +109,15 @@ describe("ErpClient resource CRUD", () => {
     expect(fetchMock.mock.calls[1]![1]!.method).toBe("PUT");
 
     await client.submit("Customer", "C-1");
-    expect(String(lastUrl())).toBe(`${BASE_URL}/api/v1/resource/Customer/C-1?action=submit`);
+    expect(String(lastUrl())).toBe(`${BASE_URL}/api/v1/method/frappe.client.submit`);
+    expect(JSON.parse(String(lastInit().body))).toMatchObject({ doc: { doctype: "Customer", name: "C-1" } });
 
     await client.cancel("Customer", "C-1");
-    expect(String(lastUrl())).toBe(`${BASE_URL}/api/v1/resource/Customer/C-1?action=cancel`);
+    expect(String(lastUrl())).toBe(`${BASE_URL}/api/v1/method/frappe.client.cancel`);
+    expect(JSON.parse(String(lastInit().body))).toEqual({ doctype: "Customer", name: "C-1" });
 
     await client.delete("Customer", "C-1");
-    expect(fetchMock.mock.calls[4]![1]!.method).toBe("DELETE");
+    expect(fetchMock.mock.calls[5]![1]!.method).toBe("DELETE");
   });
 
   it("calls a whitelisted method and returns its message", async () => {

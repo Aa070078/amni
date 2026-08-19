@@ -18,6 +18,8 @@ const CRM_LIST_PATH = "/api/v1/method/amni_bridge.api.list_crm_records";
 const DOMAIN_LIST_PATH = "/api/v1/method/amni_bridge.api.list_domain_records";
 const ACCOUNT_BALANCES_PATH = "/api/v1/method/amni_bridge.api.get_account_balances";
 const NATIVE_QUERY_PATH = "/api/v1/method/amni_bridge.api.query_native_records";
+const SUBMIT_PATH = "/api/v1/method/frappe.client.submit";
+const CANCEL_PATH = "/api/v1/method/frappe.client.cancel";
 
 /**
  * Minimal in-process stand-in for a tenant ERPNext site. It enforces the
@@ -104,6 +106,29 @@ export async function startMockFrappeServer(options: {
         .filter((doc) => Object.entries(filters).every(([field, value]) => String(doc[field] ?? "") === String(value)))
         .filter((doc) => !term || Object.values(doc).some((value) => String(value ?? "").toLowerCase().includes(term)));
       sendJson(res, 200, { message: { items: items.slice(start, start + pageLength), total: items.length } });
+      return;
+    }
+
+    if (url.pathname === SUBMIT_PATH && req.method === "POST") {
+      const body = (await readJson(req)) ?? {};
+      const submitted = body.doc && typeof body.doc === "object" ? body.doc as Record<string, unknown> : {};
+      const name = String(submitted.name ?? "");
+      const existing = docs.get(name);
+      if (!existing) { sendJson(res, 404, { message: "Not Found" }); return; }
+      const doc = { ...existing, ...submitted, docstatus: 1 };
+      docs.set(name, doc);
+      sendJson(res, 200, { message: doc });
+      return;
+    }
+
+    if (url.pathname === CANCEL_PATH && req.method === "POST") {
+      const body = (await readJson(req)) ?? {};
+      const name = String(body.name ?? "");
+      const existing = docs.get(name);
+      if (!existing) { sendJson(res, 404, { message: "Not Found" }); return; }
+      const doc = { ...existing, docstatus: 2 };
+      docs.set(name, doc);
+      sendJson(res, 200, { message: doc });
       return;
     }
 
