@@ -465,6 +465,9 @@ def configure_company(company_name: str, abbreviation: str, country: str, curren
             )
         )
         company = frappe.get_doc("Company", values["company_name"])
+    from amni_bridge.setup import configure_erp_features
+
+    configure_erp_features()
     frappe.db.commit()
     return {"name": company.name, "created": not bool(existing)}
 

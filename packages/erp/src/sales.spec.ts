@@ -16,7 +16,6 @@ import {
   findCustomerByName,
   recordSalesPaymentEntry,
   SALES_DOCTYPE,
-  INVENTORY_DOCTYPE,
   STOCK_ENTRY_TYPE_BY_MOVEMENT,
 } from "./index.js";
 
@@ -139,7 +138,7 @@ describe("sales client wrappers", () => {
   });
 
   it("creates then submits a sales order", async () => {
-    const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "SO-2040" } }));
+    const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "SO-2040" }, message: { name: "SO-2040" } }));
     const client = makeClient();
     const doc = await createSalesOrder(client, { customer: "Acme Ltd", items: [{ product: "PRD-0001", qty: 1, rate: 100 }] });
     expect(doc.name).toBe("SO-2040");
@@ -147,17 +146,16 @@ describe("sales client wrappers", () => {
 
     const res = await client.submit<{ name: string }>(SALES_DOCTYPE.salesOrder, doc.name);
     expect(res.name).toBe("SO-2040");
-    expect(decoded(lastUrl())).toContain("action=submit");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.submit");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("records a payment by creating and submitting a Payment Entry", async () => {
-    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PE-0001", party: "Acme Ltd" } }));
+    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PE-0001", party: "Acme Ltd" }, message: { name: "PE-0001", party: "Acme Ltd" } }));
     const client = makeClient();
     await recordSalesPaymentEntry(client, { party: "Acme Ltd", paidAmount: 250 });
     const finalUrl = decoded(lastUrl());
-    expect(finalUrl).toContain(`/resource/${SALES_DOCTYPE.paymentEntry}`);
-    expect(finalUrl).toContain("action=submit");
+    expect(finalUrl).toContain("/method/frappe.client.submit");
   });
 
   it("creates and submits a sales invoice", async () => {
@@ -194,11 +192,10 @@ describe("inventory doc builders", () => {
 
 describe("inventory client wrappers", () => {
   it("executes a stock movement by creating + submitting a Stock Entry", async () => {
-    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "STE-0001" } }));
+    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "STE-0001" }, message: { name: "STE-0001" } }));
     const client = makeClient();
     await executeStockMovement(client, { type: "in", productCode: "PRD-0001", quantity: 10, toWarehouse: "WH-0001" });
     const finalUrl = decoded(lastUrl());
-    expect(finalUrl).toContain(`/resource/${INVENTORY_DOCTYPE.stockEntry}`);
-    expect(finalUrl).toContain("action=submit");
+    expect(finalUrl).toContain("/method/frappe.client.submit");
   });
 });

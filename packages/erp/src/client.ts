@@ -185,20 +185,15 @@ export class ErpClient {
     return body.data;
   }
 
-  /** PUT /resource/{doctype}/{name}?action=submit — submit the doc. */
+  /** Fetch then POST /method/frappe.client.submit — official Frappe submit path. */
   async submit<T extends object>(doctype: string, name: string): Promise<T> {
-    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
-      params: { action: "submit" },
-    });
-    return body.data;
+    const doc = await this.get<Record<string, unknown>>(doctype, name);
+    return this.call<T>("frappe.client.submit", { doc: { ...doc, doctype, name } });
   }
 
-  /** PUT /resource/{doctype}/{name}?action=cancel — cancel the doc. */
+  /** POST /method/frappe.client.cancel — official Frappe cancel path. */
   async cancel<T extends object>(doctype: string, name: string): Promise<T> {
-    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
-      params: { action: "cancel" },
-    });
-    return body.data;
+    return this.call<T>("frappe.client.cancel", { doctype, name });
   }
 
   /** DELETE /resource/{doctype}/{name} */

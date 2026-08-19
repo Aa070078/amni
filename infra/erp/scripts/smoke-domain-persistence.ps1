@@ -3,6 +3,7 @@ param(
   [string]$AdministratorPassword = "admin",
   [string]$ApiKey = "",
   [string]$ApiSecret = "",
+  [string]$SiteHost = "",
   [switch]$RestartBackend
 )
 
@@ -18,12 +19,15 @@ function Reset-Session {
 
 function Login {
   if ($ApiKey -and $ApiSecret) { return }
-  Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/method/login" -WebSession $session -Body @{ usr = "Administrator"; pwd = $AdministratorPassword } | Out-Null
+  $parameters = @{ Method = "Post"; Uri = "$BaseUrl/api/method/login"; WebSession = $session; Body = @{ usr = "Administrator"; pwd = $AdministratorPassword } }
+  if ($SiteHost) { $parameters.Headers = @{ Host = $SiteHost } }
+  Invoke-RestMethod @parameters | Out-Null
 }
 
 function Invoke-Frappe([string]$method, [string]$path, $body = $null) {
   Write-Host "==> $method $path"
   $parameters = @{ Method = $method; Uri = "$BaseUrl$path"; WebSession = $session }
+  if ($SiteHost) { $parameters.Headers = @{ Host = $SiteHost } }
   if ($null -ne $body) {
     $parameters.ContentType = "application/json"
     $parameters.Body = $body | ConvertTo-Json -Depth 12 -Compress
@@ -65,7 +69,9 @@ try {
       Start-Sleep -Seconds 2
       try {
         Login
-        Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/method/ping" -WebSession $session | Out-Null
+        $pingParameters = @{ Method = "Get"; Uri = "$BaseUrl/api/method/ping"; WebSession = $session }
+        if ($SiteHost) { $pingParameters.Headers = @{ Host = $SiteHost } }
+        Invoke-RestMethod @pingParameters | Out-Null
         $ready = $true
       } catch { $ready = $false }
     } until ($ready -or (Get-Date) -gt $deadline)

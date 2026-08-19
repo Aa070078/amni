@@ -159,7 +159,7 @@ describe("QuotationsService tenant isolation", () => {
 
     await service.changeStatus(USER_A, META, "QT-A-001", "sent");
 
-    expect(siteA.requests.some((r) => r.method === "PUT" && r.url.includes("QT-A-001"))).toBe(true);
+    expect(siteA.requests.some((r) => r.method === "POST" && r.url.includes("/method/frappe.client.submit"))).toBe(true);
     expect([...siteB.docs.keys()]).toEqual(bDocsBefore);
     expect(siteB.requests).toHaveLength(bRequestsBefore);
   });

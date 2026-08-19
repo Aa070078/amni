@@ -1,9 +1,9 @@
 param(
     [string]$FrappeDockerRoot = "",
-    [string]$FrappeBranch = "version-16",
-    [string]$ErpnextBranch = "version-16",
-    [string]$HrmsBranch = "version-16",
-    [string]$ImageTag = "v16.30.0"
+    [string]$FrappeBranch = "v16.31.0",
+    [string]$ErpnextBranch = "v16.32.1",
+    [string]$HrmsBranch = "v16.16.0",
+    [string]$ImageTag = "v16.31.0"
 )
 
 $ErrorActionPreference = "Stop"

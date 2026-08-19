@@ -20,3 +20,4 @@ app_include_css = ["/assets/amni_bridge/css/amni-theme.css"]
 web_include_css = ["/assets/amni_bridge/css/amni-theme.css"]
 
 after_migrate = ["amni_bridge.setup.configure_erp_features"]
+after_install = ["amni_bridge.setup.configure_erp_features"]

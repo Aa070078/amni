@@ -3,6 +3,7 @@ param(
   [string]$AdministratorPassword = "admin",
   [string]$ApiKey = "",
   [string]$ApiSecret = "",
+  [string]$SiteHost = "",
   [switch]$RestartBackend
 )
 
@@ -13,7 +14,9 @@ if ($ApiKey -and $ApiSecret) { $session.Headers.Add("Authorization", "token ${Ap
 
 function Login {
   if ($ApiKey -and $ApiSecret) { return }
-  Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/method/login" -WebSession $session -Body @{ usr = "Administrator"; pwd = $AdministratorPassword } | Out-Null
+  $parameters = @{ Method = "Post"; Uri = "$BaseUrl/api/method/login"; WebSession = $session; Body = @{ usr = "Administrator"; pwd = $AdministratorPassword } }
+  if ($SiteHost) { $parameters.Headers = @{ Host = $SiteHost } }
+  Invoke-RestMethod @parameters | Out-Null
 }
 
 function ResourcePath([string]$doctype, [string]$name = "") {
@@ -25,6 +28,7 @@ function ResourcePath([string]$doctype, [string]$name = "") {
 function Invoke-Frappe([string]$method, [string]$path, $body = $null) {
   Write-Host "==> $method $path"
   $parameters = @{ Method = $method; Uri = "$BaseUrl$path"; WebSession = $session }
+  if ($SiteHost) { $parameters.Headers = @{ Host = $SiteHost } }
   if ($null -ne $body) {
     $parameters.ContentType = "application/json"
     $parameters.Body = $body | ConvertTo-Json -Depth 12 -Compress
@@ -77,7 +81,8 @@ try {
   $journal = Create-Doc "Journal Entry" @{ company = $company; posting_date = (Get-Date).ToString("yyyy-MM-dd"); user_remark = "Amni accounting persistence smoke"; accounts = @(@{ account = $expenseAccount.name; debit_in_account_currency = 25; credit_in_account_currency = 0; cost_center = $costCenter.name }, @{ account = $cashAccount.name; debit_in_account_currency = 0; credit_in_account_currency = 25; cost_center = $costCenter.name }) }
 
   $invoice = Create-Doc "Sales Invoice" @{ company = $company; customer = $customer.name; posting_date = (Get-Date).ToString("yyyy-MM-dd"); due_date = (Get-Date).AddDays(7).ToString("yyyy-MM-dd"); items = @(@{ item_code = $item.name; qty = 2; rate = 100 }) }
-  $invoice = (Invoke-Frappe "PUT" "$(ResourcePath 'Sales Invoice' $invoice.name)?action=submit" @{}).data
+  $invoice.doctype = "Sales Invoice"
+  $invoice = (Invoke-Frappe "POST" "/api/v1/method/frappe.client.submit" @{ doc = $invoice }).message
   ($created | Where-Object { $_.Doctype -eq "Sales Invoice" -and $_.Name -eq $invoice.name }).Submitted = $true
 
   $credit = Create-Doc "Sales Invoice" @{ company = $company; customer = $customer.name; posting_date = (Get-Date).ToString("yyyy-MM-dd"); is_return = 1; return_against = $invoice.name; remarks = "Amni credit-note persistence smoke"; items = @(@{ item_code = $item.name; qty = -1; rate = 100 }) }
@@ -109,7 +114,7 @@ finally {
   [array]::Reverse($cleanup)
   foreach ($document in $cleanup) {
     try {
-      if ($document.Submitted) { Invoke-Frappe "PUT" "$(ResourcePath $document.Doctype $document.Name)?action=cancel" @{} | Out-Null }
+      if ($document.Submitted) { Invoke-Frappe "POST" "/api/v1/method/frappe.client.cancel" @{ doctype = $document.Doctype; name = $document.Name } | Out-Null }
       Delete-Doc $document.Doctype $document.Name
     } catch {
       Write-Warning "Could not remove smoke fixture $($document.Doctype) $($document.Name): $($_.Exception.Message)"
