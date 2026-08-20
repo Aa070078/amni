@@ -1,4 +1,5 @@
 import { startMockFrappeServer } from "../src/erp-gateway/mock-frappe-server";
+import { buildShowcaseDocs } from "./demo-erp-fixtures";
 
 const apiKey = process.env.DEMO_ERP_API_KEY ?? "demo-service-account";
 const apiSecret = process.env.DEMO_ERP_API_SECRET ?? "demo-secret-5b2f1c8a";
@@ -249,6 +250,8 @@ const docs: Record<string, unknown>[] = [
   domainRecord("expenses", "category", "CAT-SOFTWARE01", { code: "CAT-SOFTWARE01", name: "Software", color: "violet", status: "active", createdAt: timestamp(-300), updatedAt: timestamp(-20) }, { title: "Software", status: "active", search_text: "CAT-SOFTWARE01 Software" }),
   domainRecord("expenses", "category", "CAT-MARKETING1", { code: "CAT-MARKETING1", name: "Marketing", color: "rose", status: "active", createdAt: timestamp(-300), updatedAt: timestamp(-10) }, { title: "Marketing", status: "active", search_text: "CAT-MARKETING1 Marketing" }),
 ];
+
+docs.push(...buildShowcaseDocs({ isoDay, modified }));
 
 async function main(): Promise<void> {
   const server = await startMockFrappeServer({ apiKey, apiSecret, docs, port });

@@ -156,6 +156,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | Task | Milestone | Owner | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | **M8-000 Runtime stabilization + market-readiness audit + landing/dashboard UX refresh** | M8 | codex-market-readiness | done | feat/M8/market-readiness | Dashboard snapshot, membership-derived roles, ERP-offline UX, auth-log redaction, sales-list hardening, Windows verification fixes, development ERP stand-in, and responsive landing redesign completed. Full review: `docs/MARKET_READINESS_REVIEW.md`. [PR #66](https://github.com/Aa070078/amni/pull/66) |
+| **M8-001 Rich showcase dataset + demo persona verification** | M8 | codex-market-readiness | done | feat/M8/showcase-dataset | 68-record ERP showcase fixture across sales, inventory, purchasing, and finance; all three personas reseeded and live-verified with role-specific destinations and data. [PR #67](https://github.com/Aa070078/amni/pull/67) |
 
 ---
 
@@ -188,6 +189,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 | Date | Change |
 |---|---|
+| 2026-08-18 | **M8-001 completed** (codex-market-readiness, [PR #67](https://github.com/Aa070078/amni/pull/67)): reseeded the SaaS owner, Demo Co owner/admin, and Demo Co member; expanded the authenticated ERP stand-in from 14 to 68 records; verified 6 customers, 8 products, 3 warehouses, 5 quotations, 5 sales orders, 8 sales invoices, 4 suppliers, 4 purchase orders, 4 purchase invoices, 5 expenses, 6 payments, dashboard KPIs/alerts/activity, and the existing CRM fixture. |
 | 2026-08-18 | **M10-001 completed** (codex-market-launch, [PR #69](https://github.com/Aa070078/amni/pull/69)): all CRM process-local stores now persist in each membership-resolved ERP site through Amni Bridge; API tests, 86 isolation tests, and real ERPNext create/list/restart/read-back verification passed. |
 | 2026-08-19 | **M10-002 completed** (codex-market-launch, [PR #70](https://github.com/Aa070078/amni/pull/70)): accounting and invoicing process-local stores now use native tenant ERPNext records; 88 isolation checks and a restricted service-token Account/Journal/credit-note/Auto Repeat restart durability gate passed. |
 | 2026-08-19 | **M10-006 completed** (codex-market-launch, [PR #74](https://github.com/Aa070078/amni/pull/74)): the pinned clean-site release gate provisions restricted credentials, exercises and submits critical ERP flows, proves restart durability, and caught/fixed the ineffective legacy submit/cancel transport. |
