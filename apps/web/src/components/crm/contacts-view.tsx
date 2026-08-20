@@ -65,7 +65,7 @@ export function ContactsView() {
           <span>
             Created{" "}
             <Link
-              href={`/sales/crm/contacts/${createdContact.code}`}
+              href={`/crm/contacts/${createdContact.code}`}
               className="font-semibold underline underline-offset-2"
             >
               {createdContact.code}

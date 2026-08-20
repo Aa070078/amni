@@ -104,7 +104,7 @@ export function OrganizationDetailView({ code }: OrganizationDetailViewProps) {
               </Button>
             ) : null}
             <Button asChild variant={is404 ? "default" : "outline"}>
-              <Link href="/sales/crm/organizations">
+              <Link href="/crm/organizations">
                 <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
                 Back to companies
               </Link>
@@ -121,7 +121,7 @@ export function OrganizationDetailView({ code }: OrganizationDetailViewProps) {
   return (
     <div className="space-y-6">
       <Link
-        href="/sales/crm/organizations"
+        href="/crm/organizations"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -229,7 +229,7 @@ export function OrganizationDetailView({ code }: OrganizationDetailViewProps) {
                   {contactsQuery.data.items.map((contact) => (
                     <li key={contact.code} className="flex items-center justify-between gap-2 py-2">
                       <Link
-                        href={`/sales/crm/contacts/${contact.code}`}
+                        href={`/crm/contacts/${contact.code}`}
                         className="text-sm font-medium hover:underline"
                       >
                         {contact.firstName} {contact.lastName}

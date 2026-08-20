@@ -78,13 +78,10 @@ export function ProductsView() {
     placeholderData: (previous) => previous,
   });
 
-  const createProduct = useMutation({
-    mutationFn: productsClient.create,
-    onSuccess: (product) => {
-      setCreatedProduct(product);
-      void queryClient.invalidateQueries({ queryKey: ["products", "list"] });
-    },
-  });
+  function createProduct(product: Product) {
+    setCreatedProduct(product);
+    void queryClient.invalidateQueries({ queryKey: ["products", "list"] });
+  }
 
   const updateProductCategory = useMutation({
     mutationFn: ({ code, category }: { code: string; category: string }) =>
@@ -158,7 +155,7 @@ export function ProductsView() {
           <NewProductDialog
             open={dialogOpen}
             onOpenChange={setDialogOpen}
-            onCreate={(product) => createProduct.mutate(product)}
+            onCreate={createProduct}
           />
         </div>
       </div>

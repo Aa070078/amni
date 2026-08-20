@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, ServerOff, TriangleAlert } from "lucide-react";
 import { Badge, Button, CardHeader, CardTitle } from "@amni/ui";
@@ -58,9 +59,15 @@ export function PanelError({ error, onRetry }: { error?: unknown; onRetry: () =>
         {copy?.description ??
           "Something interrupted this request. Try again, or refresh the page if it continues."}
       </p>
-      <Button size="sm" variant="outline" onClick={onRetry}>
-        Try again
-      </Button>
+      {error instanceof ApiError && error.code === "tenant_not_ready" ? (
+        <Button size="sm" asChild>
+          <Link href="/setup">View workspace setup</Link>
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      )}
     </div>
   );
 }

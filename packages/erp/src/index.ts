@@ -1,5 +1,38 @@
 export { ErpClient } from "./client.js";
 export {
+  ACCOUNTING_DOCTYPE,
+  buildAccountingAccount,
+  buildAccountingJournal,
+  buildCreditNote,
+  buildRecurringInvoiceTemplate,
+  buildAutoRepeat,
+  type ErpAccountingAccount,
+  type ErpAccountingJournalLine,
+  type ErpAccountingJournal,
+  type ErpGlEntry,
+  type ErpCreditNoteInvoice,
+  type ErpAutoRepeat,
+} from "./accounting-invoicing.js";
+
+export {
+  AMNI_CRM_RECORD_DOCTYPE,
+  buildCrmRecordDocument,
+  listCrmRecords,
+  parseCrmRecordDocument,
+  type CrmRecordIndexes,
+  type ErpCrmRecordDocument,
+  type ListCrmRecordsOptions,
+} from "./crm.js";
+export {
+  AMNI_DOMAIN_RECORD_DOCTYPE,
+  buildDomainRecordDocument,
+  domainRecordKey,
+  listDomainRecords,
+  parseDomainRecordDocument,
+  type DomainRecordIndexes,
+  type ListDomainRecordsOptions,
+} from "./domain-record.js";
+export {
   decryptServiceSecret,
   encryptServiceSecret,
   getEncryptionKey,

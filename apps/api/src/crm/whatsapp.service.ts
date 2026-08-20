@@ -1,54 +1,21 @@
 import { Injectable } from "@nestjs/common";
-import {
-  type CrmWhatsappHistoryQuery,
-  type CrmWhatsappHistoryResponse,
-  type CrmWhatsappMessage,
-  type CrmWhatsappResponse,
-  type SendCrmWhatsappInput,
-} from "@amni/shared";
-
+import type { CrmWhatsappHistoryQuery, CrmWhatsappHistoryResponse, CrmWhatsappMessage, CrmWhatsappResponse, SendCrmWhatsappInput } from "@amni/shared";
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
 import { newId } from "./crm-common";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmActivitiesService } from "./activities.service";
-
-const SEED: CrmWhatsappMessage[] = [
-  { id: "wa-1", to: "+49 30 1234 5678", message: "Hi Jonas — sending over the load rating request now.", status: "sent", referenceType: "deal", referenceCode: "DL-0003", sentAt: new Date(Date.now() - 2 * 86_400_000).toISOString() },
-  { id: "wa-2", to: "+1 415-555-0142", message: "Maya, confirming our call tomorrow at 10:30. Amara.", status: "sent", referenceType: "deal", referenceCode: "DL-0001", sentAt: new Date(Date.now() - 86_400_000).toISOString() },
-];
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { CrmRecordRepository } from "./crm-record.repository";
 
 @Injectable()
 export class CrmWhatsappService {
-  private records: CrmWhatsappMessage[] = structuredClone(SEED);
-
-  constructor(private readonly activities: CrmActivitiesService) {}
-
-  send(input: SendCrmWhatsappInput): CrmWhatsappResponse {
-    const message: CrmWhatsappMessage = {
-      id: newId("wa"),
-      to: input.to,
-      message: input.message,
-      status: "sent",
-      referenceType: input.referenceType,
-      referenceCode: input.referenceCode,
-      sentAt: new Date().toISOString(),
-    };
-    this.records.unshift(message);
-    if (input.referenceType && input.referenceCode) {
-      this.activities.push(
-        "whatsapp",
-        input.referenceType,
-        input.referenceCode,
-        `Sent WhatsApp to ${input.to}: ${input.message}`,
-        "Amara Osei",
-      );
-    }
-    return { message };
+  constructor(private readonly records: CrmRecordRepository, private readonly activities: CrmActivitiesService) {}
+  async send(user: GatewayUser, meta: GatewayRequestMeta, input: SendCrmWhatsappInput): Promise<CrmWhatsappResponse> {
+    const message: CrmWhatsappMessage = { id: newId("wa"), to: input.to, message: input.message, status: "sent", referenceType: input.referenceType, referenceCode: input.referenceCode, sentAt: new Date().toISOString() };
+    const created = await this.records.create(user, meta, "whatsapp_message", message.id, message, indexesFor(message));
+    if (created.referenceType && created.referenceCode) await this.activities.push(user, meta, "whatsapp", created.referenceType, created.referenceCode, `Sent WhatsApp to ${created.to}: ${created.message}`, user.email);
+    return { message: created };
   }
-
-  history(query: CrmWhatsappHistoryQuery): CrmWhatsappHistoryResponse {
-    let items = this.records;
-    if (query.referenceType) items = items.filter((message) => message.referenceType === query.referenceType);
-    if (query.referenceCode) items = items.filter((message) => message.referenceCode === query.referenceCode);
-    return { items: items.slice(0, query.limit) };
-  }
+  async history(user: GatewayUser, meta: GatewayRequestMeta, query: CrmWhatsappHistoryQuery): Promise<CrmWhatsappHistoryResponse> { return { items: (await this.records.list<CrmWhatsappMessage>(user, meta, "whatsapp_message", { filters: { reference_type: query.referenceType, reference_code: query.referenceCode }, orderBy: "event_at desc", pageLength: query.limit })).items }; }
 }
+function indexesFor(message: CrmWhatsappMessage) { return { title: message.to, status: message.status, referenceType: message.referenceType, referenceCode: message.referenceCode, eventAt: message.sentAt, searchText: `${message.to} ${message.message}` }; }

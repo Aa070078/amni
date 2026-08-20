@@ -28,8 +28,12 @@ coverage
 .DS_Store
 Thumbs.db
 
-# ERP cluster (not needed for web/api images)
-infra/erp
+# ERP image build only needs the packaged bridge app, never the local runtime.
+infra/erp/*
+!infra/erp/apps/
+infra/erp/apps/*
+!infra/erp/apps/amni_bridge/
+!infra/erp/apps/amni_bridge/**
 frappe_docker
 
 # Tooling caches

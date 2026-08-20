@@ -11,7 +11,7 @@ export default async function CreditNoteDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <CreditNoteDetailView code={code} />
+      <CreditNoteDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

@@ -12,12 +12,12 @@ export const SHAREHOLDER_TYPES = [
 ] as const;
 
 export const shareholderHoldingSchema = z.object({
-  classCode: z.string().regex(/^CLS-\d{4}$/),
+  classCode: z.string().regex(/^CLS-[A-Z0-9]{4,12}$/),
   shares: z.number().int().nonnegative().finite(),
 });
 
 export const shareholderSchema = z.object({
-  code: z.string().regex(/^SH-\d{4}$/),
+  code: z.string().regex(/^SH-[A-Z0-9]{4,12}$/),
   name: z.string().min(1).max(160),
   type: shareholderTypeSchema,
   email: z.string().email().max(254).optional(),
@@ -60,7 +60,7 @@ export type ShareholderListResponse = z.infer<typeof shareholderListResponseSche
 export const shareClassStatusSchema = z.enum(["active", "archived"]);
 
 export const shareClassSchema = z.object({
-  code: z.string().regex(/^CLS-\d{4}$/),
+  code: z.string().regex(/^CLS-[A-Z0-9]{4,12}$/),
   name: z.string().min(1).max(120),
   totalShares: z.number().int().nonnegative().finite(),
   outstandingShares: z.number().int().nonnegative().finite(),
@@ -119,7 +119,7 @@ export const ROUND_STATUSES = [
 ] as const;
 
 export const roundSchema = z.object({
-  code: z.string().regex(/^RD-\d{4}$/),
+  code: z.string().regex(/^RD-[A-Z0-9]{4,12}$/),
   name: z.string().min(1).max(160),
   type: roundTypeSchema,
   announcedDate: z.string().datetime(),

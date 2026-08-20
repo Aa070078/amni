@@ -10,7 +10,7 @@ Testing strategy, tools, and the required test matrix. A beautiful UI with broke
 |---|---|---|---|
 | Unit | Vitest (packages) / Jest (apps) | pure logic: zod schemas, state machine, services, guards, DTO mapping, encryption | every PR |
 | Integration (API) | supertest + Testcontainers (Postgres, Redis) | controllers + services + Prisma + BullMQ wiring | every PR + merge to `dev` |
-| ERPNext integration | supertest against a real ERPNext site (frappe_docker) | `packages/erp` client, gateway endpoints, provisioning steps against real bench | merge to `dev` + nightly |
+| ERPNext integration | restricted REST client against a clean real ERPNext site (frappe_docker) | provisioning, native submit/cancel, sales, purchasing, payments, accounting, CRM/domain durability | release PR + nightly |
 | Tenant isolation | dedicated suite (`test:isolation`) | cross-tenant access must 403/404 on every ERP data path | merge to `dev` + nightly |
 | E2E | Playwright | critical user journey in a full local stack | merge to `dev` + nightly |
 | Security | unit + integration + static | authz, CSRF, rate-limit, uploads, injection, secret handling | every PR (static), nightly (deep) |
@@ -32,7 +32,8 @@ Testing strategy, tools, and the required test matrix. A beautiful UI with broke
 - Requires a running frappe_docker bench with a **test site per test tenant** (`<x>.localhost`).
 - Coverage: `packages/erp` CRUD + submit/cancel, company setup (create Company, defaults), service-account creation + key auth, tenant-admin creation + role bundle, data import template/preview/import, reports, webhook receipt.
 - Provisioning steps are integration-tested end-to-end against the real bench (idempotency: re-running a step must not duplicate).
-- **In-repo stand-in (always runs, no bench needed):** the tenant isolation harness in `apps/api/src/erp-gateway/mock-frappe-server.ts` simulates a tenant site (service-account auth + a doctype-scoped doc store, `?action=submit|cancel` transitions) and is exercised by every `*.isolation.spec.ts` suite. Run it with `pnpm test:isolation`. The supertest tier against a real bench lands under M5-007 when the cluster is reachable.
+- **In-repo stand-in (always runs, no bench needed):** the tenant isolation harness in `apps/api/src/erp-gateway/mock-frappe-server.ts` simulates a tenant site, including official `frappe.client.submit`/`cancel`, and is exercised by every `*.isolation.spec.ts` suite. Run it with `pnpm test:isolation`.
+- **Real release gate:** `infra/erp/scripts/release-gate.ps1` creates an isolated clean site, installs the pinned apps, configures the company, provisions a restricted integration account, executes submitted sales/purchasing/invoice/payment paths, verifies bounded queries plus CRM/non-core persistence across a backend restart, runs accounting/recurring checks, then drops only the isolated site. It is mandatory in `.github/workflows/erp-release-gate.yml` for PRs to `main`, pushes to `main`, nightly schedules, and manual runs.
 
 ## 5. Tenant isolation tests (mandatory)
 
@@ -43,6 +44,12 @@ For **every** ERP data path and tenant-scoped API:
 4. Also verify: A's calls carry A's service account only; B's site is unreachable with A's credentials.
 
 Isolation regressions are release-blocking.
+
+CRM persistence adds a dedicated two-site repository isolation suite that exercises the real HTTP client, custom list method, per-site service credentials, and cross-tenant 404 behavior. A real-bench release check must also migrate the Amni Bridge DocType, create/list a record through Frappe REST, restart the backend, and verify the payload remains unchanged.
+
+Equity, ESG, and Sign persistence uses the equivalent `DomainRecordRepository` two-site suite. Run `powershell -File infra/erp/scripts/smoke-domain-persistence.ps1 -RestartBackend` against the pinned bench to verify DocType permissions, bounded custom queries, persistence across backend restart, and fixture cleanup. Production release automation must run the script with a provisioned restricted service token.
+
+Accounting and invoicing add a two-site isolation suite for accounts and return invoices. The real-bench check is `powershell -File infra/erp/scripts/smoke-accounting-invoicing.ps1 -RestartBackend`; it creates native Account, Journal Entry, submitted invoice, return Sales Invoice, recurring template, and Auto Repeat records, calls the bounded balance method, restarts the backend, reads every record back, and removes its fixtures. Run it with a provisioned integration token to verify the exact production role bundle.
 
 ## 6. Critical workflows (E2E)
 
@@ -67,7 +74,7 @@ Also covered: password reset, onboarding resume (draft), import flow (templateâ†
 - **Every PR**: lint, typecheck, unit, tenant isolation suite (`pnpm test:isolation`), static security, `pnpm audit`.
 - **Merge to `dev`**: + API integration, ERPNext integration, e2e.
 - **Merge to `main` (release)**: everything + secret scan + dependency scan.
-- Nightly: full ERPNext integration + isolation + e2e against a fresh provisioned stack.
+- **PR/merge to `main` and nightly:** build the immutable pinned ERP image and pass the clean-site restricted-account release gate.
 
 ## 9. Running tests
 
@@ -77,6 +84,7 @@ pnpm test:isolation    # tenant isolation suite
 pnpm test:e2e          # Playwright (needs full stack: platform + ERP cluster + seed)
 pnpm audit             # dependency audit
 pnpm lint              # eslint (+ security plugin)
+powershell -File infra/erp/scripts/release-gate.ps1 # clean real-ERP release gate
 ```
 
 ## 10. Test data & fixtures

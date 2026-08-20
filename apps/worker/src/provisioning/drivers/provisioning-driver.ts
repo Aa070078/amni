@@ -17,7 +17,10 @@ export interface StepResult {
   ok: boolean;
   detail?: string;
   host?: string;
-  serviceKey?: string;
+  serviceCredentials?: {
+    apiKey: string;
+    apiSecret: string;
+  };
   /** Apps installed on the site (create_site step) — used to flag feature availability. */
   installApps?: string[];
 }

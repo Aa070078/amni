@@ -7,7 +7,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <SupplierDetailView code={code} />
+      <SupplierDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

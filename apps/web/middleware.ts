@@ -7,6 +7,7 @@ const PROTECTED_PREFIXES = [
   "/setup",
   "/settings",
   "/sales",
+  "/crm",
   "/purchasing",
   "/inventory",
   "/imports",

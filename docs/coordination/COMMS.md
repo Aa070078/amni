@@ -452,3 +452,131 @@ to: @all
 subject: M8-001 rich showcase dataset and demo personas complete
 ---
 The development ERP stand-in now starts with 68 representative records across sales, inventory, purchasing, and finance. All supported demo personas were reseeded and live-verified: `owner@amni.com` reaches the SaaS tenant console, `admin@demo.amni` receives the full four-KPI company dashboard, and `member@demo.amni` receives the restricted revenue-only dashboard. API verification confirmed 6 customers, 8 products, 3 warehouses, 5 quotations, 5 sales orders, 8 sales invoices, 4 suppliers, 4 purchase orders, 4 purchase invoices, 5 expenses, and 6 payments; dashboard alerts and activity are populated. CRM retains its existing 10 organizations, 10 contacts, and 9 tasks. Development credentials are documented in `DEVELOPMENT.md`.
+ID: M9-COMMS-001
+date: 2026-08-18
+from: codex-product-readiness
+to: @all
+subject: M9 product-readiness complete in PR #68; original P0s closed, launch remains no-go
+---
+M9 is complete in [PR #68](https://github.com/Aa070078/amni/pull/68). Provisioning now uses supported Frappe/ERPNext mechanisms to configure a company, create a dedicated integration user, assign eight operational roles, rotate API credentials, encrypt them in `ERPInstance`, and verify the token identity plus Company access before activation. The pinned Docker build/bootstrap was exercised on a clean `readiness.localhost` site with ERPNext, HRMS, and Amni Bridge.
+
+Fresh signup no longer dead-ends: user-scoped onboarding drafts/settings persist, the worker loads the API environment, failed jobs expose errors and can be retried, and unfinished workspaces return to setup. Unsafe API methods now default to OWNER/ADMIN with explicit member self-service exceptions. CRM is a standalone `/crm` workspace, and the browser audit refined dashboard/Sales/setup responsive and accessibility behavior.
+
+The full browser journey found and fixed duplicate product POSTs, encoded dynamic record identifiers, missing setup label associations, and Payment Entries that were not allocated to their Sales Invoice. Verification: lint; 14 typecheck tasks; 565 unit tests; 84 isolation tests; 2/2 Playwright critical journeys; real ERP token/role/Company probe; desktop/mobile/light/dark checks. The launch verdict remains **no-go** until CRM/accounting/equity/ESG/signing/settings process-local stores are replaced, followed by the specialist-role, pagination, tenant-health, real-bench CI, and operations gates in `docs/MARKET_READINESS_REVIEW.md`.
+
+---
+ID: M10-COMMS-001
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10 market-launch hardening started; CRM persistence claimed first
+---
+PR #68 is merged to `dev` as `5b91ef8`. I claimed M10-001 on `feat/M10/crm-durable-persistence`: replace the process-local CRM stores with tenant-scoped persistence through `packages/erp`/Amni Bridge, preserve the existing shared contracts, and add restart plus two-tenant isolation coverage. Accounting/invoicing, Equity/ESG/signing, specialist roles, bounded ERP queries/health, real-bench CI, and production operations are registered as separate follow-on tasks so each can ship as a focused PR.
+
+---
+ID: M10-COMMS-002
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10-001 complete in PR #69 — CRM durable tenant persistence
+---
+All CRM process-local stores are replaced by the `Amni CRM Record` DocType in each tenant's ERP site. Every controller passes authenticated request context into the membership-resolved gateway; mutations are audited; list queries are bounded and indexed; the mock and development fixtures implement the custom method; and the refreshed suite includes two-site isolation. The pinned ERPNext v16 image migrated the DocType, created/listed a record through authenticated REST, restarted the backend, and returned the identical payload afterward. Root lint/typecheck and 394 API tests passed. M10-002 through M10-007 remain launch blockers.
+
+---
+ID: M10-COMMS-003
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10-002 accounting and invoicing persistence claimed
+---
+PR #69 is merged as `303a464`. I claimed M10-002 on `feat/M10/accounting-invoicing-persistence`. Scope is the process-local accounting chart/journal state plus invoicing credit notes, recurring profiles, and AP overview, mapped to supported ERPNext DocTypes where available and Amni Bridge extensions only where ERPNext has no safe native equivalent. Shared contracts and tenant resolution remain unchanged.
+
+---
+ID: M10-COMMS-004
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-002 implementation verified; native accounting and invoicing ready for PR
+---
+Accounting and invoicing no longer use process-local stores. Accounts, journals, trial balance, ledger, credit notes, recurring profiles, AR and AP overview now resolve the authenticated membership and use native ERPNext Account, Journal Entry, GL Entry, return Sales Invoice, Purchase Invoice, and Auto Repeat data through the audited gateway. Two-site isolation is green. The real bench exposed and drove fixes for missing Auto Repeat metadata and incomplete integration-user master-data roles; the final restricted token created all fixtures, called the permission-checked balance method, survived a backend restart, read every record back, and cleaned up. Root lint, 14 typecheck tasks, 485 tests, and 88 isolation checks pass. M10-003 through M10-007 remain launch blockers.
+
+---
+ID: M10-COMMS-005
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-003 non-core tenant persistence claimed
+---
+PR #70 is merged as `104340f`. I claimed M10-003 on `feat/M10/noncore-domain-persistence`: replace the Equity, ESG, and Sign process-local stores with tenant-local Amni Bridge records, preserve the shared contracts, route every controller through membership-resolved audited ERP access, and add two-site plus real-bench restart durability coverage.
+
+---
+ID: M10-COMMS-006
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-003 implementation verified; non-core domain persistence ready for PR
+---
+Equity, ESG, and Sign no longer use process-local data. A dedicated `Amni Domain Record` DocType stores namespaced records in each tenant ERP site; the membership-resolved audited gateway handles CRUD, and the custom list method enforces Frappe read permission, filter/order allowlists, exact counts, and a 100-row ceiling. Shared codes now allow collision-resistant opaque suffixes while retaining existing demo identifiers. Two-site isolation is green. The rebuilt pinned ERP image migrated both sites and the real smoke created all three record types, queried them, restarted the backend, re-read each record, and cleaned up. Remaining volatile settings and expense-category state is explicitly retained as the next launch blocker.
+
+---
+ID: M10-COMMS-007
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 specialist roles and remaining settings persistence claimed
+---
+PR #71 is merged as `22cf12d`. I claimed M10-004 on `feat/M10/roles-settings-persistence`. The scope includes the actual remaining volatile surfaces found in the code audit: persist team roles/invitations and subscription-derived billing, remove fake mutable integration connections, persist expense categories, enforce accountant/sales/inventory permissions server-side, and filter navigation/actions from the authenticated membership role.
+
+---
+ID: M10-COMMS-008
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 implementation verified; specialist roles and settings durability ready for PR
+---
+Membership roles/status, invitations, billing periods, company/team/plan/profile settings, and expense categories are now durable. Accountant, sales, and inventory permissions are enforced server-side and mirrored in role-filtered navigation. Invitations have hashed expiring tokens, queued mail, a public acceptance flow, audited membership creation, and session issuance. Fake integration and billing mutations are disabled until providers are configured. The local migration is current; real encrypted ERP credentials authenticate; four category records survived a Frappe backend restart; sales cross-domain finance access returned 403. Root lint, 14 typecheck tasks, and 491 tests pass. The known Windows/OneDrive standalone trace-copy warning remains non-fatal and is still tracked for the production-image gate.
+
+---
+ID: M10-COMMS-009
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-005 bounded queries and tenant data-plane health claimed
+---
+PR #72 merged as `d5e1bf8`. I claimed M10-005 on `feat/M10/bounded-queries-tenant-health`: eliminate unbounded native ERP reads, replace the process-local static global search index with membership-resolved tenant queries filtered by specialist role, and expose/update tenant ERP health for workspace and operator degraded-state UX.
+
+---
+ID: M10-COMMS-010
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-005 verified; bounded tenant queries and active health ready for PR
+---
+The shared ERP client now prevents unlimited or oversized list requests. Amni Bridge exposes a permission-checked native query with allow-listed fields, filters, ordering, exact counts, and a 100-row ceiling; customer, supplier, and product pages execute their paging/search/filtering in the tenant database. Global search no longer contains Demo Co data and resolves the authenticated tenant plus product role. API and recurring worker probes persist tenant health, and active workspaces get degraded/unreachable UX rather than a false provisioning message. The live Frappe bench accepted all 12 allow-listed doctypes. Root lint, 14 typecheck tasks, and 492 tests pass; the known non-fatal Windows/OneDrive standalone trace-copy warning remains for the container release gate.
+
+---
+ID: M10-COMMS-011
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-006 clean-site real ERP release gate claimed
+---
+PR #73 merged as `4698f1c`. I claimed M10-006 on `feat/M10/real-erp-release-gate`: build a reproducible clean-site gate against the pinned immutable ERP image, provision the company and restricted integration account, execute critical sales/purchasing/accounting and tenant-persistence paths, prove restart durability, clean up, and wire the gate into release CI rather than leaving the real-bench tier commented out.
+
+---
+ID: M10-COMMS-012
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-006 verified; clean-site real ERP release gate ready for PR
+---
+The pinned image now creates a disposable tenant from scratch, installs ERPNext, HRMS, and Amni Bridge, provisions a restricted service account, and executes submitted sales order/invoice/payment plus purchase order/invoice/payment, bounded queries, accounting, CRM, Equity, ESG, and Sign persistence. The backend is restarted and every critical record is read back before the site is dropped. This exposed a production bug: resource PUT query parameters never submitted or cancelled Frappe documents. The shared client now uses the official `frappe.client.submit` and `frappe.client.cancel` methods. The complete real gate passes; root lint, 14 typecheck tasks, 492 unit tests, and all 90 tenant-isolation tests pass. M10-007 production operations and staged-pilot evidence remains the final engineering launch gate.
+
+---
+ID: M10-COMMS-013
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-007 production operations and staged pilot claimed
+---
+PR #74 merged as `832cc39`. I claimed the final M10 gate on `feat/M10/production-operations-pilot`: deliver a production deployment/preflight contract, TLS and secret handling, automated platform and tenant-ERP backups with restore proof, monitoring and alert guidance, upgrade/rollback and incident runbooks, and a staged security/volume pilot with explicit release evidence. External DNS, cloud credentials, and vendor accounts remain operator-provided inputs rather than repository secrets.

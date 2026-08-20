@@ -119,6 +119,36 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 
 ---
 
+## M10 — Market launch hardening
+
+> Goal: remove the remaining no-go findings from `docs/MARKET_READINESS_REVIEW.md` without violating the two-store architecture: tenant business records stay in each tenant ERP site, authorization remains server-derived, and production operations are reproducible and tested.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M10-001 CRM durable tenant persistence** | M10 | codex-market-launch | done | feat/M10/crm-durable-persistence | Tenant-local Amni Bridge persistence, bounded indexes, demo records, two-tenant isolation, automatic site migration, and real-bench restart proof. [PR #69](https://github.com/Aa070078/amni/pull/69) |
+| **M10-002 Accounting + invoicing durable ERP persistence** | M10 | codex-market-launch | done | feat/M10/accounting-invoicing-persistence | Native tenant Account, Journal Entry, GL Entry, return Sales Invoice, Purchase Invoice, and Auto Repeat persistence; restricted-token restart gate and isolation coverage. [PR #70](https://github.com/Aa070078/amni/pull/70) |
+| **M10-003 Equity, ESG, and signing tenant persistence** | M10 | codex-market-launch | done | feat/M10/noncore-domain-persistence | [PR #71](https://github.com/Aa070078/amni/pull/71) — dedicated tenant-local Amni Domain Record, audited membership-resolved APIs, two-site isolation, demo fixtures, and real-bench restart durability gate. |
+| **M10-004 Specialist roles and domain authorization** | M10 | codex-market-launch | done | feat/M10/roles-settings-persistence | PR #72; durable settings/invitations/expense categories, provider-honest billing/integrations, specialist server authorization + filtered navigation. |
+| **M10-005 Bounded ERP queries + tenant data-plane health** | M10 | codex-market-launch | done | feat/M10/bounded-queries-tenant-health ([PR #73](https://github.com/Aa070078/amni/pull/73)) | Added an allow-listed bounded ERP query/count path, tenant/role-scoped search, recurring health probes, and degraded workspace UX. |
+| **M10-006 Real-ERP release gate** | M10 | codex-market-launch | done | feat/M10/real-erp-release-gate ([PR #74](https://github.com/Aa070078/amni/pull/74)) | Clean-site restricted-account gate covers submitted sales/purchasing/payments, accounting, CRM/domain persistence, restart durability, and main/nightly CI. |
+| **M10-007 Production operations + staged pilot** | M10 | codex-market-launch | in-progress | feat/M10/production-operations-pilot | Deployment, TLS, secrets, backups/restores, upgrades, monitoring, incident/rollback runbooks, volume/security pilot. |
+
+---
+
+## M9 — Production-readiness, onboarding reliability, and workspace UX
+
+> Goal: make a newly registered company reach a usable workspace, enforce the product permission model server-side, separate CRM from Sales in the information architecture, audit every primary page in a real browser, and close the highest-impact usability defects without overstating launch readiness.
+
+| Task | Milestone | Owner | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| **M9-001 Provisioning credentials + first-workspace recovery** | M9 | codex-product-readiness | done | feat/M9/product-readiness | Dedicated ERP token user/roles, encrypted credentials, activation probe, retry/recovery, and fresh-signup worker path completed. [PR #68](https://github.com/Aa070078/amni/pull/68) |
+| **M9-002 Server-side domain authorization baseline** | M9 | codex-product-readiness | done | feat/M9/product-readiness | Owner/admin unsafe-method baseline with explicit member self-service exceptions and negative/live 403 tests completed. [PR #68](https://github.com/Aa070078/amni/pull/68) |
+| **M9-003 CRM information-architecture separation** | M9 | codex-product-readiness | done | feat/M9/product-readiness | CRM is a standalone `/crm` workspace; legacy Sales CRM URLs redirect. [PR #68](https://github.com/Aa070078/amni/pull/68) |
+| **M9-004 Cross-page UI/UX and dashboard optimization** | M9 | codex-product-readiness | done | feat/M9/product-readiness | Desktop/mobile/light/dark audit completed; dashboard, Sales, setup, errors, accessibility, and record routing refined. [PR #68](https://github.com/Aa070078/amni/pull/68) |
+| **M9-005 Full-story verification + launch assessment** | M9 | codex-product-readiness | done | feat/M9/product-readiness | Real ERP bootstrap/token probe plus 565 unit, 84 isolation, and two full Playwright journeys passed; remaining no-go blockers documented. [PR #68](https://github.com/Aa070078/amni/pull/68) |
+
+---
+
 ## M8 — Market readiness stabilization + product experience
 
 > Goal: reproduce and eliminate the live admin/member dashboard failures and slow module loads, audit the platform for release-blocking correctness/security/performance gaps, verify the critical journeys against the running Docker/ERP environment, and raise the landing/dashboard experience to the Amni design-system standard.
@@ -160,6 +190,10 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | Date | Change |
 |---|---|
 | 2026-08-18 | **M8-001 completed** (codex-market-readiness, [PR #67](https://github.com/Aa070078/amni/pull/67)): reseeded the SaaS owner, Demo Co owner/admin, and Demo Co member; expanded the authenticated ERP stand-in from 14 to 68 records; verified 6 customers, 8 products, 3 warehouses, 5 quotations, 5 sales orders, 8 sales invoices, 4 suppliers, 4 purchase orders, 4 purchase invoices, 5 expenses, 6 payments, dashboard KPIs/alerts/activity, and the existing CRM fixture. |
+| 2026-08-18 | **M10-001 completed** (codex-market-launch, [PR #69](https://github.com/Aa070078/amni/pull/69)): all CRM process-local stores now persist in each membership-resolved ERP site through Amni Bridge; API tests, 86 isolation tests, and real ERPNext create/list/restart/read-back verification passed. |
+| 2026-08-19 | **M10-002 completed** (codex-market-launch, [PR #70](https://github.com/Aa070078/amni/pull/70)): accounting and invoicing process-local stores now use native tenant ERPNext records; 88 isolation checks and a restricted service-token Account/Journal/credit-note/Auto Repeat restart durability gate passed. |
+| 2026-08-19 | **M10-006 completed** (codex-market-launch, [PR #74](https://github.com/Aa070078/amni/pull/74)): the pinned clean-site release gate provisions restricted credentials, exercises and submits critical ERP flows, proves restart durability, and caught/fixed the ineffective legacy submit/cancel transport. |
+| 2026-08-18 | **M9 product-readiness completed** (codex-product-readiness, [PR #68](https://github.com/Aa070078/amni/pull/68)): closed the original ERP credential/role, domain-authorization, and reproducible ERP-stack P0s; made provisioning recoverable; persisted tenant-scoped onboarding/settings; separated CRM; refined responsive UX; and fixed duplicate product creation, encoded detail routes, and unallocated invoice payments. Lint, 14 typecheck tasks, 565 unit tests, 84 isolation tests, two Playwright journeys, and a clean real ERPNext/HRMS/Amni Bridge site/token probe passed. Market launch remains no-go pending process-local domain-store replacement and documented P1 gates. |
 | 2026-08-18 | **M8-000 completed** (codex-market-readiness, [PR #66](https://github.com/Aa070078/amni/pull/66)): reproduced the admin/member dashboard failures, restored the local ERP-backed experience with a development stand-in, consolidated dashboard reads, fixed server-derived role filtering and auth-log redaction, hardened omitted ERP child rows, removed Windows verification races, refreshed the landing page, and documented the remaining P0/P1 launch blockers in `docs/MARKET_READINESS_REVIEW.md`. Root lint/typecheck/build and 562 tests pass; desktop/mobile browser journeys verified. |
 | 2026-08-16 | **M7-002 implemented + verified live** (agent-amni-01, PR #1 on `feat/M7/company-demo-seed`): `seed-demo-company.ts` seeds Demo Co (`demo-co`) with admin/member accounts + ACTIVE Tenant + ERPInstance (real bench creds ciphered) + TRIAL sub. Live-verified on frappe_docker bench (site `frontend`): dashboard overview/activity/alerts 200 for both accounts; member `?role=member` = revenue-only KPI. Also fixed pre-existing `Tenant.hrmsInstalled` schema drift (`@map`) and the M5 Item `reorder_level`→`safety_stock` bug (mock never validated fields; real bench 417'd). Provisioning gap flagged (bench service account has no api_key/roles) — COMMS M7-COMMS-002. |
 | 2026-08-16 | **M7-001 merged to dev** — PR #63 squash as `ab2af60` (agent-amni-01): seed-saas-admin.ts + platform-admin → `/admin` redirect + quick-login demo accounts. M7-002 (company seed) in-progress (reassigned to operator lane). |

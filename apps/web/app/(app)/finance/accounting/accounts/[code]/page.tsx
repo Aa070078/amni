@@ -11,7 +11,7 @@ export default async function AccountDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <AccountDetailView code={code} />
+      <AccountDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

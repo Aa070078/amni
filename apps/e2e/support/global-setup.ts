@@ -1,6 +1,9 @@
 import { PrismaClient } from "@amni/db";
 import { encryptServiceSecret, serializeServiceCredentials } from "@amni/erp";
 import { hash } from "@node-rs/argon2";
+import { existsSync } from "node:fs";
+import { loadEnvFile } from "node:process";
+import { fileURLToPath } from "node:url";
 import { startMockFrappeServer, type MockFrappeServer } from "./mock-frappe-server.js";
 
 import { E2E_ENCRYPTION_KEY, MOCK_ERP_API_KEY, MOCK_ERP_API_SECRET } from "./constants.js";
@@ -15,6 +18,8 @@ declare global {
 }
 
 export default async function globalSetup(): Promise<void> {
+  const apiEnvPath = fileURLToPath(new URL("../../api/.env", import.meta.url));
+  if (!process.env.DATABASE_URL && existsSync(apiEnvPath)) loadEnvFile(apiEnvPath);
   process.env.ENCRYPTION_KEY = E2E_ENCRYPTION_KEY;
 
   const suffix = Date.now().toString(36);

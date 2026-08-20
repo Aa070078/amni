@@ -27,8 +27,13 @@ Copy example envs (never commit real ones):
 
 ```bash
 cp infra/docker/.env.example .env
+cp apps/api/.env.example apps/api/.env
+# Optional: copy this only when the worker needs values that differ from the API.
+cp apps/worker/.env.example apps/worker/.env
 cp infra/erp/.env.example infra/erp/.env
 ```
+
+In local development the worker falls back to `apps/api/.env` for the shared database and Redis settings, so `pnpm dev` cannot start a queue consumer with a missing `DATABASE_URL`.
 
 Key variables (full list in the example files):
 
@@ -41,7 +46,7 @@ Key variables (full list in the example files):
 | `REFRESH_TOKEN_TTL_DAYS` | refresh-token/session lifetime in days (default 30) |
 | `SMTP_*` / `MAIL_PROVIDER` | email delivery (dev: console/smtp4dev) |
 | `ERPNEXT_CLUSTER_*` | how the worker reaches the bench (`DOCKER_EXEC` in dev; exec target + site root) |
-| `ERPNEXT_INSTALL_APPS` | apps installed on every new site (default `erpnext,hrms`) |
+| `ERPNEXT_INSTALL_APPS` | apps installed on every new site (default `erpnext,hrms,amni_bridge`) |
 | `HRMS_SSO_SECRET` | HMAC secret that signs the HRMS SSO token (must match bench `amni_sso_secret`) |
 | `PLATFORM_URL` / `PLATFORM_DOMAIN` | app + tenant subdomain base |
 | `ENCRYPTION_KEY` | AES-GCM key used to encrypt tenant ERP service keys at rest |
@@ -57,25 +62,21 @@ pnpm db:seed          # seed plans + admin (dev)
 
 ## 5. Run the ERP cluster (ERPNext via frappe_docker)
 
-The ERP cluster lives under `infra/erp` (a wrapper around `frappe/frappe_docker`). On Windows use the provided scripts; the compose command **must include all three overrides**:
+The ERP cluster is reproducibly built from the official `frappe/frappe_docker` repository pinned to commit `616ffd417797031f760e7a6c9669923a5febed66`. The bootstrap builds an immutable image containing ERPNext, HRMS, and `amni_bridge`, starts the required MariaDB/Redis/no-proxy overrides, creates the integration site, and verifies the real Frappe ping endpoint:
 
-```bash
-docker compose -p frappe -f compose.yaml \
-  -f overrides/compose.mariadb.yaml \
-  -f overrides/compose.redis.yaml \
-  -f overrides/compose.noproxy.yaml \
-  up -d
+```powershell
+Copy-Item infra/erp/.env.example infra/erp/.env
+# Replace AMNI_SSO_SECRET and mirror it as HRMS_SSO_SECRET in apps/api/.env.
+powershell -File infra/erp/scripts/bootstrap.ps1
 ```
 
-- Set `PULL_POLICY=missing` in `.env` (the default `always` re-pulls and can fail with `context deadline exceeded`).
-- First boot: wait for MariaDB healthy, then create a dev site:
-  ```bash
-  docker compose -p frappe exec backend bench new-site localhost \
-    --mariadb-user-host-login-scope=% --db-root-password admin \
-    --admin-password admin --install-app erpnext
-  ```
-- Verify: `http://localhost:8080/api/method/ping` → `{"message":"pong"}`. Login: `Administrator` / `admin`.
-- A second tenant site in dev: `bench new-site myco.localhost --mariadb-user-host-login-scope=% --db-root-password admin --admin-password admin --install-app erpnext`, reachable at `http://myco.localhost:8080` (nginx routes by Host header; `*.localhost` resolves to 127.0.0.1).
+- Re-run with `-SkipBuild` when the immutable image already exists.
+- Verify manually at `http://localhost:8080/api/method/ping`; local-only login is `Administrator` / `admin`.
+- The worker reaches `frappe-backend-1` and provisions tenant sites with `erpnext,hrms,amni_bridge` by default.
+- Verify the native accounting and invoicing configuration, including restart durability, with `powershell -File infra/erp/scripts/smoke-accounting-invoicing.ps1 -RestartBackend`. For the production-equivalent permission gate, pass API credentials created by `amni_bridge.api.provision_service_account` through `-ApiKey` and `-ApiSecret`; never commit or print those credentials.
+- Verify tenant-local Equity, ESG, and Sign persistence plus bounded queries and restart durability with `powershell -File infra/erp/scripts/smoke-domain-persistence.ps1 -RestartBackend`. Pass a provisioned service account through `-ApiKey` and `-ApiSecret` for the restricted-permission gate.
+- Run the complete production release proof with `powershell -File infra/erp/scripts/release-gate.ps1`. It creates and destroys only `market-gate.localhost`, uses generated restricted credentials without printing or persisting them, submits real sales/purchasing/invoice/payment documents, restarts the backend, and runs accounting plus non-core durability gates. Use `-KeepSite` only for deliberate local debugging.
+- Image inputs are immutable: frappe_docker commit `616ffd417797031f760e7a6c9669923a5febed66`, Frappe `v16.31.0`, ERPNext `v16.32.1`, and HRMS `v16.16.0`.
 
 ### 5.0.1 Development stand-in when a bench is unavailable
 
@@ -97,15 +98,15 @@ Demo personas (local development only):
 
 ### 5.1 HRMS (Frappe HR + Amni SSO)
 
-Frappe HR (the `hrms` app) ships as the embedded HRMS section in the platform. Every new site gets it automatically via `ERPNEXT_INSTALL_APPS` (default `erpnext,hrms`). Existing sites need the one-off script below.
+Frappe HR (the `hrms` app) ships as the embedded HRMS section in the platform. Every new site gets it automatically via `ERPNEXT_INSTALL_APPS` (default `erpnext,hrms,amni_bridge`). Existing sites need the one-off script below.
 
 - **The SSO bridge**: the platform API mints a short-lived JWT (`HRMS_SSO_SECRET`), and the tiny `amni_bridge` app (in `infra/erp/apps/amni_bridge`, a non-core app) validates it on the tenant site and logs the platform user into the Frappe HR desk. It also themes the desk with Amni colors.
 - **Existing site setup** (new sites get `hrms` + `amni_bridge` from provisioning, no action needed):
   ```powershell
   # infra/erp/scripts/install-hrms.ps1
-  ./scripts/install-hrms.ps1 -Sites localhost,myco.localhost
+  powershell -File infra/erp/scripts/install-hrms.ps1 -Sites localhost,myco.localhost
   ```
-  This fetches `hrms` (branch `HRMS_BRANCH`, default `version-16`) + `amni_bridge` into the bench, installs them on the given sites, and writes `amni_sso_secret` into the bench `common_site_config.json`.
+  The script installs apps already baked into the immutable image and writes `amni_sso_secret` into the bench `common_site_config.json`; it never modifies running container application code.
 - **Secrets must match**: set the same value for `AMNI_SSO_SECRET` in `infra/erp/.env` (used to write the bench config) and `HRMS_SSO_SECRET` in `apps/api/.env`. The script fails loudly if they differ.
 
 ## 6. Run apps

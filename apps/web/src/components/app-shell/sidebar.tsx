@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Command } from "lucide-react";
 import { Button, Sheet, SheetContent, SheetTitle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@amni/ui";
-import { appModules, isModuleActive } from "@/src/lib/nav";
+import { isModuleActive, modulesForRole } from "@/src/lib/nav";
+import { useMe } from "@/src/hooks/use-me";
 import { TenantSwitcher } from "./tenant-switcher";
 import { cn } from "@amni/ui";
 
@@ -34,6 +35,8 @@ export function Sidebar({ mobileOpen, onMobileOpenChange }: SidebarProps) {
 }
 
 function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  const { data: user } = useMe();
+  const modules = modulesForRole(user?.role);
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 py-4">
       <div className="flex items-center gap-2 px-2">
@@ -46,7 +49,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       <TenantSwitcher />
 
       <nav className="mt-2 flex flex-1 flex-col gap-1" aria-label="Modules">
-        {appModules.map((module) => {
+        {modules.map((module) => {
           const active = isModuleActive(pathname, module.href);
           const Icon = module.icon;
           return (

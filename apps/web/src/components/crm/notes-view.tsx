@@ -110,7 +110,7 @@ function NoteSection({ title, notes }: { title: string; notes: CrmNote[] }) {
         {notes.map((note) => (
           <li key={note.code} className="flex flex-col rounded-lg border bg-card p-4">
             <div className="flex items-start justify-between gap-2">
-              <Link href={`/sales/crm/notes/${note.code}`} className="font-medium text-foreground hover:text-primary hover:underline">
+              <Link href={`/crm/notes/${note.code}`} className="font-medium text-foreground hover:text-primary hover:underline">
                 {note.title}
               </Link>
               {note.pinned ? <Pin className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}

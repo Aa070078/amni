@@ -9,13 +9,14 @@ import { MailProcessor } from "./jobs/mail.processor";
 import { NotifyProcessor } from "./jobs/notify.processor";
 import { DefaultProcessor } from "./jobs/default.processor";
 import { MailerService } from "./mail/mailer.service";
+import { HealthScheduler } from "./jobs/health.scheduler";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: [".env.local", ".env"],
+      envFilePath: [".env.local", ".env", "../api/.env"],
     }),
     BullModule.forRootAsync({
       inject: [ConfigService],
@@ -39,6 +40,6 @@ import { MailerService } from "./mail/mailer.service";
       { name: BullQueue.DEFAULT },
     ),
   ],
-  providers: [ProvisioningProcessor, ImportsProcessor, MailProcessor, NotifyProcessor, DefaultProcessor, MailerService],
+  providers: [ProvisioningProcessor, ImportsProcessor, MailProcessor, NotifyProcessor, DefaultProcessor, HealthScheduler, MailerService],
 })
 export class AppModule {}

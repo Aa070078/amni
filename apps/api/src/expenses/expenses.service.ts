@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { Injectable } from "@nestjs/common";
 import {
   EXPENSE_CLAIM_FIELDS,
@@ -29,13 +31,14 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
+// DomainRecordRepository must remain a value import for Nest constructor metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { DomainRecordRepository } from "../common/domain-record.repository";
 import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 const SORT_WHITELIST = new Set([
@@ -70,18 +73,6 @@ const CLAIM_FIELDS = [
   "expenses",
   "creation",
   "modified",
-];
-
-const SEED_CATEGORIES: ExpenseCategoryRecord[] = [
-  { code: "CAT-0001", name: "Travel", color: "blue", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0002", name: "Office supplies", color: "amber", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0003", name: "Utilities", color: "cyan", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0004", name: "Software", color: "violet", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0005", name: "Marketing", color: "rose", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0006", name: "Professional services", color: "emerald", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0007", name: "Rent", color: "orange", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0008", name: "Equipment", color: "lime", status: "active", createdAt: iso(300), updatedAt: iso(60) },
-  { code: "CAT-0009", name: "Other", color: "zinc", status: "archived", createdAt: iso(300), updatedAt: iso(90) },
 ];
 
 /**
@@ -186,9 +177,10 @@ function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; 
  */
 @Injectable()
 export class ExpensesService {
-  private categories: ExpenseCategoryRecord[] = structuredClone(SEED_CATEGORIES);
-
-  constructor(private readonly gateway: ErpGatewayService) {}
+  constructor(
+    private readonly gateway: ErpGatewayService,
+    private readonly records: DomainRecordRepository,
+  ) {}
 
   async list(user: GatewayUser, meta: GatewayRequestMeta, query: ExpenseListQuery): Promise<ExpenseListResponse> {
     const records = (await this.allClaims(user, meta)).filter((doc) => /^EXP-\d{4}$/.test(String(doc.name))).map(toExpense);
@@ -368,9 +360,10 @@ export class ExpensesService {
     await this.gateway.remove(user, meta, FINANCE_DOCTYPE.expenseClaim, code);
   }
 
-  listCategories(query: ExpenseCategoryListQuery): ExpenseCategoryListResponse {
+  async listCategories(user: GatewayUser, meta: GatewayRequestMeta, query: ExpenseCategoryListQuery): Promise<ExpenseCategoryListResponse> {
+    const { items: categories } = await this.records.list<ExpenseCategoryRecord>(user, meta, "expenses", "category", { pageLength: 200 });
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.categories.filter((category) => {
+    const filtered = categories.filter((category) => {
       if (query.status && category.status !== query.status) return false;
       if (!q) return true;
       return [category.code, category.name].join(" ").toLowerCase().includes(q);
@@ -381,47 +374,33 @@ export class ExpensesService {
     return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
   }
 
-  createCategory(input: CreateExpenseCategoryInput): ExpenseCategoryRecord {
+  async createCategory(user: GatewayUser, meta: GatewayRequestMeta, input: CreateExpenseCategoryInput): Promise<ExpenseCategoryRecord> {
     const now = new Date().toISOString();
     const category: ExpenseCategoryRecord = {
-      code: nextCode(this.categories.map((record) => record.code), "CAT-"),
+      code: `CAT-${randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`,
       name: input.name,
       color: input.color ?? "zinc",
       status: "active",
       createdAt: now,
       updatedAt: now,
     };
-    this.categories.push(category);
-    return category;
+    return this.records.create(user, meta, "expenses", "category", category.code, category, { status: category.status, title: category.name });
   }
 
-  updateCategory(code: string, input: UpdateExpenseCategoryInput): ExpenseCategoryRecord {
-    const category = this.categories.find((record) => record.code === code);
-    if (!category) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense category ${code} not found` });
-    }
-    if (input.name !== undefined) category.name = input.name;
-    if (input.color !== undefined) category.color = input.color;
-    category.updatedAt = new Date().toISOString();
-    return category;
+  async updateCategory(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateExpenseCategoryInput): Promise<ExpenseCategoryRecord> {
+    const category = await this.records.get<ExpenseCategoryRecord>(user, meta, "expenses", "category", code);
+    const updated = { ...category, ...input, updatedAt: new Date().toISOString() };
+    return this.records.update(user, meta, "expenses", "category", code, updated, { status: updated.status, title: updated.name });
   }
 
-  changeCategoryStatus(code: string, input: { status: ExpenseCategoryRecordStatus }): ExpenseCategoryRecord {
-    const category = this.categories.find((record) => record.code === code);
-    if (!category) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense category ${code} not found` });
-    }
-    category.status = input.status;
-    category.updatedAt = new Date().toISOString();
-    return category;
+  async changeCategoryStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: ExpenseCategoryRecordStatus }): Promise<ExpenseCategoryRecord> {
+    const category = await this.records.get<ExpenseCategoryRecord>(user, meta, "expenses", "category", code);
+    const updated = { ...category, status: input.status, updatedAt: new Date().toISOString() };
+    return this.records.update(user, meta, "expenses", "category", code, updated, { status: updated.status, title: updated.name });
   }
 
-  removeCategory(code: string): void {
-    const index = this.categories.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Expense category ${code} not found` });
-    }
-    this.categories.splice(index, 1);
+  async removeCategory(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    await this.records.remove(user, meta, "expenses", "category", code);
   }
 
   private async allClaims(user: GatewayUser, meta: GatewayRequestMeta): Promise<Record<string, unknown>[]> {

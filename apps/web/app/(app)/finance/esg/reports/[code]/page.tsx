@@ -11,7 +11,7 @@ export default async function EsgReportDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <EsgReportDetailView code={code} />
+      <EsgReportDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

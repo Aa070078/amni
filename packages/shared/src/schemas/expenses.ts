@@ -78,7 +78,7 @@ export type ExpenseClaimListResponse = z.infer<typeof expenseClaimListResponseSc
 export const expenseCategoryRecordStatusSchema = z.enum(["active", "archived"]);
 
 export const expenseCategoryRecordSchema = z.object({
-  code: z.string().regex(/^CAT-\d{4}$/),
+  code: z.string().regex(/^CAT-[A-Z0-9]{4,16}$/),
   name: z.string().min(1).max(80),
   color: z.string().max(40).default("zinc"),
   status: expenseCategoryRecordStatusSchema,

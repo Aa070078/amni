@@ -107,30 +107,30 @@ export class ExpensesController {
   }
 
   @Get("categories")
-  listCategories(@Query() query: unknown): ExpenseCategoryListResponse {
-    return this.expenses.listCategories(expenseCategoryListQuerySchema.parse(query));
+  listCategories(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Query() query: unknown): Promise<ExpenseCategoryListResponse> {
+    return this.expenses.listCategories(user, meta, expenseCategoryListQuerySchema.parse(query));
   }
 
   @Post("categories")
   @HttpCode(HttpStatus.CREATED)
-  createCategory(@Body() body: unknown): ExpenseCategoryRecord {
-    return this.expenses.createCategory(createExpenseCategoryInputSchema.parse(body));
+  createCategory(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Body() body: unknown): Promise<ExpenseCategoryRecord> {
+    return this.expenses.createCategory(user, meta, createExpenseCategoryInputSchema.parse(body));
   }
 
   @Patch("categories/:code/status")
-  changeCategoryStatus(@Param("code") code: string, @Body() body: unknown): ExpenseCategoryRecord {
-    return this.expenses.changeCategoryStatus(code, changeCategoryStatusInputSchema.parse(body));
+  changeCategoryStatus(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string, @Body() body: unknown): Promise<ExpenseCategoryRecord> {
+    return this.expenses.changeCategoryStatus(user, meta, code, changeCategoryStatusInputSchema.parse(body));
   }
 
   @Patch("categories/:code")
-  updateCategory(@Param("code") code: string, @Body() body: unknown): ExpenseCategoryRecord {
-    return this.expenses.updateCategory(code, updateExpenseCategoryInputSchema.parse(body));
+  updateCategory(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string, @Body() body: unknown): Promise<ExpenseCategoryRecord> {
+    return this.expenses.updateCategory(user, meta, code, updateExpenseCategoryInputSchema.parse(body));
   }
 
   @Delete("categories/:code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeCategory(@Param("code") code: string): void {
-    this.expenses.removeCategory(code);
+  removeCategory(@CurrentUser() user: GatewayUser, @ReqMeta() meta: RequestMeta, @Param("code") code: string): Promise<void> {
+    return this.expenses.removeCategory(user, meta, code);
   }
 
   @Get()

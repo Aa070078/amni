@@ -58,7 +58,11 @@ export function SetupWizard() {
   });
 
   React.useEffect(() => {
-    if (statusQuery.data?.status === "provisioning" && !provisioning && !provisioned) {
+    if (
+      (statusQuery.data?.status === "provisioning" || statusQuery.data?.status === "failed") &&
+      !provisioning &&
+      !provisioned
+    ) {
       setProvisioning(true);
     }
   }, [statusQuery.data, provisioning, provisioned]);
@@ -102,7 +106,7 @@ export function SetupWizard() {
 
   const goBack = () => {
     if (stepIndex === 0) {
-      router.push("/dashboard");
+      router.push("/");
       return;
     }
     const prevStep = STEP_ORDER[stepIndex - 1] ?? "company";
@@ -219,10 +223,20 @@ export function SetupWizard() {
         </CardContent>
       </Card>
 
+      {saveMutation.isError || submitMutation.isError ? (
+        <p className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+          {saveMutation.error instanceof Error
+            ? saveMutation.error.message
+            : submitMutation.error instanceof Error
+              ? submitMutation.error.message
+              : "We couldn’t save this step. Please try again."}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex items-center justify-between">
         <Button variant="ghost" onClick={goBack} disabled={saveMutation.isPending || submitMutation.isPending}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {stepIndex === 0 ? "Dashboard" : "Back"}
+          {stepIndex === 0 ? "Exit setup" : "Back"}
         </Button>
         <Button
           onClick={advance}

@@ -7,10 +7,14 @@ import {
   type ErpListOptions,
   type ErpListResult,
   type ErpLoginResult,
+  type ErpQueryOptions,
+  type ErpQueryResult,
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_RETRIES = 2;
+const DEFAULT_LIST_PAGE_LENGTH = 20;
+const MAX_LIST_PAGE_LENGTH = 100;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
 type RequestAuth = "token" | "session" | "none";
@@ -134,18 +138,31 @@ export class ErpClient {
 
   /** GET /resource/{doctype}?filters=... */
   async list<T extends object>(doctype: string, options: ErpListOptions = {}): Promise<ErpListResult<T>> {
+    const requestedPageLength = options.limitPageLength ?? DEFAULT_LIST_PAGE_LENGTH;
+    const limitPageLength = requestedPageLength <= 0 ? MAX_LIST_PAGE_LENGTH : Math.min(MAX_LIST_PAGE_LENGTH, requestedPageLength);
     const { body } = await this.request<{ data: T[] }>("GET", `/resource/${doctype}`, {
       params: {
         filters: options.filters,
         fields: options.fields,
         order_by: options.orderBy,
-        limit_page_length: options.limitPageLength,
+        limit_page_length: limitPageLength,
         start: options.start,
       },
     });
     const items = body.data;
-    const hasMore = (options.limitPageLength ?? 0) > 0 && items.length >= (options.limitPageLength ?? 0);
+    const hasMore = items.length >= limitPageLength;
     return { items, hasMore };
+  }
+
+  async query<T extends object>(doctype: string, options: ErpQueryOptions = {}): Promise<ErpQueryResult<T>> {
+    return this.call<ErpQueryResult<T>>("amni_bridge.api.query_native_records", {
+      doctype,
+      filters: options.filters,
+      q: options.q,
+      order_by: options.orderBy,
+      start: Math.max(0, options.start ?? 0),
+      page_length: Math.min(MAX_LIST_PAGE_LENGTH, Math.max(1, options.pageLength ?? DEFAULT_LIST_PAGE_LENGTH)),
+    });
   }
 
   /** GET /resource/{doctype}/{name} */
@@ -168,20 +185,15 @@ export class ErpClient {
     return body.data;
   }
 
-  /** PUT /resource/{doctype}/{name}?action=submit — submit the doc. */
+  /** Fetch then POST /method/frappe.client.submit — official Frappe submit path. */
   async submit<T extends object>(doctype: string, name: string): Promise<T> {
-    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
-      params: { action: "submit" },
-    });
-    return body.data;
+    const doc = await this.get<Record<string, unknown>>(doctype, name);
+    return this.call<T>("frappe.client.submit", { doc: { ...doc, doctype, name } });
   }
 
-  /** PUT /resource/{doctype}/{name}?action=cancel — cancel the doc. */
+  /** POST /method/frappe.client.cancel — official Frappe cancel path. */
   async cancel<T extends object>(doctype: string, name: string): Promise<T> {
-    const { body } = await this.request<{ data: T }>("PUT", `/resource/${doctype}/${encodeURIComponent(name)}`, {
-      params: { action: "cancel" },
-    });
-    return body.data;
+    return this.call<T>("frappe.client.cancel", { doctype, name });
   }
 
   /** DELETE /resource/{doctype}/{name} */

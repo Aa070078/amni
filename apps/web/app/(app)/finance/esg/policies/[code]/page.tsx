@@ -11,7 +11,7 @@ export default async function EsgPolicyDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <EsgPolicyDetailView code={code} />
+      <EsgPolicyDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

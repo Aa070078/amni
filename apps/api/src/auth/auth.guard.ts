@@ -1,4 +1,7 @@
 import { Injectable, type CanActivate, type ExecutionContext } from "@nestjs/common";
+// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { Reflector } from "@nestjs/core";
 import { prisma } from "@amni/db";
 import type { Request } from "express";
 
@@ -8,6 +11,7 @@ import { ACCESS_COOKIE, CSRF_COOKIE } from "./tokens.service";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { TokensService } from "./tokens.service";
+import { ALLOW_MEMBER_MUTATION } from "./authorization.decorator";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -15,6 +19,7 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: ProductRoleValue;
     isPlatformAdmin: boolean;
+    companyId?: string;
     companyName?: string;
   };
 }
@@ -28,7 +33,10 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly tokens: TokensService) {}
+  constructor(
+    private readonly tokens: TokensService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -60,11 +68,13 @@ export class AuthGuard implements CanActivate {
         status: true,
         isPlatformAdmin: true,
         memberships: {
+          where: { status: "ACTIVE" },
           orderBy: { createdAt: "asc" },
           take: 1,
           select: {
             platformRole: true,
-            company: { select: { name: true } },
+            productRole: true,
+            company: { select: { id: true, name: true } },
           },
         },
       },
@@ -91,18 +101,55 @@ export class AuthGuard implements CanActivate {
     }
 
     const membership = user.memberships[0];
-    const role =
-      membership?.platformRole === "OWNER" || membership?.platformRole === "ADMIN"
-        ? ProductRole.ADMIN
-        : ProductRole.MEMBER;
+    const role = membershipRole(membership);
 
     req.user = {
       id: user.id,
       email: user.email,
       role,
       isPlatformAdmin: user.isPlatformAdmin,
+      companyId: membership?.company.id,
       companyName: membership?.company.name,
     };
+
+    if (!user.isPlatformAdmin && !roleCanAccessPath(role, req.originalUrl ?? req.url ?? "")) {
+      throw new ApiException({
+        code: ErrorCode.FORBIDDEN,
+        status: 403,
+        message: "Your workspace role does not have access to this area",
+      });
+    }
+
+    const memberMutationAllowed = this.reflector.getAllAndOverride<boolean>(ALLOW_MEMBER_MUTATION, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!SAFE_METHODS.has(method) && role === ProductRole.MEMBER && !user.isPlatformAdmin && !memberMutationAllowed) {
+      throw new ApiException({
+        code: ErrorCode.FORBIDDEN,
+        status: 403,
+        message: "This action requires a workspace administrator",
+      });
+    }
     return true;
   }
+}
+
+function membershipRole(membership?: { platformRole: string; productRole: string }): ProductRoleValue {
+  if (!membership) return ProductRole.MEMBER;
+  if (membership.platformRole === "OWNER" || membership.platformRole === "ADMIN") return ProductRole.ADMIN;
+  const role = membership.productRole.toLowerCase();
+  return Object.values(ProductRole).includes(role as ProductRoleValue) ? role as ProductRoleValue : ProductRole.MEMBER;
+}
+
+export function roleCanAccessPath(role: ProductRoleValue, rawPath: string): boolean {
+  if (role === ProductRole.ADMIN) return true;
+  const path = rawPath.split("?", 1)[0]?.replace(/^\/api\/v1/, "") ?? "";
+  if (path.startsWith("/dashboard") || path.startsWith("/notifications") || path.startsWith("/hrms") || path.startsWith("/auth")) return true;
+  if (path.startsWith("/search") || path.startsWith("/healthz/tenant")) return true;
+  if (path.startsWith("/settings/profile")) return true;
+  if (role === ProductRole.SALES) return path.startsWith("/sales") || path.startsWith("/crm") || path.startsWith("/people");
+  if (role === ProductRole.INVENTORY) return path.startsWith("/inventory") || path.startsWith("/purchasing");
+  if (role === ProductRole.ACCOUNTANT) return path.startsWith("/finance");
+  return false;
 }

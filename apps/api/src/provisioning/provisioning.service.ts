@@ -25,12 +25,27 @@ export interface EnqueueInput {
 export class ProvisioningService {
   constructor(@InjectQueue(BullQueue.PROVISIONING) private readonly queue: Queue) {}
 
-  async enqueue(input: EnqueueInput): Promise<{ jobId: string }> {
+  async enqueue(input: EnqueueInput, options: { force?: boolean } = {}): Promise<{ jobId: string }> {
     const idempotencyKey = `provision:${input.tenantId}`;
     const existing = await prisma.provisioningJob.findUnique({ where: { idempotencyKey } });
 
-    if (existing && !TERMINAL_FAILED.has(existing.state)) {
+    if (existing && !TERMINAL_FAILED.has(existing.state) && !options.force) {
       return { jobId: existing.id };
+    }
+
+    if (existing) {
+      const queuedJob = await this.queue.getJob(existing.id);
+      if (queuedJob) {
+        const queueState = await queuedJob.getState();
+        if (queueState === "active") {
+          throw new ApiException({
+            code: ErrorCode.PROVISIONING_IN_PROGRESS,
+            status: 409,
+            message: "Provisioning is still running",
+          });
+        }
+        await queuedJob.remove();
+      }
     }
 
     const attempts = existing ? existing.attempts + 1 : 0;
@@ -78,6 +93,40 @@ export class ProvisioningService {
     );
 
     return { jobId: job.id };
+  }
+
+  async retryFor(userId: string): Promise<{ jobId: string }> {
+    const membership = await prisma.membership.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { company: { include: { tenant: true } } },
+    });
+    const tenant = membership?.company.tenant;
+    if (!membership || !tenant) {
+      throw new ApiException({
+        code: ErrorCode.TENANT_NOT_READY,
+        status: 409,
+        message: "Complete workspace setup before retrying provisioning",
+      });
+    }
+    if (tenant.status === "ACTIVE") {
+      throw new ApiException({
+        code: ErrorCode.CONFLICT,
+        status: 409,
+        message: "Workspace is already active",
+      });
+    }
+
+    return this.enqueue(
+      {
+        tenantId: tenant.id,
+        companyId: membership.company.id,
+        createdBy: userId,
+        siteName: tenant.siteName,
+        siteUrl: tenant.siteUrl,
+      },
+      { force: true },
+    );
   }
 
   async statusFor(userId: string): Promise<ProvisioningStatus> {

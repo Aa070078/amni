@@ -138,31 +138,31 @@ describe("purchasing client wrappers", () => {
   });
 
   it("creates a purchase order then submits and cancels it", async () => {
-    const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PO-2040" } }));
+    const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PO-2040" }, message: { name: "PO-2040" } }));
     const client = makeClient();
     const doc = await createPurchaseOrder(client, { supplier: "Northwind Traders", items: [{ product: "PRD-0001", qty: 1, rate: 100 }] });
     expect(doc.name).toBe("PO-2040");
     expect(decoded(lastUrl())).toContain(`/resource/${PURCHASING_DOCTYPE.purchaseOrder}`);
 
     await submitPurchaseOrder(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=submit");
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.submit");
 
     await cancelPurchaseOrder(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=cancel");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.cancel");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("creates, submits and cancels a purchase invoice", async () => {
-    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PINV-0001" } }));
+    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PINV-0001" }, message: { name: "PINV-0001" } }));
     const client = makeClient();
     const doc = await createPurchaseInvoice(client, { supplier: "Northwind Traders", items: [{ product: "PRD-0001", qty: 1, rate: 100 }] });
     expect(doc.name).toBe("PINV-0001");
     expect(decoded(lastUrl())).toContain(`/resource/${PURCHASING_DOCTYPE.purchaseInvoice}`);
 
     await submitPurchaseInvoice(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=submit");
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.submit");
 
     await cancelPurchaseInvoice(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=cancel");
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.cancel");
   });
 });

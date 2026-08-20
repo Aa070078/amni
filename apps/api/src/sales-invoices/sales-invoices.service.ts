@@ -434,6 +434,7 @@ export class SalesInvoicesService {
     await recordSalesPaymentEntry(client, {
       party: current.customer,
       paidAmount: input.amount,
+      invoice: code,
       method: input.method,
       date: input.date,
       reference: input.reference,
