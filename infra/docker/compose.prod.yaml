@@ -1,0 +1,175 @@
+name: amni-production
+
+x-platform-environment: &platform-environment
+  NODE_ENV: production
+  APP_VERSION: ${APP_VERSION:?APP_VERSION is required}
+  DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+  ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:?ACCESS_TOKEN_SECRET is required}
+  ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-900}
+  REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+  HRMS_SSO_SECRET: ${HRMS_SSO_SECRET:?HRMS_SSO_SECRET is required}
+  HRMS_SSO_TOKEN_TTL_SECONDS: ${HRMS_SSO_TOKEN_TTL_SECONDS:-120}
+  PLATFORM_URL: https://${PLATFORM_HOST:?PLATFORM_HOST is required}
+  PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:?PLATFORM_DOMAIN is required}
+  WEB_ORIGIN: https://${PLATFORM_HOST:?PLATFORM_HOST is required}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - platform-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [data]
+    security_opt: ["no-new-privileges:true"]
+
+  redis:
+    image: redis:7.4.5-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - platform-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [data]
+    security_opt: ["no-new-privileges:true"]
+
+  migrate:
+    image: ${AMNI_API_IMAGE:?AMNI_API_IMAGE is required}
+    command: ["node_modules/.bin/prisma", "migrate", "deploy", "--schema", "packages/db/prisma/schema.prisma"]
+    environment: *platform-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    image: ${AMNI_API_IMAGE:?AMNI_API_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      <<: *platform-environment
+      PORT: 4000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:4000/api/v1/healthz/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [edge, data]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+
+  worker:
+    image: ${AMNI_WORKER_IMAGE:?AMNI_WORKER_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      <<: *platform-environment
+      MAIL_PROVIDER: ${MAIL_PROVIDER:?MAIL_PROVIDER is required}
+      MAIL_FROM: ${MAIL_FROM:?MAIL_FROM is required}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      PROVISIONING_DRIVER: ${PROVISIONING_DRIVER:-bench}
+      ERPNEXT_CLUSTER_MODE: ${ERPNEXT_CLUSTER_MODE:-ssh}
+      ERPNEXT_SSH_HOST: ${ERPNEXT_SSH_HOST:-}
+      ERPNEXT_SSH_USER: ${ERPNEXT_SSH_USER:-amni-provisioner}
+      ERPNEXT_SSH_PORT: ${ERPNEXT_SSH_PORT:-22}
+      ERPNEXT_SSH_KEY_PATH: /run/secrets/erp_ssh_key
+      ERPNEXT_SSH_KNOWN_HOSTS_PATH: /run/secrets/erp_ssh_known_hosts
+      ERPNEXT_BENCH_CONTAINER: ${ERPNEXT_BENCH_CONTAINER:-frappe-backend-1}
+      ERPNEXT_INSTALL_APPS: ${ERPNEXT_INSTALL_APPS:-erpnext,hrms,amni_bridge}
+      BENCH_DB_ROOT_PASSWORD: ${BENCH_DB_ROOT_PASSWORD:?BENCH_DB_ROOT_PASSWORD is required}
+      BENCH_ADMIN_PASSWORD: ${BENCH_ADMIN_PASSWORD:?BENCH_ADMIN_PASSWORD is required}
+    secrets:
+      - erp_ssh_key
+      - erp_ssh_known_hosts
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [data]
+    read_only: true
+    tmpfs: ["/tmp", "/home/node/.ssh:uid=1000,gid=1000,mode=0700"]
+    security_opt: ["no-new-privileges:true"]
+
+  web:
+    image: ${AMNI_WEB_IMAGE:?AMNI_WEB_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [edge]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+
+  proxy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    environment:
+      PLATFORM_HOST: ${PLATFORM_HOST:?PLATFORM_HOST is required}
+      TLS_EMAIL: ${TLS_EMAIL:?TLS_EMAIL is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    networks: [edge]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  platform-postgres:
+  platform-redis:
+  caddy-data:
+  caddy-config:
+
+networks:
+  edge:
+  data:
+    internal: true
+
+secrets:
+  erp_ssh_key:
+    file: ${ERP_SSH_KEY_FILE:?ERP_SSH_KEY_FILE is required}
+  erp_ssh_known_hosts:
+    file: ${ERP_SSH_KNOWN_HOSTS_FILE:?ERP_SSH_KNOWN_HOSTS_FILE is required}

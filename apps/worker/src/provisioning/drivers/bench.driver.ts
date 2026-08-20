@@ -6,22 +6,42 @@ import type { ProvisioningContext, ProvisioningDriver, StepResult } from "./prov
 const execFileAsync = promisify(execFile);
 
 interface BenchConfig {
+  mode: "docker-exec" | "ssh";
   container: string;
   dbRootPassword: string;
   adminPassword: string;
   /** Apps installed on every new site, in order (e.g. `erpnext,hrms`). */
   installApps: string[];
+  sshHost?: string;
+  sshUser?: string;
+  sshPort: number;
+  sshKeyPath?: string;
+  sshKnownHostsPath?: string;
 }
 
-const loadConfig = (): BenchConfig => ({
-  container: process.env.ERPNEXT_BENCH_CONTAINER ?? process.env.BENCH_CONTAINER ?? "frappe-backend-1",
-  dbRootPassword: process.env.BENCH_DB_ROOT_PASSWORD ?? (process.env.NODE_ENV === "production" ? "" : "admin"),
-  adminPassword: process.env.BENCH_ADMIN_PASSWORD ?? (process.env.NODE_ENV === "production" ? "" : "admin"),
-  installApps: (process.env.ERPNEXT_INSTALL_APPS ?? "erpnext,hrms,amni_bridge")
-    .split(",")
-    .map((app) => app.trim())
-    .filter(Boolean),
-});
+const loadConfig = (): BenchConfig => {
+  const requestedMode = process.env.ERPNEXT_CLUSTER_MODE ?? (process.env.NODE_ENV === "production" ? "ssh" : "docker-exec");
+  if (requestedMode !== "docker-exec" && requestedMode !== "ssh") {
+    throw new Error(`unsupported ERPNEXT_CLUSTER_MODE: ${requestedMode}`);
+  }
+  return {
+    mode: requestedMode,
+    container: process.env.ERPNEXT_BENCH_CONTAINER ?? process.env.BENCH_CONTAINER ?? "frappe-backend-1",
+    dbRootPassword: process.env.BENCH_DB_ROOT_PASSWORD ?? (process.env.NODE_ENV === "production" ? "" : "admin"),
+    adminPassword: process.env.BENCH_ADMIN_PASSWORD ?? (process.env.NODE_ENV === "production" ? "" : "admin"),
+    installApps: (process.env.ERPNEXT_INSTALL_APPS ?? "erpnext,hrms,amni_bridge")
+      .split(",")
+      .map((app) => app.trim())
+      .filter(Boolean),
+    sshHost: process.env.ERPNEXT_SSH_HOST,
+    sshUser: process.env.ERPNEXT_SSH_USER,
+    sshPort: Number(process.env.ERPNEXT_SSH_PORT ?? 22),
+    sshKeyPath: process.env.ERPNEXT_SSH_KEY_PATH,
+    sshKnownHostsPath: process.env.ERPNEXT_SSH_KNOWN_HOSTS_PATH,
+  };
+};
+
+const quoteRemoteArg = (value: string): string => `'${value.replaceAll("'", `'"'"'`)}'`;
 
 /**
  * Real provisioning driver: shells to the `bench` CLI inside the
@@ -38,8 +58,28 @@ export class BenchDriver implements ProvisioningDriver {
 
   private async runBench(args: string[], timeout = 60_000): Promise<{ stdout: string; code: number }> {
     const config = loadConfig();
+    const executable = config.mode === "ssh" ? "ssh" : "docker";
+    let commandArgs: string[];
+    if (config.mode === "ssh") {
+      if (!config.sshHost || !config.sshUser || !config.sshKeyPath || !config.sshKnownHostsPath) {
+        return { stdout: "ERP SSH host, user, key, and known-hosts file are required", code: 1 };
+      }
+      const remote = ["docker", "exec", config.container, "bench", ...args].map(quoteRemoteArg).join(" ");
+      commandArgs = [
+        "-i", config.sshKeyPath,
+        "-p", String(config.sshPort),
+        "-o", "BatchMode=yes",
+        "-o", "IdentitiesOnly=yes",
+        "-o", "StrictHostKeyChecking=yes",
+        "-o", `UserKnownHostsFile=${config.sshKnownHostsPath}`,
+        `${config.sshUser}@${config.sshHost}`,
+        remote,
+      ];
+    } else {
+      commandArgs = ["exec", config.container, "bench", ...args];
+    }
     try {
-      const { stdout, stderr } = await execFileAsync("docker", ["exec", config.container, "bench", ...args], {
+      const { stdout, stderr } = await execFileAsync(executable, commandArgs, {
         timeout,
         maxBuffer: 2 * 1024 * 1024,
       });
@@ -55,6 +95,9 @@ export class BenchDriver implements ProvisioningDriver {
     const config = loadConfig();
     if (!config.dbRootPassword || !config.adminPassword) {
       return { ok: false, detail: "bench database-root and Administrator passwords are required" };
+    }
+    if (config.mode === "ssh" && (!config.sshHost || !config.sshUser || !config.sshKeyPath || !config.sshKnownHostsPath)) {
+      return { ok: false, detail: "bench SSH host, user, private key, and pinned known-hosts file are required" };
     }
     const { code } = await this.runBench(["--site", ctx.siteName, "list-apps"]);
     if (code === 0) {

@@ -131,7 +131,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | **M10-004 Specialist roles and domain authorization** | M10 | codex-market-launch | done | feat/M10/roles-settings-persistence | PR #72; durable settings/invitations/expense categories, provider-honest billing/integrations, specialist server authorization + filtered navigation. |
 | **M10-005 Bounded ERP queries + tenant data-plane health** | M10 | codex-market-launch | done | feat/M10/bounded-queries-tenant-health ([PR #73](https://github.com/Aa070078/amni/pull/73)) | Added an allow-listed bounded ERP query/count path, tenant/role-scoped search, recurring health probes, and degraded workspace UX. |
 | **M10-006 Real-ERP release gate** | M10 | codex-market-launch | done | feat/M10/real-erp-release-gate ([PR #74](https://github.com/Aa070078/amni/pull/74)) | Clean-site restricted-account gate covers submitted sales/purchasing/payments, accounting, CRM/domain persistence, restart durability, and main/nightly CI. |
-| **M10-007 Production operations + staged pilot** | M10 | — | planned | — | Deployment, TLS, secrets, backups/restores, upgrades, monitoring, incident/rollback runbooks, volume/security pilot. |
+| **M10-007 Production operations + staged pilot** | M10 | codex-market-launch | in-progress | feat/M10/production-operations-pilot | Deployment, TLS, secrets, backups/restores, upgrades, monitoring, incident/rollback runbooks, volume/security pilot. |
 
 ---
 

@@ -25,6 +25,7 @@ services:
 
   api:
     image: amni-api:test
+    command: ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema packages/db/prisma/schema.prisma && node_modules/.bin/tsx apps/api/scripts/seed-demo-user.ts && node apps/api/dist/main.js"]
     environment:
       DATABASE_URL: postgresql://amni:amni@postgres:5432/amni_platform
       REDIS_URL: redis://redis:6379

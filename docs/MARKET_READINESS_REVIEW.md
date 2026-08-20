@@ -51,21 +51,21 @@ CRM, accounting, invoicing, Equity, ESG, signing workflow, settings, and expense
 
 Accountant, sales, inventory, member, and admin roles are persisted, enforced server-side by route domain, reflected by role-aware navigation, and covered by negative authorization tests.
 
-### P1 — list endpoints load complete ERP datasets
+### Closed in M10-005 — bounded ERP queries and tenant search
 
-Many ERP-backed services still use `limitPageLength: 0` and then search, sort, and paginate in API memory. Response time and memory usage will grow with every customer, invoice, item, and ledger entry. Move supported filtering, ordering, field selection, and pagination into ERPNext queries; use bounded aggregation/report endpoints for dashboard totals.
+Shared ERP reads are capped, high-volume customer/supplier/item pages execute bounded queries in the tenant database, and global search is tenant- and role-scoped. Production-like volume remains a staged-pilot exit criterion.
 
-### P1 — health reporting does not cover tenant data planes
+### Closed in M10-005/M10-007 — control- and data-plane health
 
-`/healthz` reports the control plane (Postgres and Redis) as healthy even when every tenant ERP request fails. Keep the global control-plane check, but add tenant-aware ERP connection state, background health updates, and a visible degraded state for operators and workspace owners.
+Liveness and dependency-aware readiness are separate, tenant ERP health is actively persisted, and the workspace and operator surfaces expose degraded/unreachable data planes.
 
-### P1 — real-bench and deployment gates are missing
+### Closed in M10-006 — real-bench release gate
 
-The in-process Frappe stand-in is valuable for isolation tests but does not validate field permissions, DocType behavior, workflows, or Frappe version drift. Add a real-bench integration tier for provisioning and the critical sales/purchasing/finance paths, then make it a release gate. The Windows standalone Next.js build also warns that one client-reference manifest was not copied; verify the actual production image rather than accepting the warning.
+The main/nightly clean-site gate builds the pinned image, provisions restricted credentials, submits critical documents, verifies domain persistence across restart, and drops the isolated site.
 
-### P1 — deployment and operations documentation is stale
+### Closed in M10-007 — production operations contract
 
-Deployment documentation still describes an older demo posture and does not match the current ERP-backed architecture. Before launch, document secrets, migrations, queues, ERP cluster lifecycle, domain/TLS setup, monitoring, alerting, backups, restores, rollback, incident response, and data-retention responsibilities.
+The production Compose topology, preflight, TLS proxy, SSH provisioning boundary, backup/restore drills, monitoring probes, incident/rollback runbooks, and staged-pilot release criteria are versioned with the product.
 
 ## Verification evidence
 
@@ -84,4 +84,4 @@ Deployment documentation still describes an older demo posture and does not matc
 
 ## Release recommendation
 
-Do not market Amni as production-ready while process-local demo stores remain in customer-facing domains. After replacing those stores, close the P1 role, performance, health, automated real-bench, deployment, and operations gates; run a staged tenant pilot with production-like volume; and perform an external security review.
+The repository is an engineering release candidate. Do not accept unrestricted paying customers until the operator completes `docs/operations/STAGED_PILOT.md`, deploys the external production services, proves off-cluster restores, and closes an independent security/privacy review. Internal signing workflow must not be marketed as a legally binding e-signature provider.
