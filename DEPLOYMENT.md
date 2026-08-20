@@ -25,12 +25,16 @@ Never point a non-prod environment at production data.
 
 ## 3. Platform deployment (Docker Compose)
 
+The local dependency file is not a production deployment. Production uses `infra/docker/compose.prod.yaml`, externally built immutable images, and an environment file stored outside the repository:
+
 ```bash
-# build + start
-docker compose -f infra/docker/compose.yaml --profile prod up -d --build
+docker compose --env-file /run/secrets/amni-production.env \
+  -f infra/docker/compose.prod.yaml pull
+docker compose --env-file /run/secrets/amni-production.env \
+  -f infra/docker/compose.prod.yaml up -d
 ```
 
-Services: `web`, `api` (replicas ≥2), `worker`, `postgres`, `redis`, `proxy` (Caddy/Traefik), `migrate` (one-shot Prisma migrate on deploy). Rolling updates: `api`/`worker` are stateless (scale horizontally); apply DB migrations before releasing code (`pnpm db:migrate` in the migrate job).
+Services: `web`, `api`, `worker`, `postgres`, `redis`, `proxy` (Caddy), and `migrate` (one-shot Prisma deploy). Demo data is never seeded during production startup. Postgres and Redis are isolated on an internal network; only Caddy publishes ports. The full first-deploy, backup, restore, monitoring, upgrade, and rotation procedure is in `docs/operations/PRODUCTION_RUNBOOK.md`.
 
 ### Environment variables
 `infra/docker/.env.example` documents every variable: `DATABASE_URL`, `REDIS_URL`, session/refresh secrets, `ENCRYPTION_KEY`, `SMTP_*`, `SENTRY_DSN`, `PLATFORM_URL`, `PLATFORM_DOMAIN`, `ERPNEXT_CLUSTER_*`, CORS origins. Secrets come from the secret manager at runtime (never baked into images).
@@ -39,10 +43,10 @@ Services: `web`, `api` (replicas ≥2), `worker`, `postgres`, `redis`, `proxy` (
 
 Provision per the official frappe_docker docs, with the Amni wrapper in `infra/erp`:
 
-- Use the full override set: `compose.mariadb.yaml` + `compose.redis.yaml` + `compose.noproxy.yaml` (or `compose.https.yaml` for TLS).
+- Use the full override set: `compose.mariadb.yaml` + `compose.redis.yaml` plus the appropriate production proxy/TLS override.
 - `PULL_POLICY=missing`; pin `ERPNEXT_VERSION`.
 - Wildcard TLS via nginx-proxy/acme-companion override; `FRAPPE_SITE_NAME_HEADER=$host`.
-- Tenant site provisioning is performed by the Amni worker (bench-driven) — do not create sites manually except for the first dev site.
+- Tenant site provisioning is performed by the Amni worker over pinned-host SSH to a restricted ERP provisioner account. Production must not expose the Docker socket to the platform worker.
 
 ### Versioning
 - Platform code and the ERPNext image version are coupled in the release notes. Upgrading ERPNext = `bench --site all migrate` in a maintenance window (all sites on a bench migrate together). Pin versions; test on staging first.
@@ -91,7 +95,7 @@ Test restores regularly; a backup that cannot be restored is not a backup.
 
 - **RPO/RTO targets:** platform DB RPO 5 min (WAL), RTO < 30 min (automated restore + image rollback); tenant ERP RPO 24 h (daily backup), RTO < 4 h (restore runbook).
 - Drills: quarterly restore drill for both stores; documented in the runbook.
-- Incident flow: see `SECURITY.md §11`.
+- Incident flow: see `docs/operations/INCIDENT_RESPONSE.md`; staged launch criteria are in `docs/operations/STAGED_PILOT.md`.
 
 ## 11. Release process
 

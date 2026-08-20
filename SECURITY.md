@@ -32,7 +32,7 @@ Security is a first-class requirement. This document defines the threat model, c
 
 ## 3. Authorization model
 
-- Platform membership roles are `Owner`, `Admin`, and `Member`. Owner/Admin may mutate tenant business data; Member is read-only except for explicitly allow-listed self-service actions (profile, password, notifications). Specialized Sales, Purchasing, Inventory, Accounts, and Employee bundles remain a post-MVP capability and must not be presented as enforced until the platform schema supports them.
+- Platform membership roles are `Owner`, `Admin`, and `Member`, with persisted `sales`, `inventory`, and `accountant` product roles. Owner/Admin may mutate tenant business data; Member is read-only except for explicitly allow-listed self-service actions (profile, password, notifications). Product roles are enforced server-side by route domain and mirrored in navigation; negative cross-domain tests are release-blocking.
 - The authentication guard derives membership, company, and product role from the server-side session on every protected request. Unsafe methods default to Owner/Admin-only; a handler must opt into Member mutation explicitly. ERP gateway calls independently resolve the company again from `Membership` and never accept a client tenant id.
 - ERPNext side: the tenant's **service account** has the Accounts, Purchase, Sales, and Stock User/Manager roles required by Amni workflows — never Administrator or System Manager. Provisioning rotates API credentials, encrypts them with AES-GCM before persistence, and validates the token against the tenant REST API before activation.
 
@@ -88,5 +88,5 @@ Security is a first-class requirement. This document defines the threat model, c
 2. **Assess**: pull audit log + request-id-correlated logs; determine blast radius (was isolation intact?).
 3. **Communicate**: internal status page; affected customers notified per contract.
 4. **Recover**: rotate keys, restore from backup if needed, re-validate with isolation tests.
-5. **Postmortem**: ADR + issue; add regression tests; update this doc.
+5. **Postmortem**: ADR + issue; add regression tests; update this doc. The operational checklist and severity procedure live in `docs/operations/INCIDENT_RESPONSE.md`.
 - Contact: security is handled via the repo owner (`Aa070078`). File issues tagged `security`.
