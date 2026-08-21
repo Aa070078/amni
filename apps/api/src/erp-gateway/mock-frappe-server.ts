@@ -20,6 +20,7 @@ const ACCOUNT_BALANCES_PATH = "/api/v1/method/amni_bridge.api.get_account_balanc
 const NATIVE_QUERY_PATH = "/api/v1/method/amni_bridge.api.query_native_records";
 const SUBMIT_PATH = "/api/v1/method/frappe.client.submit";
 const CANCEL_PATH = "/api/v1/method/frappe.client.cancel";
+const LOGGED_IN_USER_PATH = "/api/v1/method/frappe.auth.get_logged_user";
 
 /**
  * Minimal in-process stand-in for a tenant ERPNext site. It enforces the
@@ -52,6 +53,13 @@ export async function startMockFrappeServer(options: {
 
     if (!authHeader || authHeader !== `token ${options.apiKey}:${options.apiSecret}`) {
       sendJson(res, 401, { message: "Not Permitted", exception: "AuthenticationError" });
+      return;
+    }
+
+    // Health probes use the same authenticated RPC as a real tenant site.
+    // Keeping it in the stand-in avoids development-only false offline states.
+    if (url.pathname === LOGGED_IN_USER_PATH && req.method === "POST") {
+      sendJson(res, 200, { message: "amni-service" });
       return;
     }
 
@@ -115,7 +123,8 @@ export async function startMockFrappeServer(options: {
       const name = String(submitted.name ?? "");
       const existing = docs.get(name);
       if (!existing) { sendJson(res, 404, { message: "Not Found" }); return; }
-      const doc = { ...existing, ...submitted, docstatus: 1 };
+      const doc: Record<string, unknown> = { ...existing, ...submitted, docstatus: 1 };
+      if (doc.doctype === "Payment Entry") allocatePayment(doc, docs);
       docs.set(name, doc);
       sendJson(res, 200, { message: doc });
       return;

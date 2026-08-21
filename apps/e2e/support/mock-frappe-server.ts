@@ -16,6 +16,9 @@ export interface MockFrappeServer {
 const RESOURCE_PREFIX = "/api/v1/resource/";
 const CRM_LIST_PATH = "/api/v1/method/amni_bridge.api.list_crm_records";
 const ACCOUNT_BALANCES_PATH = "/api/v1/method/amni_bridge.api.get_account_balances";
+const LOGGED_IN_USER_PATH = "/api/v1/method/frappe.auth.get_logged_user";
+const SUBMIT_PATH = "/api/v1/method/frappe.client.submit";
+const CANCEL_PATH = "/api/v1/method/frappe.client.cancel";
 
 /**
  * Minimal in-process stand-in for a tenant ERPNext site. It enforces the
@@ -54,6 +57,11 @@ export async function startMockFrappeServer(options: {
       return;
     }
 
+    if (url.pathname === LOGGED_IN_USER_PATH && req.method === "POST") {
+      sendJson(res, 200, { message: "amni-service" });
+      return;
+    }
+
     if (url.pathname === CRM_LIST_PATH && req.method === "POST") {
       const body = (await readJson(req)) ?? {};
       const filters = body.filters && typeof body.filters === "object" ? body.filters as Record<string, unknown> : {};
@@ -76,6 +84,36 @@ export async function startMockFrappeServer(options: {
         balances.set(account, (balances.get(account) ?? 0) + Number(doc.debit ?? 0) - Number(doc.credit ?? 0));
       }
       sendJson(res, 200, { message: { items: [...balances].map(([account, balance]) => ({ account, balance })) } });
+      return;
+    }
+
+    if (url.pathname === SUBMIT_PATH && req.method === "POST") {
+      const body = (await readJson(req)) ?? {};
+      const submitted = body.doc && typeof body.doc === "object" ? body.doc as Record<string, unknown> : {};
+      const name = String(submitted.name ?? "");
+      const existing = docs.get(name);
+      if (!existing) {
+        sendJson(res, 404, { message: "Not Found" });
+        return;
+      }
+      const doc: Record<string, unknown> = { ...existing, ...submitted, docstatus: 1 };
+      if (doc.doctype === "Payment Entry") allocatePayment(doc, docs);
+      docs.set(name, doc);
+      sendJson(res, 200, { message: doc });
+      return;
+    }
+
+    if (url.pathname === CANCEL_PATH && req.method === "POST") {
+      const body = (await readJson(req)) ?? {};
+      const name = String(body.name ?? "");
+      const existing = docs.get(name);
+      if (!existing) {
+        sendJson(res, 404, { message: "Not Found" });
+        return;
+      }
+      const doc = { ...existing, docstatus: 2 };
+      docs.set(name, doc);
+      sendJson(res, 200, { message: doc });
       return;
     }
 
