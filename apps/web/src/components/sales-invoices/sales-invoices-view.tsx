@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LegacyColumnDef } from "@tanstack/react-table/legacy";
 import { CheckCircle2, CircleDollarSign, FileText, Receipt, Search, TrendingUp } from "lucide-react";
@@ -107,10 +108,18 @@ const LIST_COLUMNS: LegacyColumnDef<SalesInvoice>[] = [
 ];
 
 export function SalesInvoicesView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setDialogOpen(true);
+    router.replace("/sales/invoices", { scroll: false });
+  }, [router, searchParams]);
   const [createdInvoice, setCreatedInvoice] = useState<SalesInvoice | null>(null);
 
   useEffect(() => {

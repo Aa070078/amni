@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Boxes, CheckCircle2, LayoutGrid, List, Package, PackageSearch, Search, TriangleAlert } from "lucide-react";
 import { type Product } from "@amni/shared";
@@ -47,12 +48,20 @@ function StatCard({
 }
 
 export function ProductsView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [view, setView] = useState<"table" | "board">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setDialogOpen(true);
+    router.replace("/inventory/products", { scroll: false });
+  }, [router, searchParams]);
   const [createdProduct, setCreatedProduct] = useState<Product | null>(null);
 
   useEffect(() => {

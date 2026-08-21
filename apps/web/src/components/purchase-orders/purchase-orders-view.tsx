@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LegacyColumnDef } from "@tanstack/react-table/legacy";
 import { CheckCircle2, FileText, PackageCheck, Search, ShoppingCart, TrendingUp } from "lucide-react";
@@ -75,11 +76,19 @@ const LIST_COLUMNS: LegacyColumnDef<PurchaseOrder>[] = [
 ];
 
 export function PurchaseOrdersView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | "all">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setDialogOpen(true);
+    router.replace("/purchasing/orders", { scroll: false });
+  }, [router, searchParams]);
   const [createdOrder, setCreatedOrder] = useState<PurchaseOrder | null>(null);
 
   useEffect(() => {
