@@ -14,9 +14,9 @@ describe("CrmOrganizationsService ERP persistence", () => {
     } as unknown as CrmContactsService;
     const deals = { list: vi.fn().mockResolvedValue({ items: [], meta: { total: 0, page: 1, pageSize: 100 }, summary: { totalValue: 0, weightedValue: 0, openCount: 0, wonCount: 0, lostCount: 0 } }) } as unknown as DealsService;
     const service = new CrmOrganizationsService(records as unknown as CrmRecordRepository, contacts, deals);
-    const organization = await service.create(TEST_USER, TEST_META, { name: "Acme", status: "customer" });
+    const organization = await service.create(TEST_USER, TEST_META, { name: "Acme", status: "active" });
     expect((await service.detail(TEST_USER, TEST_META, organization.code)).contactCount).toBe(0);
-    expect((await service.list(TEST_USER, TEST_META, { page: 1, pageSize: 20, status: "customer" })).meta.total).toBe(1);
+    expect((await service.list(TEST_USER, TEST_META, { page: 1, pageSize: 20, status: "active" })).meta.total).toBe(1);
     await service.remove(TEST_USER, TEST_META, organization.code);
     await expect(service.detail(TEST_USER, TEST_META, organization.code)).rejects.toMatchObject({ status: 404 });
   });

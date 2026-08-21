@@ -1,7 +1,7 @@
 "use client";
 
 import { Banknote, TrendingUp, Wallet } from "lucide-react";
-import { Card, CardContent } from "@amni/ui";
+import { Badge, Card, CardContent } from "@amni/ui";
 import type { DashboardArBucket, DashboardSeriesPoint } from "@amni/shared";
 import { formatCurrency } from "@/src/lib/format";
 import { formatCompact } from "@/src/lib/chart";
@@ -15,7 +15,11 @@ const compactUsd = (value: number) => `$${formatCompact(value)}`;
 export function RevenueTrendCard({ data }: { data: DashboardSeriesPoint[] }) {
   return (
     <Card className="h-full">
-      <PanelHeader icon={TrendingUp} title="Revenue trend" />
+      <PanelHeader
+        icon={TrendingUp}
+        title="Revenue trend"
+        action={<Badge variant="secondary">Last {data.length} months</Badge>}
+      />
       <CardContent>
         <AreaChart data={data} ariaLabel="Monthly revenue over the last 12 months" formatValue={currency} formatTick={compactUsd} />
       </CardContent>
@@ -27,11 +31,14 @@ export function CashPositionCard({ data }: { data: DashboardSeriesPoint[] }) {
   const last = data[data.length - 1];
   return (
     <Card className="h-full">
-      <PanelHeader icon={Wallet} title="Cash position" />
+      <PanelHeader icon={Wallet} title="Cash position" action={<Badge variant="secondary">Current</Badge>} />
       <CardContent className="space-y-4">
-        <p className="text-2xl font-semibold tracking-tight tabular-nums">
-          {last ? currency(last.value) : "—"}
-        </p>
+        <div>
+          <p className="text-2xl font-semibold tracking-tight">
+            {last ? currency(last.value) : "—"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Closing balance {last?.label ?? ""}</p>
+        </div>
         <AreaChart data={data} variant="sparkline" ariaLabel="Cash balance over the last 12 months" formatValue={currency} />
       </CardContent>
     </Card>

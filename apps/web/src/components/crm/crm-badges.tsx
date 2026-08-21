@@ -139,17 +139,18 @@ const ORG_STATUS_META: Record<OrganizationStatus, { variant: BadgeProps["variant
   active: { variant: "success", dot: "bg-success" },
   inactive: { variant: "outline", dot: "bg-muted-foreground/60" },
 };
+const UNKNOWN_ORG_STATUS_META = { variant: "outline" as const, dot: "bg-muted-foreground/60" };
 
 export function orgStatusLabel(status: OrganizationStatus): string {
   return ORGANIZATION_STATUSES.find((entry) => entry.value === status)?.label ?? status;
 }
 
-export function OrgStatusBadge({ status, className }: { status: OrganizationStatus; className?: string }) {
-  const meta = ORG_STATUS_META[status];
+export function OrgStatusBadge({ status, className }: { status: OrganizationStatus | null | undefined; className?: string }) {
+  const meta = status ? ORG_STATUS_META[status] ?? UNKNOWN_ORG_STATUS_META : UNKNOWN_ORG_STATUS_META;
   return (
     <Badge variant={meta.variant} className={cn("gap-1.5", className)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} aria-hidden="true" />
-      {orgStatusLabel(status)}
+      {status ? orgStatusLabel(status) : "Unknown"}
     </Badge>
   );
 }

@@ -193,8 +193,8 @@ const docs: Record<string, unknown>[] = [
   crmRecord(
     "organization",
     "ORG-DEMO-1",
-    { code: "ORG-DEMO-1", name: "Northstar Studio", industry: "Interior design", website: "https://northstar.example", email: "hello@northstar.example", phone: "+1 415 555 0142", status: "customer", createdAt: timestamp(-90), updatedAt: timestamp(-1) },
-    { title: "Northstar Studio", email: "hello@northstar.example", status: "customer", category: "Interior design", search_text: "Northstar Studio Interior design hello@northstar.example" },
+    { code: "ORG-DEMO-1", name: "Northstar Studio", industry: "Interior design", website: "https://northstar.example", email: "hello@northstar.example", phone: "+1 415 555 0142", status: "active", createdAt: timestamp(-90), updatedAt: timestamp(-1) },
+    { title: "Northstar Studio", email: "hello@northstar.example", status: "active", category: "Interior design", search_text: "Northstar Studio Interior design hello@northstar.example" },
   ),
   crmRecord(
     "contact",

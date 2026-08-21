@@ -79,7 +79,7 @@ export function AreaChart({
               const y = PAD + (1 - (tick - domain.min) / (domain.max - domain.min)) * (height - PAD * 2);
               return (
                 <g key={tick}>
-                  <line x1={0} x2={WIDTH} y1={y} y2={y} stroke="var(--border)" strokeDasharray="3 4" />
+                  <line x1={0} x2={WIDTH} y1={y} y2={y} stroke="var(--border)" strokeOpacity={0.7} />
                   <text x={PAD} y={y - 4} fontSize={10} fill="var(--muted-foreground)">
                     {formatTick(tick)}
                   </text>
@@ -121,6 +121,18 @@ export function AreaChart({
           />
         ) : null}
 
+        {!sparkline && points.length > 0 ? (
+          <circle
+            cx={points[points.length - 1]?.x}
+            cy={points[points.length - 1]?.y}
+            r={4}
+            fill="var(--primary)"
+            stroke="var(--card)"
+            strokeWidth={2}
+            pointerEvents="none"
+          />
+        ) : null}
+
         {activePoint && activeData ? (
           <g pointerEvents="none">
             <line
@@ -131,7 +143,7 @@ export function AreaChart({
               stroke="var(--muted-foreground)"
               strokeOpacity={0.35}
             />
-            <circle cx={activePoint.x} cy={activePoint.y} r={4} fill="var(--primary)" stroke="var(--card)" strokeWidth={2} />
+            <circle cx={activePoint.x} cy={activePoint.y} r={5} fill="var(--primary)" stroke="var(--card)" strokeWidth={2} />
             <g
               transform={`translate(${Math.max(0, Math.min(WIDTH - TOOLTIP_WIDTH, activePoint.x - TOOLTIP_WIDTH / 2))}, ${Math.max(0, activePoint.y - TOOLTIP_HEIGHT - 14)})`}
             >

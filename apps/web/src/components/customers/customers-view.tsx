@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LegacyColumnDef } from "@tanstack/react-table/legacy";
 import { CheckCircle2, FileText, Search, TrendingUp, UserRound, Users } from "lucide-react";
@@ -100,10 +101,18 @@ const LIST_COLUMNS: LegacyColumnDef<Customer>[] = [
 ];
 
 export function CustomersView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setDialogOpen(true);
+    router.replace("/sales/customers", { scroll: false });
+  }, [router, searchParams]);
   const [createdCustomer, setCreatedCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {

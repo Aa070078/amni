@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Menu, Plus, Search } from "lucide-react";
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Separator } from "@amni/ui";
 import { ThemeToggle } from "./theme-toggle";
@@ -50,11 +51,21 @@ export function Topbar({ onMenuClick, onSearchClick }: TopbarProps) {
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>Create</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Sales order</DropdownMenuItem>
-            <DropdownMenuItem>Purchase order</DropdownMenuItem>
-            <DropdownMenuItem>Item</DropdownMenuItem>
-            <DropdownMenuItem>Customer</DropdownMenuItem>
-            <DropdownMenuItem>Invoice</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/sales/orders?new=1">Sales order</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/purchasing/orders?new=1">Purchase order</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/inventory/products?new=1">Item</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/sales/customers?new=1">Customer</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/sales/invoices?new=1">Invoice</Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Separator orientation="vertical" className="mx-1 hidden h-6 md:block" />
