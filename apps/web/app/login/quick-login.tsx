@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@amni/ui";
 import { api, ApiError } from "@/src/lib/api";
 import type { MeUser } from "@/src/hooks/use-me";
@@ -14,6 +15,7 @@ const DEMO_ACCOUNTS = [
 
 export function QuickLogin({ next = "/dashboard" }: { next?: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +29,9 @@ export function QuickLogin({ next = "/dashboard" }: { next?: string }) {
         method: "POST",
         body: { email: account.email, password: account.password },
       });
+      // Drop every cached query (including the previous session's ["me"])
+      // so switching demo accounts never renders the prior user's data.
+      queryClient.clear();
       router.push(data.data.user.isPlatformAdmin ? "/admin" : next);
       router.refresh();
     } catch (e) {
