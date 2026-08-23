@@ -114,8 +114,7 @@ describe("M5-005 payments service — ERP-backed tenant isolation", () => {
     expect(created.type).toBe("outgoing");
     expect(created.status).toBe("cleared");
     expect(created.amount).toBe(4200);
-    expect(created.invoiceCode).toBe("PINV-0001");
-    expect([...siteA.docs.values()].some((d) => d.name === "PAY-0002" && d.payment_type === "Pay" && d.bill_no === "PINV-0001")).toBe(true);
+    expect([...siteA.docs.values()].some((d) => d.name === "PAY-0002" && d.payment_type === "Pay" && d.reference_no === "RENT-2026-08")).toBe(true);
     expect([...siteB.docs.keys()]).toEqual(bDocsBefore);
     expect(siteB.requests).toHaveLength(bRequestsBefore);
     expect(mocks.auditLog.create).toHaveBeenCalledWith(

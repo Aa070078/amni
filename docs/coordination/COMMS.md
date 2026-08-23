@@ -580,3 +580,32 @@ to: @all
 subject: M10-007 production operations and staged pilot claimed
 ---
 PR #74 merged as `832cc39`. I claimed the final M10 gate on `feat/M10/production-operations-pilot`: deliver a production deployment/preflight contract, TLS and secret handling, automated platform and tenant-ERP backups with restore proof, monitoring and alert guidance, upgrade/rollback and incident runbooks, and a staged security/volume pilot with explicit release evidence. External DNS, cloud credentials, and vendor accounts remain operator-provided inputs rather than repository secrets.
+
+---
+ID: M10-COMMS-014
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: v16 dev-bench compat fixed; finance/expenses degrade gracefully without hrms; bridge install is NON-PERSISTENT
+---
+Root causes of the reported "couldn't load data" pages, all verified live on the frappe_docker bench (site rontend, ERPNext 16.30): (1) every list page routed through mni_bridge.api.query_native_records, but the bridge app was not installed on the bench (the docker cp'd copy does not survive container recreation and the WSL VM reset during the Docker Desktop crash); (2) Expense Claim lives in hrms, which is intentionally not installed here (finance work happens on a separate environment), so finance/expenses endpoints 404'd. Fixes in repo: finance overview/reports and expenses surfaces now catch erp_not_found on the Expense Claim leg and render empty datasets instead of failing the whole page; removed ERPNext v16 fields that no longer exist (Purchase Invoice.purchase_order header link — PO linking is now per line item; Purchase Order.notes; Payment Entry.bill_no) from field lists, builders, update spreads, and their tests; dashboard area-chart NaN guard for flat series (pps/web/src/lib/chart.ts); reseeded the missing owner@amni.com platform admin via seed-saas-admin.ts. Live HTTP verification after rebuild+restart: sales/customers, inventory/products+warehouses, purchasing/suppliers+orders+invoices, sales/leads+orders+invoices, finance/overview+payments+expenses+claims+reports, CRM contacts+organizations, dashboard/overview -> all 200 for admin@demo.amni; owner@amni.com and member@demo.amni logins 201. Root lint/typecheck/unit tests pass (384 api + erp + shared suites). WARNING for whoever rebuilds the bench: the in-container amni_bridge install is ephemeral; the durable path is infra/erp/scripts/bootstrap.ps1 (custom image with erpnext+hrms+amni_bridge), which was deliberately not run because finance is owned elsewhere.
+
+---
+ID: M10-COMMS-015
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: Slow page navigation on dev environments is next dev compile time, not the API; run next start for demos/verification
+---
+Measured during live verification: every API endpoint answers in 0.04-0.17s, but serving the web app with 
+ext dev compiles each route on first visit (~15s cold start on this Windows machine, seconds for every newly visited page), which reads as "slow navigation between pages". For demos, manual verification, and day-to-day use run a production server instead: pnpm turbo run build --filter=@amni/web then pnpm --filter @amni/web exec next start -p 3000 - all measured pages drop to 0.06-0.15s. Keep 
+ext dev only when actively editing web code.
+
+---
+ID: M10-COMMS-016
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: hrms v16 installed on demo bench; Expense Claim integration aligned with real hrms schema
+---
+hrms (version-16) is now installed on the demo bench site rontend and the tenant flag hrms_installed=true is set, so /hrms and the SSO desk link work end to end (bridge login verified 302 -> /app/hrms). The Expense Claim integration was realigned with actual hrms v16 schema: header fields expense_type/supplier/payment_reference/remarks/user_remark no longer exist or are not report-view queryable - category moves to the expenses child rows, description maps to emark, reimbursement is detected/set via the status select (Paid), creates send naming_series HR-EXP-.YYYY.-. Note for service accounts: hrms doctypes do NOT honor System Manager implicitly; grant explicit roles (HR User + Expense Approver + Employee) to any ERP service account that must read claims.

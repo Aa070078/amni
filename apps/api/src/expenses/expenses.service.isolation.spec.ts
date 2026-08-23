@@ -51,15 +51,14 @@ function expenseDoc(name: string, amount: number, docstatus = 1) {
   return {
     name,
     doctype: "Expense Claim",
-    expense_type: "software",
     posting_date: "2026-08-01",
-    remarks: "Design suite annual licence",
-    supplier: "Lumen Software",
+    remark: "Design suite annual licence",
     grand_total: amount,
     approval_status: "Draft",
+    status: docstatus === 1 ? "Paid" : "Draft",
     expense_approver: "Amara Osei",
-    payment_reference: docstatus === 1 ? `PAID-${name}` : undefined,
     docstatus,
+    expenses: [{ expense_type: "software", expense_date: "2026-08-01", description: "Licence", amount }],
     creation: "2026-08-02T00:00:00.000Z",
     modified: "2026-08-03T00:00:00.000Z",
   };
@@ -71,7 +70,7 @@ function claimDoc(name: string, employee: string, amount: number, items: Record<
     doctype: "Expense Claim",
     employee,
     department: "Sales",
-    remarks: "Berlin trade show",
+    remark: "Berlin trade show",
     user_remark: "Approved per travel policy.",
     grand_total: amount,
     approval_status: "Draft",
@@ -140,7 +139,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     expect(created.code).toBe("EXP-0002");
     expect(created.status).toBe("draft");
     expect(created.amount).toBe(600);
-    expect([...siteA.docs.values()].some((d) => d.name === "EXP-0002" && d.expense_type === "software")).toBe(true);
+    expect([...siteA.docs.values()].some((d) => d.name === "EXP-0002" && (d.expenses as Array<Record<string, unknown>>)?.[0]?.expense_type === "software")).toBe(true);
     expect([...siteB.docs.keys()]).toEqual(bDocsBefore);
     expect(siteB.requests).toHaveLength(bRequestsBefore);
     expect(mocks.auditLog.create).toHaveBeenCalledWith(
@@ -204,7 +203,7 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     );
   });
 
-  it("marks an expense paid through payment_reference on the tenant's own site", async () => {
+  it("marks an expense paid through the hrms status field on the tenant's own site", async () => {
     mockCompanyErp("company-a", siteA);
     await siteA.docs.set("EXP-0004", expenseDoc("EXP-0004", 75, 1));
 
@@ -212,7 +211,6 @@ describe("M5-005 expenses service — ERP-backed tenant isolation", () => {
     const updated = await service.changeStatus(USER_A, META, "EXP-0004", { status: "paid" });
 
     expect(updated.status).toBe("paid");
-    expect(updated.paymentRef).toMatch(/^PAID-EXP-0004-/);
     expect(siteB.requests).toHaveLength(0);
   });
 });

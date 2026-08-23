@@ -106,15 +106,14 @@ describe("purchasing doc builders", () => {
     expect(doc.grand_total).toBe(250);
   });
 
-  it("builds a Purchase Invoice doc referencing the purchase order", () => {
+  it("builds a Purchase Invoice doc without the removed v16 purchase order link", () => {
     const doc = buildPurchaseInvoiceDoc({
       supplier: "Northwind Traders",
-      purchaseOrder: "PO-2040",
       dueDate: "2026-09-30",
       items: [{ product: "PRD-0001", qty: 1, rate: 100 }],
     });
     expect(doc[PURCHASE_INVOICE_FIELDS.supplier]).toBe("Northwind Traders");
-    expect(doc[PURCHASE_INVOICE_FIELDS.purchaseOrder]).toBe("PO-2040");
+    expect("purchase_order" in doc).toBe(false);
     expect(doc[PURCHASE_INVOICE_FIELDS.dueDate]).toBe("2026-09-30");
     expect(doc.grand_total).toBe(100);
   });
