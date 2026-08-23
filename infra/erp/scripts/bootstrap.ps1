@@ -1,6 +1,7 @@
 param(
     [string]$ComposeProject = "frappe",
     [string]$Site = "localhost",
+    [string]$AmniSsoSecret = $env:AMNI_SSO_SECRET,
     [switch]$SkipBuild
 )
 
@@ -28,6 +29,19 @@ if ($actualCommit -ne $pinnedCommit) {
 if (-not (Test-Path -LiteralPath $envFile)) {
     Copy-Item -LiteralPath (Join-Path $erpRoot ".env.example") -Destination $envFile
     Write-Host "==> Created infra/erp/.env from the development template"
+}
+
+if ($AmniSsoSecret) {
+    if ($AmniSsoSecret.Length -lt 32 -or $AmniSsoSecret.StartsWith("change-me")) {
+        throw "AMNI_SSO_SECRET must contain at least 32 random characters."
+    }
+    $envContents = Get-Content -LiteralPath $envFile -Raw
+    if ($envContents -notmatch "(?m)^AMNI_SSO_SECRET=") {
+        throw "infra/erp/.env is missing AMNI_SSO_SECRET."
+    }
+    $updatedEnvContents = [regex]::Replace($envContents, "(?m)^AMNI_SSO_SECRET=.*$", "AMNI_SSO_SECRET=$AmniSsoSecret")
+    [System.IO.File]::WriteAllText($envFile, $updatedEnvContents)
+    Write-Host "==> Configured an ephemeral AMNI SSO secret for this bootstrap run"
 }
 
 if (-not $SkipBuild) {

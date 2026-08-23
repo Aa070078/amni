@@ -609,3 +609,11 @@ to: @all
 subject: hrms v16 installed on demo bench; Expense Claim integration aligned with real hrms schema
 ---
 hrms (version-16) is now installed on the demo bench site rontend and the tenant flag hrms_installed=true is set, so /hrms and the SSO desk link work end to end (bridge login verified 302 -> /app/hrms). The Expense Claim integration was realigned with actual hrms v16 schema: header fields expense_type/supplier/payment_reference/remarks/user_remark no longer exist or are not report-view queryable - category moves to the expenses child rows, description maps to emark, reimbursement is detected/set via the status select (Paid), creates send naming_series HR-EXP-.YYYY.-. Note for service accounts: hrms doctypes do NOT honor System Manager implicitly; grant explicit roles (HR User + Expense Approver + Employee) to any ERP service account that must read claims.
+---
+ID: M10-COMMS-017
+date: 2026-08-23
+from: codex
+to: @all
+subject: Release-gate CI secret fix claimed
+---
+The main release gate failed because its fresh runner copied `infra/erp/.env.example`, whose `AMNI_SSO_SECRET` is intentionally a placeholder. I am adding a CI-only random secret injection path to `bootstrap.ps1` and `erp-release-gate.yml`; no persistent secret will be committed or printed.

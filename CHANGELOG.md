@@ -4,6 +4,9 @@ All notable changes to Amni are recorded here. Format follows [Keep a Changelog]
 
 ## [Unreleased]
 
+### Fixed
+- **Real ERP release gate** — CI now generates a fresh, non-committed `AMNI_SSO_SECRET` for each clean-site bootstrap, so the HRMS SSO configuration can pass its production-safe secret validation.
+
 ### Added (dev)
 - **M10-009 v16 bench compat + graceful finance degradation** — finance overview/reports and expenses surfaces now return empty datasets instead of erroring when the tenant site lacks the hrms `Expense Claim` doctype; removed ERPNext v16-removed fields from the ERP layer (`Purchase Invoice.purchase_order`, `Purchase Order.notes`, `Payment Entry.bill_no`) across field lists, doc builders, and update paths; fixed a dashboard area-chart NaN (`y1`) crash on flat series; documented that the dev bench requires the `amni_bridge` app installed (ephemeral via docker cp; durable via `infra/erp/scripts/bootstrap.ps1`) and reseeded the `owner@amni.com` platform admin.
 - **M10-006 clean-site real ERP release gate** — adds a dedicated main-release and nightly CI gate that builds the pinned Frappe v16.31.0, ERPNext v16.32.1, HRMS v16.16.0, and Amni Bridge image; creates an isolated site from scratch; provisions a restricted service account; and proves native sales, purchasing, payments, accounting, CRM, Equity, ESG, and signing persistence across a backend restart. The shared ERP client now submits and cancels documents through Frappe's official whitelisted methods instead of the ineffective resource-query convention. The gate always drops its exact disposable site and uploads service logs on failure.
