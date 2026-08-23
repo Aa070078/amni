@@ -33,7 +33,6 @@ const LIST_FIELDS = [
   "party",
   "posting_date",
   "reference_no",
-  "bill_no",
   "paid_amount",
   "received_amount",
   "mode_of_payment",
@@ -85,8 +84,7 @@ function sortValue(payment: Payment, sortBy: string): unknown {
 /**
  * Payments surface over the tenant's real ERPNext site (M5-005). Payments are
  * Payment Entries: incoming maps to Receive/Customer, outgoing to Pay/Supplier.
- * Codes are ERPNext doc names, the supplier invoice link uses Payment Entry's
- * bill_no, and clearing is the submit action.
+ * Codes are ERPNext doc names, and clearing is the submit action.
  */
 @Injectable()
 export class PaymentsService {
@@ -151,7 +149,6 @@ export class PaymentsService {
         date,
         reference: input.reference,
       }),
-      bill_no: input.invoiceCode,
       owner: user.email,
     });
     const submitted = await this.gateway.update(user, meta, FINANCE_DOCTYPE.paymentEntry, code, "submit", {});

@@ -44,22 +44,29 @@ export const SUPPLIER_FIELDS = {
 } as const;
 
 /** Platform contract field -> Frappe field for the Purchase Order doctype. */
+/**
+ * Platform contract field -> Frappe field for the Purchase Order doctype.
+ * ERPNext v16 removed the header-level `notes` field, so the platform no
+ * longer reads or writes it.
+ */
 export const PURCHASE_ORDER_FIELDS = {
   supplier: "supplier",
   date: "transaction_date",
   expectedDate: "schedule_date",
   currency: "currency",
-  notes: "notes",
   owner: "owner",
 } as const;
 
-/** Platform contract field -> Frappe field for the Purchase Invoice doctype. */
+/**
+ * Platform contract field -> Frappe field for the Purchase Invoice doctype.
+ * ERPNext v16 removed the header-level `purchase_order` link (PO linking now
+ * happens per line item), so the platform no longer sends it.
+ */
 export const PURCHASE_INVOICE_FIELDS = {
   supplier: "supplier",
   date: "posting_date",
   dueDate: "due_date",
   currency: "currency",
-  purchaseOrder: "purchase_order",
   notes: "remarks",
 } as const;
 
@@ -199,7 +206,6 @@ export function buildPurchaseOrderDoc(input: PurchaseOrderInput): Record<string,
     [PURCHASE_ORDER_FIELDS.date]: input.date,
     [PURCHASE_ORDER_FIELDS.expectedDate]: input.expectedDate,
     [PURCHASE_ORDER_FIELDS.currency]: input.currency ?? "USD",
-    [PURCHASE_ORDER_FIELDS.notes]: input.notes,
     [PURCHASE_ORDER_FIELDS.owner]: input.owner,
     items: lines,
     grand_total: Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100,
@@ -215,7 +221,6 @@ export function buildPurchaseInvoiceDoc(input: PurchaseInvoiceInput): Record<str
     [PURCHASE_INVOICE_FIELDS.date]: input.date,
     [PURCHASE_INVOICE_FIELDS.dueDate]: input.dueDate,
     [PURCHASE_INVOICE_FIELDS.currency]: input.currency ?? "USD",
-    [PURCHASE_INVOICE_FIELDS.purchaseOrder]: input.purchaseOrder,
     [PURCHASE_INVOICE_FIELDS.notes]: input.notes,
     items: lines,
     grand_total: Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100,

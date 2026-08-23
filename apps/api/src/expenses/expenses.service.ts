@@ -403,12 +403,21 @@ export class ExpensesService {
     await this.records.remove(user, meta, "expenses", "category", code);
   }
 
+  /**
+   * Expense Claim lives in the hrms app; on tenant sites without it the
+   * expenses surfaces must load with empty datasets instead of erroring.
+   */
   private async allClaims(user: GatewayUser, meta: GatewayRequestMeta): Promise<Record<string, unknown>[]> {
-    const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, {
-      fields: CLAIM_FIELDS,
-      limitPageLength: 500,
-    });
-    return items;
+    try {
+      const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, {
+        fields: CLAIM_FIELDS,
+        limitPageLength: 500,
+      });
+      return items;
+    } catch (err) {
+      if (err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND) return [];
+      throw err;
+    }
   }
 
   private async getClaim(
@@ -428,11 +437,17 @@ export class ExpensesService {
   }
 
   private async nextCode(user: GatewayUser, meta: GatewayRequestMeta, prefix: string): Promise<string> {
-    const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, {
-      fields: ["name"],
-      limitPageLength: 500,
-    });
-    return nextCode(items.map((doc) => String(doc.name)), prefix);
+    let names: string[] = [];
+    try {
+      const { items } = await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, {
+        fields: ["name"],
+        limitPageLength: 500,
+      });
+      names = items.map((doc) => String(doc.name));
+    } catch (err) {
+      if (!(err instanceof ErpError && err.code === ErrorCode.ERP_NOT_FOUND)) throw err;
+    }
+    return nextCode(names, prefix);
   }
 
   /**

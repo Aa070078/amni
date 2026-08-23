@@ -133,6 +133,7 @@ Rules: one owner per task · claim before you build (commit the claim first) · 
 | **M10-006 Real-ERP release gate** | M10 | codex-market-launch | done | feat/M10/real-erp-release-gate ([PR #74](https://github.com/Aa070078/amni/pull/74)) | Clean-site restricted-account gate covers submitted sales/purchasing/payments, accounting, CRM/domain persistence, restart durability, and main/nightly CI. |
 | **M10-007 Production operations + staged pilot** | M10 | codex-market-launch | in-progress | feat/M10/production-operations-pilot | Deployment, TLS, secrets, backups/restores, upgrades, monitoring, incident/rollback runbooks, volume/security pilot. |
 | **M10-008 UI navigation + create-action reliability** | M10 | codex-ui-reliability | done | fix/ui-navigation-create-actions | CRM legacy-status crash protection, global create-dialog actions, route-freeze removal, and dashboard visual refinements. [PR #77](https://github.com/Aa070078/amni/pull/77) |
+| **M10-009 v16 bench compat: bridge install, finance/expense graceful degradation, ERP v16 field fixes, dashboard NaN chart** | M10 | agent-amni-01 | done | fix/v16-bench-compat | Root-caused the "couldn't load data" pages (bridge app missing on the dev bench + hrms-less Expense Claim 404s); finance/expenses degrade to empty datasets on `erp_not_found`; removed v16-removed fields (`Purchase Invoice.purchase_order`, `Purchase Order.notes`, `Payment Entry.bill_no`); fixed flat-series NaN in area chart; reseeded `owner@amni.com`. Live-verified all previously failing endpoints at 200. |
 
 ---
 
