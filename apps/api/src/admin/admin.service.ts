@@ -7,6 +7,10 @@ import type {
   AdminTenantListQuery,
   AdminTenantListResponse,
   AdminTenantSummary,
+  AdminUserDetail,
+  AdminUserListQuery,
+  AdminUserListResponse,
+  AdminUserSummary,
   PlanTier,
   ProvisioningJobState,
   ProvisioningJobType,
@@ -262,6 +266,218 @@ export class AdminService {
       },
       erpInstance: true,
     };
+  }
+
+  // ─── User Management ───────────────────────────────────────────────
+
+  async listUsers(query: AdminUserListQuery): Promise<AdminUserListResponse> {
+    const { page, pageSize, q, status } = query;
+    const where = {
+      ...(status ? { status } : {}),
+      ...(q
+        ? {
+            OR: [
+              { email: { contains: q, mode: "insensitive" as const } },
+              { firstName: { contains: q, mode: "insensitive" as const } },
+              { lastName: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          isPlatformAdmin: true,
+          lastLoginAt: true,
+          createdAt: true,
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return {
+      items: rows.map((u) => ({
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        status: u.status as AdminUserSummary["status"],
+        isPlatformAdmin: u.isPlatformAdmin,
+        lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+        createdAt: u.createdAt.toISOString(),
+      })),
+      meta: { total, page, pageSize },
+    };
+  }
+
+  async userDetail(userId: string): Promise<AdminUserDetail> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        isPlatformAdmin: true,
+        lastLoginAt: true,
+        createdAt: true,
+        memberships: {
+          select: {
+            id: true,
+            platformRole: true,
+            productRole: true,
+            createdAt: true,
+            company: { select: { name: true, slug: true } },
+          },
+        },
+      },
+    });
+    if (!user) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "User not found" });
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      status: user.status as AdminUserSummary["status"],
+      isPlatformAdmin: user.isPlatformAdmin,
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+      memberships: user.memberships.map((m) => ({
+        id: m.id,
+        companyName: m.company.name,
+        companySlug: m.company.slug,
+        platformRole: m.platformRole as AdminUserSummary["status"] extends string ? "OWNER" | "ADMIN" | "MEMBER" : never,
+        productRole: m.productRole,
+        createdAt: m.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async suspendUser(userId: string): Promise<AdminUserSummary> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "User not found" });
+    if (user.isPlatformAdmin) {
+      throw new ApiException({ code: ErrorCode.VALIDATION, status: 400, message: "Cannot suspend a platform admin" });
+    }
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { status: "SUSPENDED" },
+      select: { id: true, email: true, firstName: true, lastName: true, status: true, isPlatformAdmin: true, lastLoginAt: true, createdAt: true },
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      status: updated.status as AdminUserSummary["status"],
+      isPlatformAdmin: updated.isPlatformAdmin,
+      lastLoginAt: updated.lastLoginAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+    };
+  }
+
+  async activateUser(userId: string): Promise<AdminUserSummary> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "User not found" });
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { status: "ACTIVE" },
+      select: { id: true, email: true, firstName: true, lastName: true, status: true, isPlatformAdmin: true, lastLoginAt: true, createdAt: true },
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      status: updated.status as AdminUserSummary["status"],
+      isPlatformAdmin: updated.isPlatformAdmin,
+      lastLoginAt: updated.lastLoginAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+    };
+  }
+
+  async promoteUser(userId: string): Promise<AdminUserSummary> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "User not found" });
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isPlatformAdmin: true },
+      select: { id: true, email: true, firstName: true, lastName: true, status: true, isPlatformAdmin: true, lastLoginAt: true, createdAt: true },
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      status: updated.status as AdminUserSummary["status"],
+      isPlatformAdmin: updated.isPlatformAdmin,
+      lastLoginAt: updated.lastLoginAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+    };
+  }
+
+  async demoteUser(userId: string): Promise<AdminUserSummary> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "User not found" });
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isPlatformAdmin: false },
+      select: { id: true, email: true, firstName: true, lastName: true, status: true, isPlatformAdmin: true, lastLoginAt: true, createdAt: true },
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      status: updated.status as AdminUserSummary["status"],
+      isPlatformAdmin: updated.isPlatformAdmin,
+      lastLoginAt: updated.lastLoginAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+    };
+  }
+
+  // ─── Tenant Actions ────────────────────────────────────────────────
+
+  async suspendTenant(tenantId: string): Promise<AdminTenantSummary> {
+    const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: this.tenantRowInclude() });
+    if (!row) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "Tenant not found" });
+    const updated = await prisma.tenant.update({ where: { id: tenantId }, data: { status: "SUSPENDED" } });
+    return toSummary({ ...row, ...updated } as TenantRow);
+  }
+
+  async resumeTenant(tenantId: string): Promise<AdminTenantSummary> {
+    const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: this.tenantRowInclude() });
+    if (!row) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "Tenant not found" });
+    const updated = await prisma.tenant.update({ where: { id: tenantId }, data: { status: "ACTIVE" } });
+    return toSummary({ ...row, ...updated } as TenantRow);
+  }
+
+  async archiveTenant(tenantId: string): Promise<AdminTenantSummary> {
+    const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: this.tenantRowInclude() });
+    if (!row) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "Tenant not found" });
+    const updated = await prisma.tenant.update({ where: { id: tenantId }, data: { status: "ARCHIVED" } });
+    return toSummary({ ...row, ...updated } as TenantRow);
+  }
+
+  async changeTenantPlan(tenantId: string, planTier: PlanTier): Promise<AdminTenantSummary> {
+    const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: this.tenantRowInclude() });
+    if (!row) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "Tenant not found" });
+    const updated = await prisma.tenant.update({ where: { id: tenantId }, data: { planTier: planTier.toUpperCase() as Uppercase<PlanTier> } });
+    return toSummary({ ...row, ...updated } as TenantRow);
   }
 }
 

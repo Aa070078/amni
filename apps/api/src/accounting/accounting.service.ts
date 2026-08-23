@@ -8,7 +8,7 @@ import { toIso } from "../common/frappe";
 import { ErpGatewayService, translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
 const ACCOUNT_FIELDS = ["name", "account_name", "root_type", "parent_account", "account_currency", "company", "is_group", "disabled", "creation", "modified"];
-const JOURNAL_FIELDS = ["name", "posting_date", "reference_no", "user_remark", "owner", "docstatus", "accounts", "creation", "modified"];
+const JOURNAL_FIELDS = ["name", "posting_date", "reference", "user_remark", "owner", "docstatus", "accounts", "creation", "modified"];
 
 @Injectable()
 export class AccountingService {
@@ -131,7 +131,7 @@ export class AccountingService {
 }
 
 function toAccount(doc: ErpAccountingAccount, balances: Map<string, number>): Account { return { code: doc.name, name: doc.account_name, type: (doc.root_type?.toLowerCase() ?? "expense") as AccountType, group: doc.parent_account ?? doc.root_type ?? "Accounts", currency: doc.account_currency ?? "USD", openingBalance: 0, balance: balances.get(doc.name) ?? 0, isGroup: Boolean(doc.is_group), status: doc.disabled ? "archived" : "active", createdAt: toIso(doc.creation), updatedAt: toIso(doc.modified) }; }
-function toJournal(doc: ErpAccountingJournal): JournalEntry { return { code: doc.name, date: toIso(doc.posting_date), referenceCode: doc.reference_no || undefined, entries: (doc.accounts ?? []).map((line) => ({ accountCode: line.account, accountName: line.account, debit: Number(line.debit_in_account_currency ?? 0), credit: Number(line.credit_in_account_currency ?? 0) })), status: doc.docstatus === 2 ? "reversed" : doc.docstatus === 1 ? "posted" : "draft", memo: doc.user_remark ?? "Journal entry", postedAt: doc.docstatus === 1 ? toIso(doc.modified) : null, createdBy: doc.owner, createdAt: toIso(doc.creation), updatedAt: toIso(doc.modified) }; }
+function toJournal(doc: ErpAccountingJournal): JournalEntry { return { code: doc.name, date: toIso(doc.posting_date), referenceCode: doc.reference || undefined, entries: (doc.accounts ?? []).map((line) => ({ accountCode: line.account, accountName: line.account, debit: Number(line.debit_in_account_currency ?? 0), credit: Number(line.credit_in_account_currency ?? 0) })), status: doc.docstatus === 2 ? "reversed" : doc.docstatus === 1 ? "posted" : "draft", memo: doc.user_remark ?? "Journal entry", postedAt: doc.docstatus === 1 ? toIso(doc.modified) : null, createdBy: doc.owner, createdAt: toIso(doc.creation), updatedAt: toIso(doc.modified) }; }
 function rejectOpeningBalance(value: number | undefined): void { if (value && Math.abs(value) > 0.001) throw unprocessable("Opening balances require an explicit balanced opening journal entry"); }
 function unprocessable(message: string): ApiException { return new ApiException({ code: ErrorCode.UNPROCESSABLE, status: 422, message }); }
 function round2(value: number): number { return Math.round(value * 100) / 100; }
