@@ -24,7 +24,11 @@ import { toIso } from "../common/frappe";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
-import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+import {
+  translateErpError,
+  type GatewayRequestMeta,
+  type GatewayUser,
+} from "../erp-gateway/erp-gateway.service";
 
 const SORT_WHITELIST = new Set([
   "code",
@@ -85,8 +89,8 @@ function toDocLines(items: UpdateSalesOrderInput["items"]): ErpDocLine[] {
   }));
 }
 
-function toItems(lines: ErpDocLine[]): SalesOrder["items"] {
-  return lines.map((line, index) => ({
+function toItems(lines: ErpDocLine[] | undefined): SalesOrder["items"] {
+  return (lines ?? []).map((line, index) => ({
     lineNo: index + 1,
     product: line.item_code,
     name: line.item_name ?? line.item_code,
@@ -97,10 +101,17 @@ function toItems(lines: ErpDocLine[]): SalesOrder["items"] {
   }));
 }
 
-function summarize(doc: ErpSalesOrderRaw, lines: ErpDocLine[]): DocSummary {
-  const subtotal = round2(lines.reduce((sum, line) => sum + (line.amount ?? round2(line.qty * line.rate)), 0));
+function summarize(doc: ErpSalesOrderRaw, lines: ErpDocLine[] | undefined): DocSummary {
+  const subtotal = round2(
+    (lines ?? []).reduce((sum, line) => sum + (line.amount ?? round2(line.qty * line.rate)), 0),
+  );
   const total = doc.grand_total ?? subtotal;
-  return { subtotal, discount: 0, tax: round2(Math.max(total - subtotal, 0)), total: round2(total) };
+  return {
+    subtotal,
+    discount: 0,
+    tax: round2(Math.max(total - subtotal, 0)),
+    total: round2(total),
+  };
 }
 
 function toSalesOrder(doc: ErpSalesOrderRaw, customerName?: string): SalesOrder {
@@ -123,15 +134,24 @@ function toSalesOrder(doc: ErpSalesOrderRaw, customerName?: string): SalesOrder 
 }
 
 async function fetchCustomerMap(client: ErpClient): Promise<Map<string, string>> {
-  const { items } = await client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, {
-    limitPageLength: 0,
-  });
+  const { items } = await client.list<{ name: string; customer_name: string }>(
+    SALES_DOCTYPE.customer,
+    {
+      limitPageLength: 0,
+    },
+  );
   return new Map(items.map((customer) => [customer.name, customer.customer_name ?? customer.name]));
 }
 
-async function resolveCustomer(client: ErpClient, code: string): Promise<{ code: string; name: string }> {
+async function resolveCustomer(
+  client: ErpClient,
+  code: string,
+): Promise<{ code: string; name: string }> {
   try {
-    const doc = await client.get<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, code);
+    const doc = await client.get<{ name: string; customer_name: string }>(
+      SALES_DOCTYPE.customer,
+      code,
+    );
     return { code: doc.name, name: doc.customer_name ?? doc.name };
   } catch {
     return { code, name: code };
@@ -157,14 +177,19 @@ export class SalesOrdersService {
   async options(user: GatewayUser, meta: GatewayRequestMeta): Promise<SalesOrderOptions> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [customers, products] = await Promise.all([
-      client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, { limitPageLength: 0 }),
+      client.list<{ name: string; customer_name: string }>(SALES_DOCTYPE.customer, {
+        limitPageLength: 0,
+      }),
       client.list<{ name: string; item_name: string; stock_uom: string; standard_rate: number }>(
         INVENTORY_DOCTYPE.item,
         { limitPageLength: 0 },
       ),
     ]);
     return {
-      customers: customers.items.map((customer) => ({ code: customer.name, name: customer.customer_name ?? customer.name })),
+      customers: customers.items.map((customer) => ({
+        code: customer.name,
+        name: customer.customer_name ?? customer.name,
+      })),
       products: products.items.map((product) => ({
         code: product.name,
         name: product.item_name ?? product.name,
@@ -174,7 +199,11 @@ export class SalesOrdersService {
     };
   }
 
-  async list(user: GatewayUser, meta: GatewayRequestMeta, query: SalesOrderListQuery): Promise<SalesOrderListResponse> {
+  async list(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    query: SalesOrderListQuery,
+  ): Promise<SalesOrderListResponse> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
     const [{ items: docs }, customerNames] = await Promise.all([
       client.list<ErpSalesOrderRaw>(SALES_DOCTYPE.salesOrder, { limitPageLength: 0 }),
@@ -182,21 +211,23 @@ export class SalesOrdersService {
     ]);
 
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = docs.map((doc) => toSalesOrder(doc, customerNames.get(doc.customer))).filter((order) => {
-      if (query.status && order.status !== query.status) return false;
-      if (!q) return true;
-      return [
-        order.code,
-        order.customer.code,
-        order.customer.name,
-        order.owner ?? "",
-        order.quotationCode ?? "",
-        order.notes ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
+    const filtered = docs
+      .map((doc) => toSalesOrder(doc, customerNames.get(doc.customer)))
+      .filter((order) => {
+        if (query.status && order.status !== query.status) return false;
+        if (!q) return true;
+        return [
+          order.code,
+          order.customer.code,
+          order.customer.name,
+          order.owner ?? "",
+          order.quotationCode ?? "",
+          order.notes ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      });
 
     const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
     const sortDir = query.sortDir === "asc" ? 1 : -1;
@@ -224,7 +255,11 @@ export class SalesOrdersService {
     return toSalesOrder(doc, (await resolveCustomer(client, doc.customer)).name);
   }
 
-  async create(user: GatewayUser, meta: GatewayRequestMeta, input: CreateSalesOrderInput): Promise<SalesOrder> {
+  async create(
+    user: GatewayUser,
+    meta: GatewayRequestMeta,
+    input: CreateSalesOrderInput,
+  ): Promise<SalesOrder> {
     const { client, companyId } = await this.gateway.scopeFor(user.id, meta.requestId);
     const created = await client.create<ErpSalesOrderDoc>(
       SALES_DOCTYPE.salesOrder,
@@ -351,7 +386,9 @@ export class SalesOrdersService {
         message: "Only draft sales orders can be removed",
       });
     }
-    await client.delete(SALES_DOCTYPE.salesOrder, code).catch((err) => translateErpError(err, "Sales Order"));
+    await client
+      .delete(SALES_DOCTYPE.salesOrder, code)
+      .catch((err) => translateErpError(err, "Sales Order"));
     await this.gateway.audit({
       user,
       meta,

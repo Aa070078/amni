@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CheckCircle2, Package, Search, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, LayoutGrid, List, Package, Search, X } from "lucide-react";
 import { MOVEMENT_TYPES, type MovementType, type StockMovement } from "@amni/shared";
 import {
   Button,
@@ -21,6 +21,7 @@ import { formatNumber } from "@/src/lib/format";
 import { formatMovementDate, stockMovementsClient } from "@/src/lib/stock-movements";
 import { MovementTypeBadge } from "./movement-type";
 import { NewStockMovementDialog } from "./new-stock-movement-dialog";
+import { StockMovementsBoard } from "./stock-movements-board";
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -39,6 +40,7 @@ export function StockMovementsView() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [view, setView] = useState<"table" | "board">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createdMovement, setCreatedMovement] = useState<StockMovement | null>(null);
 
@@ -58,7 +60,7 @@ export function StockMovementsView() {
     queryFn: () =>
       stockMovementsClient.list({
         page: 1,
-        pageSize: 20,
+        pageSize: 100,
         q: debouncedSearch.trim() || undefined,
         type: typeFilter === "all" ? undefined : (typeFilter as MovementType),
       }),
@@ -95,11 +97,39 @@ export function StockMovementsView() {
             Track inbound, outbound, transfer, and adjustment movements across your warehouses.
           </p>
         </div>
-        <NewStockMovementDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onCreate={(movement) => createMovement.mutate(movement)}
-        />
+        <div className="flex items-center gap-2">
+          <div
+            role="group"
+            aria-label="View mode"
+            className="inline-flex items-center rounded-md border bg-muted/50 p-0.5"
+          >
+            <Button
+              variant={view === "table" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setView("table")}
+              aria-pressed={view === "table"}
+            >
+              <List className="h-3.5 w-3.5" aria-hidden="true" />
+              List
+            </Button>
+            <Button
+              variant={view === "board" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setView("board")}
+              aria-pressed={view === "board"}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+              Board
+            </Button>
+          </div>
+          <NewStockMovementDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onCreate={(movement) => createMovement.mutate(movement)}
+          />
+        </div>
       </div>
 
       {createdMovement ? (
@@ -192,107 +222,113 @@ export function StockMovementsView() {
                 className="h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-44" aria-label="Filter by type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                {MOVEMENT_TYPES.map(({ value, label }) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {view === "table" ? (
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full sm:w-44" aria-label="Filter by type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {MOVEMENT_TYPES.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
 
-          <DataTable
-            columns={[
-              {
-                accessorKey: "code",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
-                cell: ({ row }) => (
-                  <span className="font-medium tabular-nums text-foreground">{row.original.code}</span>
-                ),
-              },
-              {
-                accessorKey: "type",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
-                cell: ({ row }) => <MovementTypeBadge type={row.original.type} />,
-              },
-              {
-                accessorKey: "productCode",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
-                cell: ({ row }) => {
-                  const movement = row.original;
-                  return (
-                    <div className="flex flex-col">
-                      <span className="text-foreground">{movement.productName}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">{movement.productCode}</span>
-                    </div>
-                  );
+          {view === "board" ? (
+            <StockMovementsBoard movements={data.items} />
+          ) : (
+            <DataTable
+              columns={[
+                {
+                  accessorKey: "code",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
+                  cell: ({ row }) => (
+                    <span className="font-medium tabular-nums text-foreground">{row.original.code}</span>
+                  ),
                 },
-              },
-              {
-                accessorKey: "quantity",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Quantity" />,
-                cell: ({ row }) => {
-                  const movement = row.original;
-                  return (
-                    <span className="font-medium tabular-nums text-foreground">
-                      {formatNumber(movement.quantity)} {movement.uom}
-                    </span>
-                  );
+                {
+                  accessorKey: "type",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Type" />,
+                  cell: ({ row }) => <MovementTypeBadge type={row.original.type} />,
                 },
-              },
-              {
-                accessorKey: "fromWarehouse",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Warehouse" />,
-                cell: ({ row }) => {
-                  const movement = row.original;
-                  return (
-                    <div className="flex items-center gap-1.5">
-                      <span className="tabular-nums text-muted-foreground">{movement.fromWarehouse ?? "—"}</span>
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
-                      <span className="tabular-nums text-muted-foreground">{movement.toWarehouse ?? "—"}</span>
-                    </div>
-                  );
+                {
+                  accessorKey: "productCode",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Product" />,
+                  cell: ({ row }) => {
+                    const movement = row.original;
+                    return (
+                      <div className="flex flex-col">
+                        <span className="text-foreground">{movement.productName}</span>
+                        <span className="text-xs tabular-nums text-muted-foreground">{movement.productCode}</span>
+                      </div>
+                    );
+                  },
                 },
-              },
-              {
-                accessorKey: "date",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
-                cell: ({ row }) => (
-                  <span className="tabular-nums text-muted-foreground">{formatMovementDate(row.original.date)}</span>
-                ),
-              },
-              {
-                accessorKey: "reason",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Reason" />,
-                cell: ({ row }) => <span className="text-muted-foreground">{row.original.reason ?? "—"}</span>,
-              },
-              {
-                accessorKey: "createdBy",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Created by" />,
-                cell: ({ row }) => <span className="text-muted-foreground">{row.original.createdBy ?? "—"}</span>,
-              },
-            ]}
-            data={data.items}
-            loading={listQuery.isFetching}
-            searchable
-            globalSearchPlaceholder="Search movements…"
-            getRowId={(movement) => (movement as StockMovement).code}
-            initialSorting={[{ id: "date", desc: true }]}
-            emptyState={{
-              title: "No movements yet",
-              description: "Record your first stock movement to get started.",
-            }}
-            noResultsState={{
-              title: "No matching movements",
-              description: "Try adjusting your search or clear the filters.",
-            }}
-          />
+                {
+                  accessorKey: "quantity",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Quantity" />,
+                  cell: ({ row }) => {
+                    const movement = row.original;
+                    return (
+                      <span className="font-medium tabular-nums text-foreground">
+                        {formatNumber(movement.quantity)} {movement.uom}
+                      </span>
+                    );
+                  },
+                },
+                {
+                  accessorKey: "fromWarehouse",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Warehouse" />,
+                  cell: ({ row }) => {
+                    const movement = row.original;
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <span className="tabular-nums text-muted-foreground">{movement.fromWarehouse ?? "—"}</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
+                        <span className="tabular-nums text-muted-foreground">{movement.toWarehouse ?? "—"}</span>
+                      </div>
+                    );
+                  },
+                },
+                {
+                  accessorKey: "date",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
+                  cell: ({ row }) => (
+                    <span className="tabular-nums text-muted-foreground">{formatMovementDate(row.original.date)}</span>
+                  ),
+                },
+                {
+                  accessorKey: "reason",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Reason" />,
+                  cell: ({ row }) => <span className="text-muted-foreground">{row.original.reason ?? "—"}</span>,
+                },
+                {
+                  accessorKey: "createdBy",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Created by" />,
+                  cell: ({ row }) => <span className="text-muted-foreground">{row.original.createdBy ?? "—"}</span>,
+                },
+              ]}
+              data={data.items}
+              loading={listQuery.isFetching}
+              searchable
+              globalSearchPlaceholder="Search movements…"
+              getRowId={(movement) => (movement as StockMovement).code}
+              initialSorting={[{ id: "date", desc: true }]}
+              emptyState={{
+                title: "No movements yet",
+                description: "Record your first stock movement to get started.",
+              }}
+              noResultsState={{
+                title: "No matching movements",
+                description: "Try adjusting your search or clear the filters.",
+              }}
+            />
+          )}
         </>
       )}
     </div>

@@ -26,14 +26,22 @@ export default defineConfig({
       url: "http://localhost:4000/healthz",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      env: { ...process.env, ENCRYPTION_KEY: E2E_ENCRYPTION_KEY },
+      env: {
+        ...process.env,
+        ENCRYPTION_KEY: E2E_ENCRYPTION_KEY,
+        WEB_ORIGIN: WEB_URL,
+      },
     },
     {
-      command: `pnpm --filter @amni/web dev -- -p ${WEB_PORT}`,
+      command: `pnpm --filter @amni/web exec next dev -p ${WEB_PORT}`,
       url: WEB_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
-      env: { ...process.env, NEXT_PUBLIC_API_BASE_URL: API_V1_URL },
+      env: {
+        ...process.env,
+        NEXT_DIST_DIR: `.next-e2e-${process.pid}`,
+        NEXT_PUBLIC_API_BASE_URL: API_V1_URL,
+      },
     },
   ],
 });

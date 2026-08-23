@@ -1,0 +1,1 @@
+ALTER TABLE "invitations" ALTER COLUMN "firstName" DROP DEFAULT;

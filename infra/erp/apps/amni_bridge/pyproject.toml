@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amni_bridge"
+version = "0.2.0"
+description = "Amni ERPNext provisioning and HRMS SSO bridge"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["amni_bridge*"]

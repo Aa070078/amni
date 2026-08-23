@@ -59,7 +59,7 @@ export function NoteDetailView({ code }: NoteDetailViewProps) {
               </Button>
             ) : null}
             <Button asChild variant={is404 ? "default" : "outline"}>
-              <Link href="/sales/crm/notes">
+              <Link href="/crm/notes">
                 <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
                 Back to notes
               </Link>
@@ -76,7 +76,7 @@ export function NoteDetailView({ code }: NoteDetailViewProps) {
   return (
     <div className="space-y-6">
       <Link
-        href="/sales/crm/notes"
+        href="/crm/notes"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />

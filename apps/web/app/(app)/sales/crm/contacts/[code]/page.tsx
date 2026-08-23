@@ -7,7 +7,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <ContactDetailView code={code} />
+      <ContactDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

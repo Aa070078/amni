@@ -23,7 +23,7 @@ export async function openDialog(page: Page, path: string, triggerName: string):
 /** Opens a Radix Select trigger by id and picks the option by visible text. */
 export async function pickSelect(page: Page, dialog: Locator, id: string, option: string): Promise<void> {
   await dialog.locator(`#${id}`).click();
-  await page.getByRole("option", { name: option }).click();
+  await page.locator('[role="listbox"]:visible').getByRole("option", { name: option }).click();
 }
 
 /**

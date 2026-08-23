@@ -11,7 +11,7 @@ export default async function JournalEntryDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <JournalEntryDetailView code={code} />
+      <JournalEntryDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

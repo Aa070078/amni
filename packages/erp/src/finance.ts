@@ -21,17 +21,22 @@ export const FINANCE_DOCTYPE = {
   paymentEntry: "Payment Entry",
 } as const;
 
-/** Platform contract field -> Frappe field for the Expense Claim doctype. */
+/**
+ * Platform contract field -> Frappe field for the Expense Claim doctype.
+ * hrms v16 removed the header-level expense_type/supplier/payment_reference
+ * fields (expense types now live on the `expenses` child rows and the
+ * reimbursement state on the `status` select), so only real fields map here.
+ */
 export const EXPENSE_CLAIM_FIELDS = {
-  category: "expense_type",
   date: "posting_date",
-  description: "remarks",
-  supplier: "supplier",
+  description: "remark",
   amount: "grand_total",
   status: "approval_status",
   claimedBy: "expense_approver",
-  paymentRef: "payment_reference",
 } as const;
+
+/** Default naming series required by hrms v16 Expense Claim validation. */
+export const EXPENSE_CLAIM_NAMING_SERIES = "HR-EXP-.YYYY.-";
 
 /** Platform contract field -> Frappe field for the Journal Entry doctype. */
 export const JOURNAL_ENTRY_FIELDS = {
@@ -117,14 +122,11 @@ export interface ErpPaymentEntryDoc {
 }
 
 export interface ExpenseClaimInput {
-  category: string;
   date?: string;
   description: string;
-  supplier?: string;
   amount: number;
   status?: string;
   claimedBy?: string;
-  paymentRef?: string;
 }
 
 export interface JournalEntryInput {
@@ -162,14 +164,11 @@ export interface PaymentEntryInput {
 
 export function buildExpenseClaimDoc(input: ExpenseClaimInput): Record<string, unknown> {
   return {
-    [EXPENSE_CLAIM_FIELDS.category]: input.category,
     [EXPENSE_CLAIM_FIELDS.date]: input.date,
     [EXPENSE_CLAIM_FIELDS.description]: input.description,
-    [EXPENSE_CLAIM_FIELDS.supplier]: input.supplier,
     [EXPENSE_CLAIM_FIELDS.amount]: input.amount,
     [EXPENSE_CLAIM_FIELDS.status]: input.status,
     [EXPENSE_CLAIM_FIELDS.claimedBy]: input.claimedBy,
-    [EXPENSE_CLAIM_FIELDS.paymentRef]: input.paymentRef,
   };
 }
 

@@ -1,10 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { Skeleton } from "@amni/ui";
-import type { DashboardOverview } from "@amni/shared";
-import { api } from "@/src/lib/api";
+import { useDashboardSnapshot } from "@/src/hooks/use-dashboard-snapshot";
 import { formatRelativeTime } from "@/src/lib/format";
 import { KpiGrid } from "./kpi-grid";
 import { QuickActions } from "./quick-actions";
@@ -29,20 +27,17 @@ function OverviewSkeleton() {
 }
 
 export function OverviewPanel() {
-  const query = useQuery({
-    queryKey: ["dashboard", "overview"],
-    queryFn: () => api<DashboardOverview>("/dashboard/overview"),
-  });
+  const query = useDashboardSnapshot();
 
   if (query.isLoading) {
     return <OverviewSkeleton />;
   }
 
   if (query.isError) {
-    return <PanelError onRetry={() => void query.refetch()} />;
+    return <PanelError error={query.error} onRetry={() => void query.refetch()} />;
   }
 
-  const overview = query.data;
+  const overview = query.data?.overview;
   if (!overview) {
     return null;
   }

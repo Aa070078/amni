@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -19,8 +20,9 @@ import {
   type CrmContactListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
-// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
+// Value import required so TypeScript emits Nest constructor metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmContactsService } from "./contacts.service";
 
@@ -30,29 +32,29 @@ export class CrmContactsController {
   constructor(private readonly contacts: CrmContactsService) {}
 
   @Get()
-  list(@Query() query: unknown): CrmContactListResponse {
-    return this.contacts.list(crmContactListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<CrmContactListResponse> {
+    return this.contacts.list(userFrom(req), metaFrom(req), crmContactListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): CrmContact {
-    return this.contacts.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<CrmContact> {
+    return this.contacts.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): CrmContact {
-    return this.contacts.create(createCrmContactInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<CrmContact> {
+    return this.contacts.create(userFrom(req), metaFrom(req), createCrmContactInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): CrmContact {
-    return this.contacts.update(code, updateCrmContactInputSchema.parse(body));
+  update(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<CrmContact> {
+    return this.contacts.update(userFrom(req), metaFrom(req), code, updateCrmContactInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.contacts.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.contacts.remove(userFrom(req), metaFrom(req), code);
   }
 }

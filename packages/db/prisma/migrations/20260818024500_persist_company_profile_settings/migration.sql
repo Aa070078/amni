@@ -1,0 +1,9 @@
+ALTER TABLE "users"
+ADD COLUMN "avatarUrl" VARCHAR(500),
+ADD COLUMN "jobTitle" VARCHAR(120);
+
+ALTER TABLE "companies"
+ADD COLUMN "email" VARCHAR(254),
+ADD COLUMN "phone" VARCHAR(40),
+ADD COLUMN "website" VARCHAR(200),
+ADD COLUMN "fiscalYearStart" VARCHAR(10);

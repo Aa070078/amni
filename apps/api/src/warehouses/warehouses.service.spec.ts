@@ -99,7 +99,7 @@ describe("WarehousesService", () => {
     it("returns the warehouse with stock read from Bin docs", async () => {
       mocks.client.list.mockImplementation(async (doctype: string) => {
         if (doctype === "Bin") return { items: BIN_DOCS, hasMore: false };
-        if (doctype === "Item") return { items: [{ name: "PRD-0001", reorder_level: 10 }, { name: "PRD-0003", reorder_level: 5 }], hasMore: false };
+        if (doctype === "Item") return { items: [{ name: "PRD-0001", safety_stock: 10 }, { name: "PRD-0003", safety_stock: 5 }], hasMore: false };
         return { items: [], hasMore: false };
       });
       mocks.client.get.mockResolvedValue(WAREHOUSE_DOCS[0]);
@@ -145,8 +145,8 @@ describe("WarehousesService", () => {
         if (doctype === "Item") {
           return {
             items: [
-              { name: "PRD-0001", item_name: "Widget", reorder_level: 10 },
-              { name: "PRD-0003", item_name: "Bolt", reorder_level: 5 },
+              { name: "PRD-0001", item_name: "Widget", safety_stock: 10 },
+              { name: "PRD-0003", item_name: "Bolt", safety_stock: 5 },
             ],
             hasMore: false,
           };

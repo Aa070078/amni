@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Search, TrendingUp, Warehouse as WarehouseIcon } from "lucide-react";
-import type { Warehouse } from "@amni/shared";
+import { ArrowLeft, CheckCircle2, LayoutGrid, List, Search, TrendingUp, Warehouse as WarehouseIcon } from "lucide-react";
+import type { Warehouse, WarehouseDetail } from "@amni/shared";
 import { Button, Card, CardContent, DataTable, DataTableColumnHeader, Skeleton } from "@amni/ui";
 import { formatCurrency } from "@/src/lib/format";
+import { stockMovementsClient } from "@/src/lib/stock-movements";
 import { warehousesClient, warehouseStockValue } from "@/src/lib/warehouses";
 import { NewWarehouseDialog } from "./new-warehouse-dialog";
+import { WarehousesBoard } from "./warehouses-board";
 import { WarehouseStatusBadge } from "./warehouse-status";
 
 type WarehouseRow = Warehouse & { stockLinesCount: number; lowStockCount: number };
 
 interface StockSummary {
   byCode: Map<string, { stockCount: number; lowStockCount: number }>;
+  details: WarehouseDetail[];
   stockValue: number;
   lowStockLines: number;
 }
@@ -35,6 +38,7 @@ export function WarehousesView() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [view, setView] = useState<"table" | "board">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createdWarehouse, setCreatedWarehouse] = useState<Warehouse | null>(null);
 
@@ -67,7 +71,7 @@ export function WarehousesView() {
       );
       const stockValue = details.reduce((sum, detail) => sum + warehouseStockValue(detail.stock), 0);
       const lowStockLines = details.reduce((sum, detail) => sum + detail.lowStock.length, 0);
-      return { byCode, stockValue, lowStockLines };
+      return { byCode, details, stockValue, lowStockLines };
     },
     enabled: Boolean(listQuery.data),
     placeholderData: (previous) => previous,
@@ -82,6 +86,23 @@ export function WarehousesView() {
     },
   });
 
+  const transferStock = useMutation({
+    mutationFn: async ({ fromWarehouse, toWarehouse, productCode }: { fromWarehouse: string; toWarehouse: string; productCode: string }) => {
+      return stockMovementsClient.create({
+        type: "transfer",
+        productCode,
+        quantity: 5,
+        fromWarehouse,
+        toWarehouse,
+        reason: `Reallocation from ${fromWarehouse} to ${toWarehouse}`,
+        reference: `TRN-${Date.now().toString().slice(-4)}`,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["warehouses", "stock-summary"] });
+    },
+  });
+
   const rows: WarehouseRow[] = (listQuery.data?.items ?? []).map((warehouse) => ({
     ...warehouse,
     stockLinesCount: stockSummaryQuery.data?.byCode.get(warehouse.code)?.stockCount ?? 0,
@@ -92,9 +113,18 @@ export function WarehousesView() {
   const activeCount = (listQuery.data?.items ?? []).filter((warehouse) => warehouse.status === "active").length;
   const stockValue = stockSummaryQuery.data?.stockValue ?? 0;
   const lowStockLines = stockSummaryQuery.data?.lowStockLines ?? 0;
+  const warehouseDetails = stockSummaryQuery.data?.details ?? [];
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/inventory"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        Inventory
+      </Link>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Warehouses</h1>
@@ -102,11 +132,39 @@ export function WarehousesView() {
             Manage locations and keep an eye on stock levels across the business.
           </p>
         </div>
-        <NewWarehouseDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onCreate={(warehouse) => createWarehouse.mutate(warehouse)}
-        />
+        <div className="flex items-center gap-2">
+          <div
+            role="group"
+            aria-label="View mode"
+            className="inline-flex items-center rounded-md border bg-muted/50 p-0.5"
+          >
+            <Button
+              variant={view === "table" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setView("table")}
+              aria-pressed={view === "table"}
+            >
+              <List className="h-3.5 w-3.5" aria-hidden="true" />
+              List
+            </Button>
+            <Button
+              variant={view === "board" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setView("board")}
+              aria-pressed={view === "board"}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+              Board
+            </Button>
+          </div>
+          <NewWarehouseDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onCreate={(warehouse) => createWarehouse.mutate(warehouse)}
+          />
+        </div>
       </div>
 
       {createdWarehouse ? (
@@ -201,83 +259,92 @@ export function WarehousesView() {
             />
           </div>
 
-          <DataTable
-            columns={[
-              {
-                accessorKey: "name",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Warehouse" />,
-                cell: ({ row }) => {
-                  const warehouse = row.original as WarehouseRow;
-                  return (
-                    <div className="flex flex-col">
-                      <Link
-                        href={`/inventory/warehouses/${warehouse.code}`}
-                        className="font-medium text-foreground hover:text-primary hover:underline"
-                      >
-                        {warehouse.name}
-                      </Link>
-                      <span className="text-xs tabular-nums text-muted-foreground">{warehouse.code}</span>
-                    </div>
-                  );
+          {view === "board" ? (
+            <WarehousesBoard
+              warehouses={warehouseDetails}
+              onTransferStock={(fromWarehouse, toWarehouse, productCode) =>
+                transferStock.mutate({ fromWarehouse, toWarehouse, productCode })
+              }
+            />
+          ) : (
+            <DataTable
+              columns={[
+                {
+                  accessorKey: "name",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Warehouse" />,
+                  cell: ({ row }) => {
+                    const warehouse = row.original as WarehouseRow;
+                    return (
+                      <div className="flex flex-col">
+                        <Link
+                          href={`/inventory/warehouses/${warehouse.code}`}
+                          className="font-medium text-foreground hover:text-primary hover:underline"
+                        >
+                          {warehouse.name}
+                        </Link>
+                        <span className="text-xs tabular-nums text-muted-foreground">{warehouse.code}</span>
+                      </div>
+                    );
+                  },
                 },
-              },
-              {
-                accessorKey: "location",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Location" />,
-                cell: ({ row }) => {
-                  const warehouse = row.original as WarehouseRow;
-                  return <span className="text-muted-foreground">{warehouse.location ?? "—"}</span>;
+                {
+                  accessorKey: "location",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Location" />,
+                  cell: ({ row }) => {
+                    const warehouse = row.original as WarehouseRow;
+                    return <span className="text-muted-foreground">{warehouse.location ?? "—"}</span>;
+                  },
                 },
-              },
-              {
-                accessorKey: "manager",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Manager" />,
-                cell: ({ row }) => {
-                  const warehouse = row.original as WarehouseRow;
-                  return <span className="text-muted-foreground">{warehouse.manager ?? "—"}</span>;
+                {
+                  accessorKey: "manager",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Manager" />,
+                  cell: ({ row }) => {
+                    const warehouse = row.original as WarehouseRow;
+                    return <span className="text-muted-foreground">{warehouse.manager ?? "—"}</span>;
+                  },
                 },
-              },
-              {
-                accessorKey: "status",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-                cell: ({ row }) => <WarehouseStatusBadge status={(row.original as WarehouseRow).status} />,
-              },
-              {
-                accessorKey: "stockLinesCount",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Stock lines" />,
-                cell: ({ row }) => {
-                  const warehouse = row.original as WarehouseRow;
-                  return (
-                    <span className="tabular-nums text-muted-foreground">{warehouse.stockLinesCount}</span>
-                  );
+                {
+                  accessorKey: "status",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+                  cell: ({ row }) => <WarehouseStatusBadge status={(row.original as WarehouseRow).status} />,
                 },
-              },
-              {
-                accessorKey: "lowStockCount",
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Low stock" />,
-                cell: ({ row }) => {
-                  const warehouse = row.original as WarehouseRow;
-                  return warehouse.lowStockCount > 0 ? (
-                    <span className="font-medium tabular-nums text-warning">{warehouse.lowStockCount}</span>
-                  ) : (
-                    <span className="tabular-nums text-muted-foreground">0</span>
-                  );
+                {
+                  accessorKey: "stockLinesCount",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Stock lines" />,
+                  cell: ({ row }) => {
+                    const warehouse = row.original as WarehouseRow;
+                    return (
+                      <span className="tabular-nums text-muted-foreground">{warehouse.stockLinesCount}</span>
+                    );
+                  },
                 },
-              },
-            ]}
-            data={rows}
-            loading={listQuery.isLoading}
-            getRowId={(warehouse) => (warehouse as WarehouseRow).code}
-            initialSorting={[{ id: "name", desc: false }]}
-            emptyState={{
-              title: "No warehouses yet",
-              description: "Create your first warehouse to start tracking stock levels.",
-            }}
-            noResultsState={{
-              title: "No matching warehouses",
-              description: "Try adjusting your search or clear the filters.",
-            }}
-          />
+                {
+                  accessorKey: "lowStockCount",
+                  header: ({ column }) => <DataTableColumnHeader column={column} title="Low stock" />,
+                  cell: ({ row }) => {
+                    const warehouse = row.original as WarehouseRow;
+                    return warehouse.lowStockCount > 0 ? (
+                      <span className="font-medium tabular-nums text-warning">{warehouse.lowStockCount}</span>
+                    ) : (
+                      <span className="tabular-nums text-muted-foreground">0</span>
+                    );
+                  },
+                },
+              ]}
+              data={rows}
+              loading={listQuery.isLoading}
+              getRowId={(warehouse) => (warehouse as WarehouseRow).code}
+              initialSorting={[{ id: "name", desc: false }]}
+              emptyState={{
+                title: "No warehouses yet",
+                description: "Create your first warehouse to start tracking stock levels.",
+              }}
+              noResultsState={{
+                title: "No matching warehouses",
+                description: "Try adjusting your search or clear the filters.",
+              }}
+            />
+          )}
         </>
       )}
     </div>

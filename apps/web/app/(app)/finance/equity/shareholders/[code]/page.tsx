@@ -11,7 +11,7 @@ export default async function ShareholderDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <ShareholderDetailView code={code} />
+      <ShareholderDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

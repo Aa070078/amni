@@ -11,7 +11,7 @@ export default async function EsgBoardMemberDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <EsgBoardMemberDetailView code={code} />
+      <EsgBoardMemberDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

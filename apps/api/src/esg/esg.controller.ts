@@ -1,7 +1,8 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { esgMetricsListQuerySchema, type EsgBoardMember, type EsgMetric, type EsgOverview, type EsgPolicy, type EsgReport } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { EsgService } from "./esg.service";
@@ -12,42 +13,42 @@ export class EsgController {
   constructor(private readonly esg: EsgService) {}
 
   @Get("overview")
-  overview(): EsgOverview {
-    return this.esg.overview();
+  overview(@Req() req: AuthenticatedRequest): Promise<EsgOverview> {
+    return this.esg.overview(userFrom(req), metaFrom(req));
   }
 
   @Get("metrics")
-  listMetrics(@Query() query: unknown): EsgMetric[] {
-    return this.esg.listMetrics(esgMetricsListQuerySchema.parse(query));
+  listMetrics(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<EsgMetric[]> {
+    return this.esg.listMetrics(userFrom(req), metaFrom(req), esgMetricsListQuerySchema.parse(query));
   }
 
   @Get("metrics/:code")
-  metricDetail(@Param("code") code: string): EsgMetric {
-    return this.esg.metricDetail(code);
+  metricDetail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<EsgMetric> {
+    return this.esg.metricDetail(userFrom(req), metaFrom(req), code);
   }
 
   @Get("policies")
-  listPolicies(): EsgPolicy[] {
-    return this.esg.listPolicies();
+  listPolicies(@Req() req: AuthenticatedRequest): Promise<EsgPolicy[]> {
+    return this.esg.listPolicies(userFrom(req), metaFrom(req));
   }
 
   @Get("policies/:code")
-  policyDetail(@Param("code") code: string): EsgPolicy {
-    return this.esg.policyDetail(code);
+  policyDetail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<EsgPolicy> {
+    return this.esg.policyDetail(userFrom(req), metaFrom(req), code);
   }
 
   @Get("board")
-  listBoard(): EsgBoardMember[] {
-    return this.esg.listBoard();
+  listBoard(@Req() req: AuthenticatedRequest): Promise<EsgBoardMember[]> {
+    return this.esg.listBoard(userFrom(req), metaFrom(req));
   }
 
   @Get("reports")
-  listReports(): EsgReport[] {
-    return this.esg.listReports();
+  listReports(@Req() req: AuthenticatedRequest): Promise<EsgReport[]> {
+    return this.esg.listReports(userFrom(req), metaFrom(req));
   }
 
   @Get("reports/:code")
-  reportDetail(@Param("code") code: string): EsgReport {
-    return this.esg.reportDetail(code);
+  reportDetail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<EsgReport> {
+    return this.esg.reportDetail(userFrom(req), metaFrom(req), code);
   }
 }

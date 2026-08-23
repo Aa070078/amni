@@ -134,7 +134,7 @@ describe("M5-004 purchasing & finance domain methods — tenant isolation", () =
 
     const client = await createErpClientForTenant({ tenantId: TENANT_A });
 
-    await createExpenseClaim(client, { category: "travel", description: "Client visit", amount: 120.5 });
+    await createExpenseClaim(client, { description: "Client visit", amount: 120.5 });
     const payment = await recordPaymentEntry(client, {
       party: "Northwind Traders",
       partyType: "Supplier",
@@ -143,7 +143,11 @@ describe("M5-004 purchasing & finance domain methods — tenant isolation", () =
     });
 
     expect(payment.party_type).toBe("Supplier");
-    expect([...siteA.docs.values()].some((d) => d.expense_type === "travel")).toBe(true);
+    expect(
+      [...siteA.docs.values()].some(
+        (d) => d.doctype === "Expense Claim" && d.remark === "Client visit" && Number(d.grand_total) === 120.5,
+      ),
+    ).toBe(true);
     expect([...siteA.docs.values()].some((d) => d.party === "Northwind Traders")).toBe(true);
     expect(siteB.requests).toHaveLength(bRequestsBefore);
   });

@@ -15,8 +15,9 @@ import {
   Dialog,
   DialogContent,
 } from "@amni/ui";
-import { appModules } from "@/src/lib/nav";
+import { modulesForRole } from "@/src/lib/nav";
 import { searchClient } from "@/src/lib/wizard";
+import { useMe } from "@/src/hooks/use-me";
 
 interface CommandMenuProps {
   open: boolean;
@@ -25,6 +26,8 @@ interface CommandMenuProps {
 
 export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
   const router = useRouter();
+  const { data: user } = useMe();
+  const modules = modulesForRole(user?.role);
   const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
@@ -62,7 +65,7 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
         {trimmed.length === 0 ? (
           <>
             <CommandGroup heading="Navigation">
-              {appModules.map((module) => (
+              {modules.map((module) => (
                 <CommandItem key={module.href} onSelect={() => run(module.href)}>
                   <module.icon className="h-4 w-4" />
                   <span>{module.title}</span>

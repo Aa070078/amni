@@ -63,23 +63,17 @@ afterEach(() => {
 describe("finance doc builders", () => {
   it("builds an Expense Claim doc using the field map", () => {
     const doc = buildExpenseClaimDoc({
-      category: "travel",
       date: "2026-08-01",
       description: "Client site visit",
-      supplier: "Uber",
       amount: 120.5,
       status: "Approved",
       claimedBy: "Jane Doe",
-      paymentRef: "PAY-0001",
     });
-    expect(doc[EXPENSE_CLAIM_FIELDS.category]).toBe("travel");
     expect(doc[EXPENSE_CLAIM_FIELDS.date]).toBe("2026-08-01");
     expect(doc[EXPENSE_CLAIM_FIELDS.description]).toBe("Client site visit");
-    expect(doc[EXPENSE_CLAIM_FIELDS.supplier]).toBe("Uber");
     expect(doc[EXPENSE_CLAIM_FIELDS.amount]).toBe(120.5);
     expect(doc[EXPENSE_CLAIM_FIELDS.status]).toBe("Approved");
     expect(doc[EXPENSE_CLAIM_FIELDS.claimedBy]).toBe("Jane Doe");
-    expect(doc[EXPENSE_CLAIM_FIELDS.paymentRef]).toBe("PAY-0001");
   });
 
   it("builds a Journal Entry doc with debit/credit account lines", () => {
@@ -143,22 +137,22 @@ describe("finance client wrappers", () => {
   });
 
   it("creates an expense claim then submits and cancels it", async () => {
-    const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "EXP-0001" } }));
+    const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "EXP-0001" }, message: { name: "EXP-0001" } }));
     const client = makeClient();
-    const doc = await createExpenseClaim(client, { category: "travel", description: "Client visit", amount: 120.5 });
+    const doc = await createExpenseClaim(client, { description: "Client visit", amount: 120.5 });
     expect(doc.name).toBe("EXP-0001");
     expect(decoded(lastUrl())).toContain(`/resource/${FINANCE_DOCTYPE.expenseClaim}`);
 
     await submitExpenseClaim(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=submit");
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.submit");
 
     await cancelExpenseClaim(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=cancel");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.cancel");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("creates a journal entry then submits and cancels it", async () => {
-    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "JV-0001" } }));
+    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "JV-0001" }, message: { name: "JV-0001" } }));
     const client = makeClient();
     const doc = await createJournalEntry(client, {
       reference: "JV-0001",
@@ -168,18 +162,17 @@ describe("finance client wrappers", () => {
     expect(decoded(lastUrl())).toContain(`/resource/${FINANCE_DOCTYPE.journalEntry}`);
 
     await submitJournalEntry(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=submit");
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.submit");
 
     await cancelJournalEntry(client, doc.name);
-    expect(decoded(lastUrl())).toContain("action=cancel");
+    expect(decoded(lastUrl())).toContain("/method/frappe.client.cancel");
   });
 
   it("records a supplier payment by creating and submitting a Payment Entry", async () => {
-    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PAY-0001", party: "Northwind Traders" } }));
+    const { lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "PAY-0001", party: "Northwind Traders" }, message: { name: "PAY-0001", party: "Northwind Traders" } }));
     const client = makeClient();
     await recordPaymentEntry(client, { party: "Northwind Traders", partyType: "Supplier", paymentType: "Pay", paidAmount: 250 });
     const finalUrl = decoded(lastUrl());
-    expect(finalUrl).toContain(`/resource/${FINANCE_DOCTYPE.paymentEntry}`);
-    expect(finalUrl).toContain("action=submit");
+    expect(finalUrl).toContain("/method/frappe.client.submit");
   });
 });

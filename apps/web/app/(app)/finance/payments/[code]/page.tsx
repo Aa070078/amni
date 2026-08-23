@@ -7,7 +7,7 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <PaymentDetailView code={code} />
+      <PaymentDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

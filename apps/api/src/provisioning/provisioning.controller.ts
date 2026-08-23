@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, UseGuards } from "@nestjs/common";
 import type { ProvisioningStatus } from "@amni/shared";
 
 import { AuthGuard } from "../auth/auth.guard";
@@ -15,5 +15,10 @@ export class ProvisioningController {
   @Get("status")
   status(@CurrentUser() user: { id: string; email: string }): Promise<ProvisioningStatus> {
     return this.provisioning.statusFor(user.id);
+  }
+
+  @Post("retry")
+  retry(@CurrentUser() user: { id: string }): Promise<{ jobId: string }> {
+    return this.provisioning.retryFor(user.id);
   }
 }

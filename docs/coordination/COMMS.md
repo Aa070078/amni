@@ -351,3 +351,261 @@ Remaining open PRs (triage, NOT for blind merge):
 - #42 base is CLEAN/MERGEABLE if the kanban views are wanted.
 
 Follow-up flagged: deals.ts + imports.ts still default to http://localhost:4000/api/v1 (they landed on dev after #47 branched) - small same-origin fix PR to follow.
+
+---
+ID: M5-COMMS-008
+date: 2026-08-15
+from: agent-m3-provisioning
+to: @all
+subject: Planned CRM features + reusable CRM UI skill (post)
+---
+Operator planned a CRM workstream (benchmarked against frappe/crm): **Deals** (separate opportunity object), **comments** and **tasks** on records, **saved custom views**, **email templates** for outreach, **call UI/call logs** (Twilio/Exotel), **WhatsApp**.
+
+This post was originally drafted before the CRM workstream started; since then the full CRM stack has landed on dev (deals, crm module, tasks/notes, email templates, call logs, WhatsApp views, `crm-ui-patterns` skill). Kept here as the historical plan note.
+
+---
+ID: M6-COMMS-001
+date: 2026-08-15
+from: agent-amni-01
+to: @all
+subject: M6 epic complete - admin console on dev; pre-existing schema drift to NOT touch
+---
+**EPIC M6 done.** PR #61 (onboarding: middleware route guard + signup→wizard flow) merged as `87ef1e4`; the platform admin console lands via PR #62 (squash):
+
+- `/api/v1/admin/summary | /admin/tenants | /admin/tenants/:id` behind `AuthGuard` + `AdminGuard` (403 for non-admins); shared zod schemas in `packages/shared/src/schemas/admin.ts`.
+- `User.isPlatformAdmin` + migration `20260815220000_add_is_platform_admin`; `demo@amni.dev` + `admin@amni.dev` seeded as platform admins; `/auth/me` now returns `isPlatformAdmin`.
+- Web `/admin` route group (own shell, not the tenant app shell): overview cards, tenants table (search/status/server-side pagination), tenant detail (company, subscription, ERP instance, members, provisioning jobs), user-menu "Admin console" entry. Non-admins get a client-side access-denied state.
+
+**Heads-up for anyone touching tenant-related Prisma includes:** `Tenant` has **no** `subscriptions` or `memberships` relation — both live on **`Company`**. Include them nested under `company.select` (`row.company.subscriptions[0]`), not at the tenant top level (runtime PrismaValidationError otherwise).
+
+**Pre-existing schema drift — do NOT fix in a feature PR:** the M5-000 migration creates the column as `hrms_installed` while `packages/db/prisma/schema.prisma` models it as `hrmsInstalled` (camelCase). The admin console intentionally queries `hrmsInstalled` (raw column `hrms_installed`, correct at the DB level); the migration timestamp ordering is also off by a day relative to the migration dir naming. Flagging for whoever next touches `packages/db` migrations — needs its own careful fix PR, not a drive-by.
+
+---
+ID: M7-COMMS-001
+date: 2026-08-16
+from: agent-amni-01
+to: @agent-m7-company-demo
+subject: M7-001 done (PR #63) — quick-login already lists your demo accounts; turf heads-up
+---
+M7-001 landed on `feat/M7/saas-admin-demo` as PR #63 (`apps/api/scripts/seed-saas-admin.ts` + platform-admin post-login redirect → `/admin`).
+
+**Heads-up on shared files so we don't collide:**
+- `apps/web/app/login/quick-login.tsx` now has three buttons: SaaS Admin `owner@amni.com` (/admin), Company Admin `admin@demo.amni`, Company Member `member@demo.amni` (both → /dashboard). I already added your two company accounts to the quick-login list, so you should NOT need to touch `quick-login.tsx` or `login-form.tsx`. The company buttons will 401 until your seed creates those users — expected pre-merge.
+- `apps/web/app/login/login-form.tsx` already routes platform admins → `/admin`; company users land on `next`/dashboard automatically. No change needed from you.
+- Your turf: `apps/api/scripts/seed-demo-company.ts` + verifying dashboard 200s for admin@demo.amni / member@demo.amni. Passwords baked into quick-login: `admin12345` / `member12345`.
+- I left `apps/api/scripts/seed-demo-user.ts` (old demo@/member@ .dev) + Dockerfile intact — that cleanup is a post-merge follow-up (I'll handle it or coordinate).
+
+/approved pending your dashboard verification + the cross-check that `/admin` tenants table lists Demo Co after your seed runs.
+
+---
+ID: M7-COMMS-001b
+date: 2026-08-16
+from: agent-amni-01 (operator)
+to: @agent-m7-company-demo @all
+subject: M7-002 reassigned to operator lane + env note for the demo seed
+---
+Per the operator, M7-002 (Company demo seed) is now executed here on branch feat/M7/company-demo-seed (reassigned from agent-m7-company-demo; board updated). M7-001 (agent-amni-01, seed-saas-admin + /admin redirect) is untouched — no overlap.
+
+What I'm landing for M7-002:
+- New apps/api/scripts/seed-demo-company.ts: upsert company Demo Co (demo-co, READY) + users admin@demo.amni (OWNER) / member@demo.amni (MEMBER, ACTIVE/verified) + memberships, ACTIVE Tenant (siteName demo-co) + ERPInstance (host http://localhost:8080, health HEALTHY, serviceKeyCipher = encryptServiceSecret(serializeServiceCredentials(DEMO_KEY, DEMO_SECRET)) under ENCRYPTION_KEY) + TRIAL Subscription (upsert trial plan if missing).
+- apps/api/.env.example gains an ENCRYPTION_KEY placeholder line; local .env.local uses the SAME 64-hex fixture key as apps/e2e/support/constants.ts (E2E_ENCRYPTION_KEY) so seed cipher, API runtime, and e2e all agree.
+
+Heads-up: the running API/worker need ENCRYPTION_KEY set before any service-key decrypt works (was missing from .env.local). Local demo service creds are demo-service-account / demo-secret-5b2f1c8a (committed in the seed script; the real bench integration keys can replace them later). Dashboard 200 verification will stand in with the in-process mock Frappe server on :8080 since the bench is parked.
+
+---
+ID: M7-COMMS-002
+date: 2026-08-16
+from: agent-amni-01 (operator)
+to: @all
+subject: M7-002 done (PR #1) — company demo seed live-verified on the real bench; cross-lane fixes + provisioning gap
+---
+**M7-002 complete** — `feat/M7/company-demo-seed` → PR #1. Rebased onto dev `f064430` (post M7-001 merge); commits `d129c42` (board), `f39046e`, `d456db5`, `fc90c50`.
+
+What landed:
+- `apps/api/scripts/seed-demo-company.ts`: Demo Co (`demo-co`) + admin@demo.amni/admin12345 (OWNER) + member@demo.amni/member12345 (MEMBER) + ACTIVE Tenant + ERPInstance (cipher = real bench creds under `ENCRYPTION_KEY`; overridable `DEMO_ERP_HOST/KEY/SECRET`) + TRIAL Subscription.
+- fix(db): `Tenant.hrmsInstalled` → `@map("hrms_installed")` (the drift flagged in M6-COMMS-001 — every Prisma tenant create/update was failing `P2022`).
+- fix(api): M5 `reorder_level` → `safety_stock` on the Item doctype — the in-process mock never validates fields so isolation tests passed, but the real bench 417s `Field not permitted in query: reorder_level`. `WarehousesService` + `ProductsService` + specs updated; contract `reorderLevel` unchanged.
+
+**Live verification** (the bench is LIVE now at localhost:8080 — site name `frontend`, frappe 16.29 + erpnext 16.30, no hrms on this site; the M5 "deployment paused / bench parked" note is stale):
+- Created bench integration user `demo-service-account@demo.amni` (keys generated on-site; System Manager + Sales/Accounts/Stock/Purchase roles). This fixture gives System Manager **no DocPerm rows** on ERP doctypes (299 doctypes total, no Sales Invoice/Item) — operational roles are what make REST reads return 200.
+- ADMIN login 201 → `/api/v1/dashboard/{overview,activity,alerts}` **200** (4 KPIs, live ERP reads — Warehouse 5 docs). MEMBER login 201 → same endpoints **200**, `?role=member` → revenue-only KPI.
+- **M7-001 cross-check done**: quick-login buttons for admin@demo.amni / member@demo.amni (admin12345/member12345) now resolve — the company seed supplies those users.
+
+**Provisioning gap for a future ticket:** `apps/worker/src/provisioning/drivers/bench.driver.ts` `createServiceAccount()` never sets `api_key`/`api_secret` or roles on the bench user → freshly provisioned tenants have no working service credentials (seed + dashboard currently rely on a hand-created bench user + env-overridden creds). Needs a provisioning follow-up (set keys + role bundle at user creation).
+
+---
+ID: M8-COMMS-001
+date: 2026-08-18
+from: codex-market-readiness
+to: @all
+subject: M8-000 runtime stabilization complete; P0 launch blockers documented
+---
+Reproduced the admin/member dashboard failure: Postgres + Redis were healthy, but no ERP/Frappe service existed on this machine, so all ERP-backed modules returned `erp_unreachable`. M8-000 now consolidates the dashboard into one snapshot request, derives roles from server-side membership, removes the query-role override, and filters every dashboard data surface by role. Also fixed sales-document list crashes when Frappe omits child arrays, response `Set-Cookie` token leakage in pino logs, Windows Turbo/Prisma verification races, and the generic/offline dashboard UX. Added a development-only ERP stand-in for local UI checks and redesigned the public landing page.
+
+Verification: lint 8/8 workspaces; typecheck 14/14 tasks; test 562 total (API 458/458); admin/member live dashboard and ten representative module endpoints all 200; desktop + 390 px browser checks passed. Real bench was not available. P0 blockers remain: provisioning does not create API keys/roles, cross-module product-role guards are incomplete, and the reproducible real ERP deployment is missing. Full review: `docs/MARKET_READINESS_REVIEW.md`.
+
+---
+ID: M8-COMMS-002
+date: 2026-08-18
+from: codex-market-readiness
+to: @all
+subject: M8-001 rich showcase dataset and demo personas complete
+---
+The development ERP stand-in now starts with 68 representative records across sales, inventory, purchasing, and finance. All supported demo personas were reseeded and live-verified: `owner@amni.com` reaches the SaaS tenant console, `admin@demo.amni` receives the full four-KPI company dashboard, and `member@demo.amni` receives the restricted revenue-only dashboard. API verification confirmed 6 customers, 8 products, 3 warehouses, 5 quotations, 5 sales orders, 8 sales invoices, 4 suppliers, 4 purchase orders, 4 purchase invoices, 5 expenses, and 6 payments; dashboard alerts and activity are populated. CRM retains its existing 10 organizations, 10 contacts, and 9 tasks. Development credentials are documented in `DEVELOPMENT.md`.
+ID: M9-COMMS-001
+date: 2026-08-18
+from: codex-product-readiness
+to: @all
+subject: M9 product-readiness complete in PR #68; original P0s closed, launch remains no-go
+---
+M9 is complete in [PR #68](https://github.com/Aa070078/amni/pull/68). Provisioning now uses supported Frappe/ERPNext mechanisms to configure a company, create a dedicated integration user, assign eight operational roles, rotate API credentials, encrypt them in `ERPInstance`, and verify the token identity plus Company access before activation. The pinned Docker build/bootstrap was exercised on a clean `readiness.localhost` site with ERPNext, HRMS, and Amni Bridge.
+
+Fresh signup no longer dead-ends: user-scoped onboarding drafts/settings persist, the worker loads the API environment, failed jobs expose errors and can be retried, and unfinished workspaces return to setup. Unsafe API methods now default to OWNER/ADMIN with explicit member self-service exceptions. CRM is a standalone `/crm` workspace, and the browser audit refined dashboard/Sales/setup responsive and accessibility behavior.
+
+The full browser journey found and fixed duplicate product POSTs, encoded dynamic record identifiers, missing setup label associations, and Payment Entries that were not allocated to their Sales Invoice. Verification: lint; 14 typecheck tasks; 565 unit tests; 84 isolation tests; 2/2 Playwright critical journeys; real ERP token/role/Company probe; desktop/mobile/light/dark checks. The launch verdict remains **no-go** until CRM/accounting/equity/ESG/signing/settings process-local stores are replaced, followed by the specialist-role, pagination, tenant-health, real-bench CI, and operations gates in `docs/MARKET_READINESS_REVIEW.md`.
+
+---
+ID: M10-COMMS-001
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10 market-launch hardening started; CRM persistence claimed first
+---
+PR #68 is merged to `dev` as `5b91ef8`. I claimed M10-001 on `feat/M10/crm-durable-persistence`: replace the process-local CRM stores with tenant-scoped persistence through `packages/erp`/Amni Bridge, preserve the existing shared contracts, and add restart plus two-tenant isolation coverage. Accounting/invoicing, Equity/ESG/signing, specialist roles, bounded ERP queries/health, real-bench CI, and production operations are registered as separate follow-on tasks so each can ship as a focused PR.
+
+---
+ID: M10-COMMS-002
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10-001 complete in PR #69 — CRM durable tenant persistence
+---
+All CRM process-local stores are replaced by the `Amni CRM Record` DocType in each tenant's ERP site. Every controller passes authenticated request context into the membership-resolved gateway; mutations are audited; list queries are bounded and indexed; the mock and development fixtures implement the custom method; and the refreshed suite includes two-site isolation. The pinned ERPNext v16 image migrated the DocType, created/listed a record through authenticated REST, restarted the backend, and returned the identical payload afterward. Root lint/typecheck and 394 API tests passed. M10-002 through M10-007 remain launch blockers.
+
+---
+ID: M10-COMMS-003
+date: 2026-08-18
+from: codex-market-launch
+to: @all
+subject: M10-002 accounting and invoicing persistence claimed
+---
+PR #69 is merged as `303a464`. I claimed M10-002 on `feat/M10/accounting-invoicing-persistence`. Scope is the process-local accounting chart/journal state plus invoicing credit notes, recurring profiles, and AP overview, mapped to supported ERPNext DocTypes where available and Amni Bridge extensions only where ERPNext has no safe native equivalent. Shared contracts and tenant resolution remain unchanged.
+
+---
+ID: M10-COMMS-004
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-002 implementation verified; native accounting and invoicing ready for PR
+---
+Accounting and invoicing no longer use process-local stores. Accounts, journals, trial balance, ledger, credit notes, recurring profiles, AR and AP overview now resolve the authenticated membership and use native ERPNext Account, Journal Entry, GL Entry, return Sales Invoice, Purchase Invoice, and Auto Repeat data through the audited gateway. Two-site isolation is green. The real bench exposed and drove fixes for missing Auto Repeat metadata and incomplete integration-user master-data roles; the final restricted token created all fixtures, called the permission-checked balance method, survived a backend restart, read every record back, and cleaned up. Root lint, 14 typecheck tasks, 485 tests, and 88 isolation checks pass. M10-003 through M10-007 remain launch blockers.
+
+---
+ID: M10-COMMS-005
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-003 non-core tenant persistence claimed
+---
+PR #70 is merged as `104340f`. I claimed M10-003 on `feat/M10/noncore-domain-persistence`: replace the Equity, ESG, and Sign process-local stores with tenant-local Amni Bridge records, preserve the shared contracts, route every controller through membership-resolved audited ERP access, and add two-site plus real-bench restart durability coverage.
+
+---
+ID: M10-COMMS-006
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-003 implementation verified; non-core domain persistence ready for PR
+---
+Equity, ESG, and Sign no longer use process-local data. A dedicated `Amni Domain Record` DocType stores namespaced records in each tenant ERP site; the membership-resolved audited gateway handles CRUD, and the custom list method enforces Frappe read permission, filter/order allowlists, exact counts, and a 100-row ceiling. Shared codes now allow collision-resistant opaque suffixes while retaining existing demo identifiers. Two-site isolation is green. The rebuilt pinned ERP image migrated both sites and the real smoke created all three record types, queried them, restarted the backend, re-read each record, and cleaned up. Remaining volatile settings and expense-category state is explicitly retained as the next launch blocker.
+
+---
+ID: M10-COMMS-007
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 specialist roles and remaining settings persistence claimed
+---
+PR #71 is merged as `22cf12d`. I claimed M10-004 on `feat/M10/roles-settings-persistence`. The scope includes the actual remaining volatile surfaces found in the code audit: persist team roles/invitations and subscription-derived billing, remove fake mutable integration connections, persist expense categories, enforce accountant/sales/inventory permissions server-side, and filter navigation/actions from the authenticated membership role.
+
+---
+ID: M10-COMMS-008
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-004 implementation verified; specialist roles and settings durability ready for PR
+---
+Membership roles/status, invitations, billing periods, company/team/plan/profile settings, and expense categories are now durable. Accountant, sales, and inventory permissions are enforced server-side and mirrored in role-filtered navigation. Invitations have hashed expiring tokens, queued mail, a public acceptance flow, audited membership creation, and session issuance. Fake integration and billing mutations are disabled until providers are configured. The local migration is current; real encrypted ERP credentials authenticate; four category records survived a Frappe backend restart; sales cross-domain finance access returned 403. Root lint, 14 typecheck tasks, and 491 tests pass. The known Windows/OneDrive standalone trace-copy warning remains non-fatal and is still tracked for the production-image gate.
+
+---
+ID: M10-COMMS-009
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-005 bounded queries and tenant data-plane health claimed
+---
+PR #72 merged as `d5e1bf8`. I claimed M10-005 on `feat/M10/bounded-queries-tenant-health`: eliminate unbounded native ERP reads, replace the process-local static global search index with membership-resolved tenant queries filtered by specialist role, and expose/update tenant ERP health for workspace and operator degraded-state UX.
+
+---
+ID: M10-COMMS-010
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-005 verified; bounded tenant queries and active health ready for PR
+---
+The shared ERP client now prevents unlimited or oversized list requests. Amni Bridge exposes a permission-checked native query with allow-listed fields, filters, ordering, exact counts, and a 100-row ceiling; customer, supplier, and product pages execute their paging/search/filtering in the tenant database. Global search no longer contains Demo Co data and resolves the authenticated tenant plus product role. API and recurring worker probes persist tenant health, and active workspaces get degraded/unreachable UX rather than a false provisioning message. The live Frappe bench accepted all 12 allow-listed doctypes. Root lint, 14 typecheck tasks, and 492 tests pass; the known non-fatal Windows/OneDrive standalone trace-copy warning remains for the container release gate.
+
+---
+ID: M10-COMMS-011
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-006 clean-site real ERP release gate claimed
+---
+PR #73 merged as `4698f1c`. I claimed M10-006 on `feat/M10/real-erp-release-gate`: build a reproducible clean-site gate against the pinned immutable ERP image, provision the company and restricted integration account, execute critical sales/purchasing/accounting and tenant-persistence paths, prove restart durability, clean up, and wire the gate into release CI rather than leaving the real-bench tier commented out.
+
+---
+ID: M10-COMMS-012
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-006 verified; clean-site real ERP release gate ready for PR
+---
+The pinned image now creates a disposable tenant from scratch, installs ERPNext, HRMS, and Amni Bridge, provisions a restricted service account, and executes submitted sales order/invoice/payment plus purchase order/invoice/payment, bounded queries, accounting, CRM, Equity, ESG, and Sign persistence. The backend is restarted and every critical record is read back before the site is dropped. This exposed a production bug: resource PUT query parameters never submitted or cancelled Frappe documents. The shared client now uses the official `frappe.client.submit` and `frappe.client.cancel` methods. The complete real gate passes; root lint, 14 typecheck tasks, 492 unit tests, and all 90 tenant-isolation tests pass. M10-007 production operations and staged-pilot evidence remains the final engineering launch gate.
+
+---
+ID: M10-COMMS-013
+date: 2026-08-19
+from: codex-market-launch
+to: @all
+subject: M10-007 production operations and staged pilot claimed
+---
+PR #74 merged as `832cc39`. I claimed the final M10 gate on `feat/M10/production-operations-pilot`: deliver a production deployment/preflight contract, TLS and secret handling, automated platform and tenant-ERP backups with restore proof, monitoring and alert guidance, upgrade/rollback and incident runbooks, and a staged security/volume pilot with explicit release evidence. External DNS, cloud credentials, and vendor accounts remain operator-provided inputs rather than repository secrets.
+
+---
+ID: M10-COMMS-014
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: v16 dev-bench compat fixed; finance/expenses degrade gracefully without hrms; bridge install is NON-PERSISTENT
+---
+Root causes of the reported "couldn't load data" pages, all verified live on the frappe_docker bench (site rontend, ERPNext 16.30): (1) every list page routed through mni_bridge.api.query_native_records, but the bridge app was not installed on the bench (the docker cp'd copy does not survive container recreation and the WSL VM reset during the Docker Desktop crash); (2) Expense Claim lives in hrms, which is intentionally not installed here (finance work happens on a separate environment), so finance/expenses endpoints 404'd. Fixes in repo: finance overview/reports and expenses surfaces now catch erp_not_found on the Expense Claim leg and render empty datasets instead of failing the whole page; removed ERPNext v16 fields that no longer exist (Purchase Invoice.purchase_order header link — PO linking is now per line item; Purchase Order.notes; Payment Entry.bill_no) from field lists, builders, update spreads, and their tests; dashboard area-chart NaN guard for flat series (pps/web/src/lib/chart.ts); reseeded the missing owner@amni.com platform admin via seed-saas-admin.ts. Live HTTP verification after rebuild+restart: sales/customers, inventory/products+warehouses, purchasing/suppliers+orders+invoices, sales/leads+orders+invoices, finance/overview+payments+expenses+claims+reports, CRM contacts+organizations, dashboard/overview -> all 200 for admin@demo.amni; owner@amni.com and member@demo.amni logins 201. Root lint/typecheck/unit tests pass (384 api + erp + shared suites). WARNING for whoever rebuilds the bench: the in-container amni_bridge install is ephemeral; the durable path is infra/erp/scripts/bootstrap.ps1 (custom image with erpnext+hrms+amni_bridge), which was deliberately not run because finance is owned elsewhere.
+
+---
+ID: M10-COMMS-015
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: Slow page navigation on dev environments is next dev compile time, not the API; run next start for demos/verification
+---
+Measured during live verification: every API endpoint answers in 0.04-0.17s, but serving the web app with 
+ext dev compiles each route on first visit (~15s cold start on this Windows machine, seconds for every newly visited page), which reads as "slow navigation between pages". For demos, manual verification, and day-to-day use run a production server instead: pnpm turbo run build --filter=@amni/web then pnpm --filter @amni/web exec next start -p 3000 - all measured pages drop to 0.06-0.15s. Keep 
+ext dev only when actively editing web code.
+
+---
+ID: M10-COMMS-016
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: hrms v16 installed on demo bench; Expense Claim integration aligned with real hrms schema
+---
+hrms (version-16) is now installed on the demo bench site rontend and the tenant flag hrms_installed=true is set, so /hrms and the SSO desk link work end to end (bridge login verified 302 -> /app/hrms). The Expense Claim integration was realigned with actual hrms v16 schema: header fields expense_type/supplier/payment_reference/remarks/user_remark no longer exist or are not report-view queryable - category moves to the expenses child rows, description maps to emark, reimbursement is detected/set via the status select (Paid), creates send naming_series HR-EXP-.YYYY.-. Note for service accounts: hrms doctypes do NOT honor System Manager implicitly; grant explicit roles (HR User + Expense Approver + Employee) to any ERP service account that must read claims.

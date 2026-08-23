@@ -7,7 +7,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ cod
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <TaskDetailView code={code} />
+      <TaskDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

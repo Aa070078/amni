@@ -3,7 +3,11 @@ import { ProductRole } from "@amni/shared";
 import type * as ErpModule from "@amni/erp";
 
 import { DashboardService } from "./dashboard.service";
-import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
+import {
+  ErpGatewayService,
+  type GatewayRequestMeta,
+  type GatewayUser,
+} from "../erp-gateway/erp-gateway.service";
 
 const mocks = vi.hoisted(() => {
   const client = { list: vi.fn() };
@@ -137,7 +141,9 @@ describe("DashboardService", () => {
       currency: "USD",
       lowStock: [{ code: "PRD-0001", name: "Nimbus LED Panel" }],
     });
-    service = new DashboardService(new ErpGatewayService(), { stockSummary: mocks.stockSummary } as never);
+    service = new DashboardService(new ErpGatewayService(), {
+      stockSummaryForClient: mocks.stockSummary,
+    } as never);
   });
 
   describe("overview", () => {
@@ -148,8 +154,14 @@ describe("DashboardService", () => {
 
       expect(overview.role).toBe(ProductRole.ADMIN);
       expect(overview.asOf).toBeTruthy();
-      expect(mocks.client.list).toHaveBeenCalledWith("Sales Invoice", expect.objectContaining({ limitPageLength: 0 }));
-      expect(mocks.client.list).toHaveBeenCalledWith("Payment Entry", expect.objectContaining({ limitPageLength: 0 }));
+      expect(mocks.client.list).toHaveBeenCalledWith(
+        "Sales Invoice",
+        expect.objectContaining({ limitPageLength: 0 }),
+      );
+      expect(mocks.client.list).toHaveBeenCalledWith(
+        "Payment Entry",
+        expect.objectContaining({ limitPageLength: 0 }),
+      );
 
       const byId = Object.fromEntries(overview.kpis.map((kpi) => [kpi.id, kpi]));
       expect(byId.revenue).toMatchObject({ value: 160_000, hint: "Invoiced this month" });
@@ -180,6 +192,15 @@ describe("DashboardService", () => {
 
       const inventoryOnly = await service.overview(USER, META, ProductRole.INVENTORY);
       expect(inventoryOnly.kpis.map((kpi) => kpi.id)).toEqual(["inventory"]);
+      expect(inventoryOnly.revenueTrend).toBeUndefined();
+      expect(inventoryOnly.cashTrend).toBeUndefined();
+      expect(inventoryOnly.arAging).toBeUndefined();
+
+      const member = await service.overview(USER, META, ProductRole.MEMBER);
+      expect(member.kpis.map((kpi) => kpi.id)).toEqual(["revenue"]);
+      expect(member.revenueTrend).toHaveLength(12);
+      expect(member.cashTrend).toBeUndefined();
+      expect(member.arAging).toBeUndefined();
     });
   });
 
@@ -227,20 +248,48 @@ describe("DashboardService", () => {
         if (doctype === "Sales Invoice") {
           return {
             items: [
-              { name: "INV-0001", customer: "Acme Ltd", docstatus: 1, modified: "2026-07-01 09:00:00", owner: "amara" },
-              { name: "INV-0002", customer: "Acme Ltd", docstatus: 0, modified: "2026-07-04 09:00:00", owner: "amara" },
+              {
+                name: "INV-0001",
+                customer: "Acme Ltd",
+                docstatus: 1,
+                modified: "2026-07-01 09:00:00",
+                owner: "amara",
+              },
+              {
+                name: "INV-0002",
+                customer: "Acme Ltd",
+                docstatus: 0,
+                modified: "2026-07-04 09:00:00",
+                owner: "amara",
+              },
             ],
             hasMore: false,
           };
         }
         if (doctype === "Sales Order") {
-          return { items: [{ name: "SO-2041", modified: "2026-07-03 09:00:00", owner: "amara" }], hasMore: false };
+          return {
+            items: [{ name: "SO-2041", modified: "2026-07-03 09:00:00", owner: "amara" }],
+            hasMore: false,
+          };
         }
         if (doctype === "Quotation") {
-          return { items: [{ name: "QT-0001", modified: "2026-07-02 09:00:00", owner: "theo" }], hasMore: false };
+          return {
+            items: [{ name: "QT-0001", modified: "2026-07-02 09:00:00", owner: "theo" }],
+            hasMore: false,
+          };
         }
         if (doctype === "Customer") {
-          return { items: [{ name: "CUS-0001", customer_name: "Serenity Interiors", modified: "2026-07-05 09:00:00", owner: "theo" }], hasMore: false };
+          return {
+            items: [
+              {
+                name: "CUS-0001",
+                customer_name: "Serenity Interiors",
+                modified: "2026-07-05 09:00:00",
+                owner: "theo",
+              },
+            ],
+            hasMore: false,
+          };
         }
         return { items: [], hasMore: false };
       });
@@ -263,6 +312,20 @@ describe("DashboardService", () => {
         "quotation:QT-0001",
         "sales-invoice:INV-0001",
       ]);
+    });
+  });
+
+  describe("snapshot", () => {
+    it("loads all dashboard panels through one tenant scope", async () => {
+      mockList();
+
+      const result = await service.snapshot(USER, META, ProductRole.MEMBER);
+
+      expect(result.overview.role).toBe(ProductRole.MEMBER);
+      expect(result.alerts.alerts).toEqual([]);
+      expect(result.activity.activity).toEqual([]);
+      expect(mocks.membership.findFirst).toHaveBeenCalledTimes(1);
+      expect(mocks.stockSummary).toHaveBeenCalledTimes(1);
     });
   });
 });

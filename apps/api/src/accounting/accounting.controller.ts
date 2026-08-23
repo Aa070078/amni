@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import { z } from "zod";
@@ -30,7 +31,8 @@ import {
   type TrialBalance,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AccountingService } from "./accounting.service";
@@ -44,84 +46,84 @@ export class AccountingController {
   constructor(private readonly accounting: AccountingService) {}
 
   @Get("overview")
-  overview(): AccountingOverview {
-    return this.accounting.overview();
+  overview(@Req() req: AuthenticatedRequest): Promise<AccountingOverview> {
+    return this.accounting.overview(userFrom(req), metaFrom(req));
   }
 
   @Get("accounts")
-  listAccounts(@Query() query: unknown): AccountListResponse {
-    return this.accounting.listAccounts(accountListQuerySchema.parse(query));
+  listAccounts(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<AccountListResponse> {
+    return this.accounting.listAccounts(userFrom(req), metaFrom(req), accountListQuerySchema.parse(query));
   }
 
   @Get("accounts/:code")
-  accountDetail(@Param("code") code: string): Account {
-    return this.accounting.detailAccount(code);
+  accountDetail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<Account> {
+    return this.accounting.detailAccount(userFrom(req), metaFrom(req), code);
   }
 
   @Post("accounts")
   @HttpCode(HttpStatus.CREATED)
-  createAccount(@Body() body: unknown): Account {
-    return this.accounting.createAccount(createAccountInputSchema.parse(body));
+  createAccount(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<Account> {
+    return this.accounting.createAccount(userFrom(req), metaFrom(req), createAccountInputSchema.parse(body));
   }
 
   @Patch("accounts/:code/status")
-  changeAccountStatus(@Param("code") code: string, @Body() body: unknown): Account {
-    return this.accounting.changeAccountStatus(code, changeAccountStatusInputSchema.parse(body));
+  changeAccountStatus(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<Account> {
+    return this.accounting.changeAccountStatus(userFrom(req), metaFrom(req), code, changeAccountStatusInputSchema.parse(body));
   }
 
   @Patch("accounts/:code")
-  updateAccount(@Param("code") code: string, @Body() body: unknown): Account {
-    return this.accounting.updateAccount(code, updateAccountInputSchema.parse(body));
+  updateAccount(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<Account> {
+    return this.accounting.updateAccount(userFrom(req), metaFrom(req), code, updateAccountInputSchema.parse(body));
   }
 
   @Delete("accounts/:code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeAccount(@Param("code") code: string): void {
-    this.accounting.removeAccount(code);
+  removeAccount(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.accounting.removeAccount(userFrom(req), metaFrom(req), code);
   }
 
   @Get("journal-entries")
-  listJournalEntries(@Query() query: unknown): JournalEntryListResponse {
-    return this.accounting.listJournalEntries(journalEntryListQuerySchema.parse(query));
+  listJournalEntries(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<JournalEntryListResponse> {
+    return this.accounting.listJournalEntries(userFrom(req), metaFrom(req), journalEntryListQuerySchema.parse(query));
   }
 
   @Get("journal-entries/:code")
-  journalEntryDetail(@Param("code") code: string): JournalEntry {
-    return this.accounting.detailJournalEntry(code);
+  journalEntryDetail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<JournalEntry> {
+    return this.accounting.detailJournalEntry(userFrom(req), metaFrom(req), code);
   }
 
   @Post("journal-entries")
   @HttpCode(HttpStatus.CREATED)
-  createJournalEntry(@Body() body: unknown): JournalEntry {
-    return this.accounting.createJournalEntry(createJournalEntryInputSchema.parse(body));
+  createJournalEntry(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<JournalEntry> {
+    return this.accounting.createJournalEntry(userFrom(req), metaFrom(req), createJournalEntryInputSchema.parse(body));
   }
 
   @Patch("journal-entries/:code/status")
-  changeJournalEntryStatus(@Param("code") code: string, @Body() body: unknown): JournalEntry {
+  changeJournalEntryStatus(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<JournalEntry> {
     const { status } = changeJournalStatusInputSchema.parse(body);
-    if (status === "posted") return this.accounting.postJournalEntry(code);
-    if (status === "reversed") return this.accounting.reverseJournalEntry(code);
-    return this.accounting.updateJournalEntry(code, {});
+    if (status === "posted") return this.accounting.postJournalEntry(userFrom(req), metaFrom(req), code);
+    if (status === "reversed") return this.accounting.reverseJournalEntry(userFrom(req), metaFrom(req), code);
+    return this.accounting.updateJournalEntry(userFrom(req), metaFrom(req), code, {});
   }
 
   @Patch("journal-entries/:code")
-  updateJournalEntry(@Param("code") code: string, @Body() body: unknown): JournalEntry {
-    return this.accounting.updateJournalEntry(code, updateJournalEntryInputSchema.parse(body));
+  updateJournalEntry(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<JournalEntry> {
+    return this.accounting.updateJournalEntry(userFrom(req), metaFrom(req), code, updateJournalEntryInputSchema.parse(body));
   }
 
   @Delete("journal-entries/:code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  removeJournalEntry(@Param("code") code: string): void {
-    this.accounting.removeJournalEntry(code);
+  removeJournalEntry(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.accounting.removeJournalEntry(userFrom(req), metaFrom(req), code);
   }
 
   @Get("reports/trial-balance")
-  trialBalance(): TrialBalance {
-    return this.accounting.trialBalance();
+  trialBalance(@Req() req: AuthenticatedRequest): Promise<TrialBalance> {
+    return this.accounting.trialBalance(userFrom(req), metaFrom(req));
   }
 
   @Get("ledger/:accountCode")
-  ledger(@Param("accountCode") accountCode: string): Ledger {
-    return this.accounting.ledger(accountCode);
+  ledger(@Req() req: AuthenticatedRequest, @Param("accountCode") accountCode: string): Promise<Ledger> {
+    return this.accounting.ledger(userFrom(req), metaFrom(req), accountCode);
   }
 }

@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module";
 import { DealsModule } from "../deals/deals.module";
+import { ErpGatewayModule } from "../erp-gateway/erp-gateway.module";
 import { CrmActivitiesController } from "./activities.controller";
 import { CrmActivitiesService } from "./activities.service";
 import { CrmCallLogsController } from "./call-logs.controller";
@@ -26,9 +27,10 @@ import { CrmViewsController } from "./views.controller";
 import { CrmViewsService } from "./views.service";
 import { CrmWhatsappController } from "./whatsapp.controller";
 import { CrmWhatsappService } from "./whatsapp.service";
+import { CrmRecordRepository } from "./crm-record.repository";
 
 @Module({
-  imports: [AuthModule, DealsModule],
+  imports: [AuthModule, DealsModule, ErpGatewayModule],
   controllers: [
     CrmOrganizationsController,
     CrmContactsController,
@@ -44,6 +46,7 @@ import { CrmWhatsappService } from "./whatsapp.service";
     CrmNotificationsController,
   ],
   providers: [
+    CrmRecordRepository,
     CrmOrganizationsService,
     CrmContactsService,
     CrmTasksService,

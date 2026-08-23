@@ -7,7 +7,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ cod
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <LeadDetailView code={code} />
+      <LeadDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

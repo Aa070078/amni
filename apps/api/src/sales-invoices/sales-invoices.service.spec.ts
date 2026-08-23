@@ -307,7 +307,18 @@ describe("SalesInvoicesService", () => {
 
       expect(mocks.client.create).toHaveBeenCalledWith(
         "Payment Entry",
-        expect.objectContaining({ party: "CUS-0003", paid_amount: 1000, payment_type: "Receive" }),
+        expect.objectContaining({
+          party: "CUS-0003",
+          paid_amount: 1000,
+          payment_type: "Receive",
+          references: [
+            {
+              reference_doctype: "Sales Invoice",
+              reference_name: "INV-0005",
+              allocated_amount: 1000,
+            },
+          ],
+        }),
       );
       expect(mocks.client.submit).toHaveBeenCalledWith("Payment Entry", "PE-0001");
       expect(invoice.amountPaid).toBe(1000);

@@ -21,7 +21,7 @@ export const invoicingClient = {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
     return apiRequest<CreditNoteListResponse>(
       "/invoicing",
-      toQueryString({ page, pageSize, q, sortBy, sortDir, status }),
+      `/credit-notes${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
     );
   },
   creditNoteDetail(code: string): Promise<CreditNote> {
@@ -41,7 +41,10 @@ export const invoicingClient = {
   },
   listRecurring(query: Partial<RecurringListQuery> = {}): Promise<RecurringListResponse> {
     const { page, pageSize, q, sortBy, sortDir, status } = query;
-    return apiRequest<RecurringListResponse>("/invoicing", toQueryString({ page, pageSize, q, sortBy, sortDir, status }));
+    return apiRequest<RecurringListResponse>(
+      "/invoicing",
+      `/recurring${toQueryString({ page, pageSize, q, sortBy, sortDir, status })}`,
+    );
   },
   recurringDetail(code: string): Promise<RecurringProfile> {
     return apiRequest<RecurringProfile>("/invoicing", `/recurring/${encodeURIComponent(code)}`);

@@ -1,9 +1,8 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, Card, CardContent, Skeleton, Switch } from "@amni/ui";
+import { useQuery } from "@tanstack/react-query";
+import { Badge, Card, CardContent, Skeleton } from "@amni/ui";
 import { settingsClient } from "@/src/lib/settings";
-import type { Integration } from "@amni/shared";
 
 const CATEGORY_LABELS: Record<string, string> = {
   banking: "Banking",
@@ -14,21 +13,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function IntegrationsView() {
-  const queryClient = useQueryClient();
-
   const integrationsQuery = useQuery({
     queryKey: ["settings", "integrations"],
     queryFn: () => settingsClient.integrations(),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (key: string) => settingsClient.toggleIntegration(key),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(["settings", "integrations"], (current: Integration[] | undefined) => {
-        if (!current) return current;
-        return current.map((item) => (item.key === updated.key ? updated : item));
-      });
-    },
   });
 
   if (integrationsQuery.isLoading) {
@@ -63,12 +50,7 @@ export function IntegrationsView() {
                   <p className="font-mono text-xs text-muted-foreground">{integration.account}</p>
                 ) : null}
               </div>
-              <Switch
-                checked={connected}
-                onCheckedChange={() => toggleMutation.mutate(integration.key)}
-                disabled={toggleMutation.isPending}
-                aria-label={`Toggle ${integration.name}`}
-              />
+              <Badge variant="outline">Provider setup required</Badge>
             </CardContent>
           </Card>
         );

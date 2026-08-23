@@ -381,6 +381,7 @@ export function buildSalesInvoiceDoc(input: SalesInvoiceInput): Record<string, u
 export interface SalesPaymentEntryInput {
   party: string;
   paidAmount: number;
+  invoice?: string;
   method?: string;
   date?: string;
   reference?: string;
@@ -397,6 +398,15 @@ export function buildSalesPaymentEntryDoc(input: SalesPaymentEntryInput): Record
     [PAYMENT_ENTRY_FIELDS.paidTo]: input.paidTo,
     party_type: "Customer",
     payment_type: "Receive",
+    references: input.invoice
+      ? [
+          {
+            reference_doctype: SALES_DOCTYPE.salesInvoice,
+            reference_name: input.invoice,
+            allocated_amount: input.paidAmount,
+          },
+        ]
+      : undefined,
   };
 }
 

@@ -40,6 +40,7 @@ import { ProvisioningModule } from "./provisioning/provisioning.module";
 import { HrmsModule } from "./hrms/hrms.module";
 import { ErpGatewayModule } from "./erp-gateway/erp-gateway.module";
 import { ImportsModule } from "./imports/imports.module";
+import { AdminModule } from "./admin/admin.module";
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { ImportsModule } from "./imports/imports.module";
     HrmsModule,
     ErpGatewayModule,
     ImportsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

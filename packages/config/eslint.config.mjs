@@ -8,6 +8,7 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/dist/**",
       "**/.next/**",
+      "**/.next-*/**",
       "**/.turbo/**",
       "**/coverage/**",
       "**/generated/**",

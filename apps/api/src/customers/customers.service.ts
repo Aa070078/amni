@@ -19,18 +19,7 @@ import {
 import { ErpGatewayService } from "../erp-gateway/erp-gateway.service";
 import { translateErpError, type GatewayRequestMeta, type GatewayUser } from "../erp-gateway/erp-gateway.service";
 
-const SORT_WHITELIST = new Set([
-  "code",
-  "name",
-  "group",
-  "type",
-  "currency",
-  "status",
-  "outstanding",
-  "totalSales",
-  "createdAt",
-  "updatedAt",
-]);
+const SORT_FIELDS: Record<string, string> = { code: "name", name: "customer_name", group: "customer_group", type: "customer_type", currency: "default_currency", status: "disabled", createdAt: "creation", updatedAt: "modified" };
 
 type ErpCustomerRaw = ErpCustomerDoc & { creation?: string; modified?: string };
 
@@ -65,10 +54,6 @@ function toCustomer(doc: ErpCustomerRaw, totals?: CustomerTotals): Customer {
   };
 }
 
-function sortValue(customer: Customer, sortBy: string): unknown {
-  return customer[sortBy as keyof Customer];
-}
-
 /**
  * Customers backed by the tenant's real ERPNext site. Every call resolves the
  * tenant ERP instance server-side from the session membership, reads/writes the
@@ -84,41 +69,19 @@ export class CustomersService {
     query: CustomerListQuery,
   ): Promise<CustomerListResponse> {
     const { client } = await this.gateway.scopeFor(user.id, meta.requestId);
-    const { items: docs } = await client.list<ErpCustomerRaw>(SALES_DOCTYPE.customer, {
-      limitPageLength: 0,
+    const filters: Record<string, unknown> = {};
+    if (query.status) filters.disabled = query.status === "inactive" ? 1 : 0;
+    const { items: docs, total } = await client.query<ErpCustomerRaw>(SALES_DOCTYPE.customer, {
+      filters,
+      q: query.q,
+      orderBy: `${SORT_FIELDS[query.sortBy ?? ""] ?? "creation"} ${query.sortDir === "asc" ? "asc" : "desc"}`,
+      start: (query.page - 1) * query.pageSize,
+      pageLength: query.pageSize,
     });
-    const totals = await fetchSalesTotals(client);
-
-    let records = docs.map((doc) => toCustomer(doc, totals.get(doc.name)));
-    if (query.status) {
-      records = records.filter((customer) => customer.status === query.status);
-    }
-
-    const q = (query.q ?? "").toLowerCase().trim();
-    if (q) {
-      records = records.filter((customer) =>
-        [customer.code, customer.name, customer.group, customer.email ?? "", customer.territory ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
-    }
-
-    const sortBy = query.sortBy && SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
-    const sortDir = query.sortDir === "asc" ? 1 : -1;
-    const sorted = [...records].sort((a, b) => {
-      const aValue = sortValue(a, sortBy);
-      const bValue = sortValue(b, sortBy);
-      if (aValue === bValue) return 0;
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
-      return aValue < bValue ? -1 * sortDir : sortDir;
-    });
-
-    const start = (query.page - 1) * query.pageSize;
+    const totals = await fetchSalesTotals(client, docs.map((doc) => doc.name));
     return {
-      items: sorted.slice(start, start + query.pageSize),
-      meta: { total: sorted.length, page: query.page, pageSize: query.pageSize },
+      items: docs.map((doc) => toCustomer(doc, totals.get(doc.name))),
+      meta: { total, page: query.page, pageSize: query.pageSize },
     };
   }
 
@@ -127,7 +90,7 @@ export class CustomersService {
     const doc = await client
       .get<ErpCustomerRaw>(SALES_DOCTYPE.customer, code)
       .catch((err) => translateErpError(err, "Customer"));
-    const totals = await fetchSalesTotals(client);
+    const totals = await fetchSalesTotals(client, [doc.name]);
     return toCustomer(doc, totals.get(doc.name));
   }
 
@@ -204,18 +167,11 @@ export class CustomersService {
   }
 }
 
-async function fetchSalesTotals(client: ErpClient): Promise<Map<string, CustomerTotals>> {
-  const { items } = await client.list<{ customer: string; grand_total?: number; outstanding_amount?: number; docstatus?: number }>(
-    SALES_DOCTYPE.salesInvoice,
-    { fields: ["customer", "grand_total", "outstanding_amount", "docstatus"], limitPageLength: 0 },
-  );
+async function fetchSalesTotals(client: ErpClient, customers: string[]): Promise<Map<string, CustomerTotals>> {
+  const { items } = await client.call<{ items: Array<{ customer: string; total_sales?: number; outstanding?: number }> }>("amni_bridge.api.get_customer_sales_totals", { customers });
   const totals = new Map<string, CustomerTotals>();
   for (const doc of items) {
-    if (doc.docstatus === 2) continue;
-    const entry = totals.get(doc.customer) ?? { totalSales: 0, outstanding: 0 };
-    entry.totalSales += doc.grand_total ?? 0;
-    entry.outstanding += doc.outstanding_amount ?? 0;
-    totals.set(doc.customer, entry);
+    totals.set(doc.customer, { totalSales: doc.total_sales ?? 0, outstanding: doc.outstanding ?? 0 });
   }
   return totals;
 }

@@ -1,128 +1,88 @@
-import { describe, expect, it } from "vitest";
-import { ErrorCode } from "@amni/shared";
+import { describe, expect, it, vi } from "vitest";
 
+import type { DomainRecordRepository } from "../common/domain-record.repository";
 import { SignService } from "./sign.service";
-import { ApiException } from "../common/api.exception";
+
+const user = { id: "user-1", email: "owner@example.com", role: "owner" };
+const meta = { requestId: "request-1" };
 
 describe("SignService", () => {
-  const createService = () => new SignService();
-
-  describe("overview", () => {
-    it("counts requests by state and active templates", () => {
-      const overview = createService().overview();
-
-      expect(overview.awaitingSignature).toBe(1);
-      expect(overview.completed).toBe(1);
-      expect(overview.templatesActive).toBe(3);
-    });
+  it("persists requests in the tenant ERP", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [], total: 0 });
+    const create = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const service = new SignService({ list, create } as unknown as DomainRecordRepository);
+    const request = await service.createRequest(user, meta, { title: "NDA", documentType: "contract", signers: [{ name: "Client", email: "client@example.com", role: "Signer" }] });
+    expect(request.code).toMatch(/^SIG-[A-Z0-9]{10}$/);
+    expect(request.createdBy).toBe(user.email);
+    expect(create).toHaveBeenCalledWith(user, meta, "sign", "request", request.code, request, expect.objectContaining({ title: "NDA" }));
   });
 
-  describe("requests", () => {
-    it("lists seeded requests and filters by status", () => {
-      const service = createService();
-      const result = service.listRequests({ page: 1, pageSize: 20, status: "declined" });
-
-      expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("SIG-0003");
-    });
-
-    it("searches across signer names", () => {
-      const result = createService().listRequests({ page: 1, pageSize: 20, q: "OWEN" });
-
-      expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("SIG-0001");
-    });
-
-    it("creates a request with next code and pending signers", () => {
-      const service = createService();
-      const request = service.createRequest({
-        title: "Beta program participation",
-        documentType: "proposal",
-        signers: [{ name: "Lena Fischer", email: "lena@brightline.io", role: "CEO" }],
-      });
-
-      expect(request.code).toBe("SIG-0006");
-      expect(request.status).toBe("draft");
-      expect(request.signers[0].status).toBe("pending");
-    });
-
-    it("completes when the last signer signs", () => {
-      const service = createService();
-      const request = service.markSignerSigned("SIG-0001", "S-0002");
-
-      expect(request.signers.every((signer) => signer.status === "signed")).toBe(true);
-      expect(request.status).toBe("completed");
-      expect(request.signers.find((signer) => signer.code === "S-0002")?.signedAt).toBeDefined();
-    });
-
-    it("rejects signing after a decline", () => {
-      const service = createService();
-
-      expect(() => service.markSignerSigned("SIG-0003", "S-0005")).toThrowError(
-        expect.objectContaining({ code: ErrorCode.UNPROCESSABLE }),
-      );
-    });
-
-    it("declines a request and records the reason", () => {
-      const service = createService();
-      const request = service.declineRequest("SIG-0004", { signerCode: "S-0006", reason: "Payment already processed" });
-
-      expect(request.status).toBe("declined");
-      expect(request.signers[0].status).toBe("declined");
-    });
-
-    it("throws not_found for unknown requests", () => {
-      expect(() => createService().detailRequest("SIG-9999")).toThrowError(
-        expect.objectContaining({ code: ErrorCode.NOT_FOUND }),
-      );
-    });
-
-    it("removes a request", () => {
-      const service = createService();
-      service.removeRequest("SIG-0005");
-
-      expect(service.listRequests({ page: 1, pageSize: 20 }).meta.total).toBe(4);
-    });
+  it("persists both signer completion and its audit event", async () => {
+    const request = { code: "SIG-0001", title: "NDA", documentType: "contract", status: "awaiting_signature", signers: [{ code: "S-0001", name: "Client", email: "client@example.com", status: "pending" }], createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-01T00:00:00.000Z" };
+    const get = vi.fn().mockResolvedValue(request);
+    const update = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const create = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const service = new SignService({ get, update, create } as unknown as DomainRecordRepository);
+    const saved = await service.markSignerSigned(user, meta, "SIG-0001", "S-0001");
+    expect(saved.status).toBe("completed");
+    expect(update).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledWith(user, meta, "sign", "audit", expect.any(String), expect.objectContaining({ event: "completed" }), expect.any(Object));
   });
 
-  describe("templates", () => {
-    it("lists seeded templates filtered by status", () => {
-      const result = createService().listTemplates({ page: 1, pageSize: 20, status: "archived" });
-
-      expect(result.meta.total).toBe(1);
-      expect(result.items[0].code).toBe("STMP-0004");
-    });
-
-    it("creates a template starting at version 1", () => {
-      const service = createService();
-      const template = service.createTemplate({
-        name: "Supplier onboarding",
-        documentType: "purchase_order",
-        signerRoles: ["Supplier"],
-      });
-
-      expect(template.code).toBe("STMP-0005");
-      expect(template.version).toBe(1);
-      expect(template.status).toBe("active");
-    });
-
-    it("bumps version on update and throws not_found", () => {
-      const service = createService();
-
-      expect(service.updateTemplate("STMP-0002", { name: "Service agreement (2+ parties)" }).version).toBe(3);
-      expect(() => service.detailTemplate("STMP-9999")).toThrowError(ApiException);
-
-      service.removeTemplate("STMP-0004");
-      expect(service.listTemplates({ page: 1, pageSize: 20 }).meta.total).toBe(3);
-    });
+  it("derives overview counts from persisted requests and templates", async () => {
+    const list = vi.fn(async (_user, _meta, _domain, type) => ({ items: type === "request" ? [{ status: "awaiting_signature", signers: [{ status: "pending" }] }, { status: "completed", signers: [{ status: "signed" }] }] : [{ status: "active" }], total: 2 }));
+    await expect(new SignService({ list } as unknown as DomainRecordRepository).overview(user, meta)).resolves.toMatchObject({ pendingForMe: 1, awaitingSignature: 1, completed: 1, templatesActive: 1 });
   });
 
-  describe("audit", () => {
-    it("lists audit events newest first", () => {
-      const result = createService().listAudit({ page: 1, pageSize: 20 });
+  it("filters and paginates signing requests", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [{ code: "SIG-0001", title: "NDA", documentType: "contract", status: "draft", signers: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }], total: 1 });
+    const result = await new SignService({ list } as unknown as DomainRecordRepository).listRequests(user, meta, { page: 1, pageSize: 10, q: "nda", status: "draft" });
+    expect(result.items).toHaveLength(1);
+  });
 
-      expect(result.meta.total).toBe(6);
-      expect(result.items[0].id).toBe("AUD-003");
-    });
+  it("updates a request and resets supplied signers", async () => {
+    const get = vi.fn().mockResolvedValue({ code: "SIG-0001", title: "NDA", documentType: "contract", status: "draft", signers: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" });
+    const update = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const result = await new SignService({ get, update } as unknown as DomainRecordRepository).updateRequest(user, meta, "SIG-0001", { signers: [{ name: "Client", email: "client@example.com" }] });
+    expect(result.signers[0]).toMatchObject({ code: "S-0001", status: "pending" });
+  });
+
+  it("declines a request and records the reason", async () => {
+    const get = vi.fn().mockResolvedValue({ code: "SIG-0001", title: "NDA", documentType: "contract", status: "awaiting_signature", signers: [{ code: "S-0001", name: "Client", email: "client@example.com", status: "pending" }], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" });
+    const update = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const create = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const result = await new SignService({ get, update, create } as unknown as DomainRecordRepository).declineRequest(user, meta, "SIG-0001", { signerCode: "S-0001", reason: "Terms rejected" });
+    expect(result.status).toBe("declined");
+    expect(create).toHaveBeenCalledWith(user, meta, "sign", "audit", expect.any(String), expect.objectContaining({ detail: "Terms rejected" }), expect.any(Object));
+  });
+
+  it("rejects an unknown signer", async () => {
+    const get = vi.fn().mockResolvedValue({ code: "SIG-0001", title: "NDA", documentType: "contract", status: "draft", signers: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" });
+    await expect(new SignService({ get } as unknown as DomainRecordRepository).markSignerSigned(user, meta, "SIG-0001", "S-9999")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("creates a reusable template with an opaque contract code", async () => {
+    const create = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    const result = await new SignService({ create } as unknown as DomainRecordRepository).createTemplate(user, meta, { name: "NDA", documentType: "contract", signerRoles: ["Counterparty"] });
+    expect(result.code).toMatch(/^STMP-[A-Z0-9]{10}$/);
+    expect(result.version).toBe(1);
+  });
+
+  it("increments a template version on update", async () => {
+    const get = vi.fn().mockResolvedValue({ code: "STMP-0001", name: "NDA", documentType: "contract", signerRoles: ["Client"], version: 1, status: "active", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" });
+    const update = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    await expect(new SignService({ get, update } as unknown as DomainRecordRepository).updateTemplate(user, meta, "STMP-0001", { name: "Mutual NDA" })).resolves.toMatchObject({ name: "Mutual NDA", version: 2 });
+  });
+
+  it("archives a template durably", async () => {
+    const get = vi.fn().mockResolvedValue({ code: "STMP-0001", name: "NDA", documentType: "contract", signerRoles: ["Client"], version: 1, status: "active", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" });
+    const update = vi.fn(async (_user, _meta, _domain, _type, _code, record) => record);
+    await expect(new SignService({ get, update } as unknown as DomainRecordRepository).changeTemplateStatus(user, meta, "STMP-0001", { status: "archived" })).resolves.toMatchObject({ status: "archived" });
+  });
+
+  it("searches the persisted audit trail newest first", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [{ id: "A1", requestCode: "SIG-0001", event: "sent", actor: "Owner", at: "2026-01-01T00:00:00.000Z" }, { id: "A2", requestCode: "SIG-0001", event: "signed", actor: "Client", at: "2026-01-02T00:00:00.000Z" }], total: 2 });
+    const result = await new SignService({ list } as unknown as DomainRecordRepository).listAudit(user, meta, { page: 1, pageSize: 10, q: "sig-0001" });
+    expect(result.items.map((item) => item.id)).toEqual(["A2", "A1"]);
   });
 });

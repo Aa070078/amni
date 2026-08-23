@@ -85,7 +85,7 @@ export function OrganizationsView() {
           <span>
             Created{" "}
             <Link
-              href={`/sales/crm/organizations/${createdOrg.code}`}
+              href={`/crm/organizations/${createdOrg.code}`}
               className="font-semibold underline underline-offset-2"
             >
               {createdOrg.code}

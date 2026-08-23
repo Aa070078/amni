@@ -11,7 +11,7 @@ export default async function ShareClassDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <ShareClassDetailView code={code} />
+      <ShareClassDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

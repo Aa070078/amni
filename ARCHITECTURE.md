@@ -107,6 +107,10 @@ Key rules:
 - `Membership`: userId + companyId + platformRole. **Tenant resolution is always server-side from Membership; never from client input.**
 - Secrets: `ERPInstance.serviceKeyCipher` (encrypted service-account api_key:api_secret) — decrypted only inside the ERP client.
 
+Tenant CRM records that do not map cleanly to an ERPNext core DocType use the supported `amni_bridge` extension app's `Amni CRM Record` DocType. Indexed columns provide bounded filtering and ordering while a JSON payload preserves the shared API contract. These records live in the tenant's MariaDB site—not Postgres—and are accessed only through `packages/erp` and the membership-resolved gateway.
+
+Equity, ESG, and Sign workflow records use the same supported-extension pattern through `Amni Domain Record`. The document name is a globally unique `domain:record_type:record_code` key, queryable fields are indexed separately from the JSON contract payload, and list access is capped at 100 rows per ERP request. The platform DB never stores these tenant business records.
+
 ---
 
 ## 5. Multi-tenancy model
@@ -145,9 +149,9 @@ Failure states are terminal-but-retryable: a failed job can be requeued; every s
 2. **Preflight**: host subdomain available (site not already existing), config valid (currency/timezone/country), secrets prepared.
 3. **Create site**: `bench new-site <site> --mariadb-user-host-login-scope=% --db-root-password <admin> --admin-password <temporary> --install-app erpnext` (docker exec on bench backend). Poll until ready.
 4. **Configure**: set scheduler on; set System Settings (timezone, date format, number format, country, language); create the **Company** (name, abbreviation, country, currency, CoA, fiscal year) and let ERPNext auto-create defaults (accounts, warehouses, cost centers, departments, tax template); set Global Defaults.
-5. **Service account**: create `amni-integration@<site>` user with scoped roles; generate `api_key`/`api_secret`; store encrypted in platform.
+5. **Service account**: create `amni-integration+<site>@amni.local` with scoped Accounts/Purchase/Sales/Stock roles; rotate `api_key`/`api_secret`; encrypt them with AES-GCM before storing them in the platform database.
 6. **Tenant admin users**: create users from wizard team step (email, name, role bundle, initial password or password-reset invite); role bundles map product roles → ERPNext roles.
-7. **Validate**: ping; probe read (as service account); probe tenant-admin login/roles; confirm company exists; report health.
+7. **Validate**: verify required apps, authenticate the persisted service token through the official REST API, probe Company read access, then report health.
 8. **Finish**: mark `ERPInstance.READY`, tenant `ACTIVE`, notify owner (email + in-app), emit event.
 
 ### 6.3 Reliability
@@ -196,7 +200,7 @@ Failure states are terminal-but-retryable: a failed job can be requeued; every s
 
 ## 9. HRMS (Frappe HR embed)
 
-- Frappe HR (`hrms` app, branch `version-16` to match the pinned `ERPNEXT_VERSION=v16.30.0`) is installed on every tenant site via provisioning (`ERPNEXT_INSTALL_APPS`, default `erpnext,hrms`); `Tenant.hrmsInstalled` records availability. Existing sites use `infra/erp/scripts/install-hrms.ps1`.
+- Frappe HR (`hrms` app, branch `version-16` to match the pinned `ERPNEXT_VERSION=v16.30.0`) and the packaged `amni_bridge` app are installed on every tenant site via provisioning (`ERPNEXT_INSTALL_APPS`, default `erpnext,hrms,amni_bridge`); `Tenant.hrmsInstalled` records availability. Existing sites use `infra/erp/scripts/install-hrms.ps1`.
 - The platform embeds the tenant's **Frappe HR desk** in an iframe under `/hrms` — no native rebuild. People (Contacts) lives inside HRMS; the desk provides employees, leave, attendance, shifts, appraisals, recruitment, payroll.
 - **SSO**: `apps/api/src/hrms` mints a short-lived HS256 JWT (iss `amni-hrms`, aud = tenant site URL, signed with `HRMS_SSO_SECRET`) and redirects the browser to `/api/method/amni_bridge.api.login` on the tenant site. The tiny non-core `amni_bridge` app (in `infra/erp/apps/amni_bridge`) validates the token, logs the user into the desk (auto-creating a Desk User if the platform user has none), and redirects to `/app/hrms`.
 - **Same-site cookies**: tenants are subdomains of the platform domain, so the desk `sid` cookie is same-site inside the iframe — no third-party-cookie workaround needed.

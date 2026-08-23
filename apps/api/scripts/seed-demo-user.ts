@@ -20,6 +20,7 @@ const DEMO_USERS = [
     firstName: "Demo",
     lastName: "Admin",
     platformRole: "OWNER",
+    isPlatformAdmin: true,
   },
   {
     email: "member@amni.dev",
@@ -27,6 +28,7 @@ const DEMO_USERS = [
     firstName: "Demo",
     lastName: "Member",
     platformRole: "MEMBER",
+    isPlatformAdmin: false,
   },
 ] as const;
 
@@ -42,7 +44,7 @@ async function main() {
 
     const user = await prisma.user.upsert({
       where: { email: demo.email },
-      update: { passwordHash, status: "ACTIVE", isEmailVerified: true, emailVerifiedAt: new Date() },
+      update: { passwordHash, status: "ACTIVE", isEmailVerified: true, emailVerifiedAt: new Date(), isPlatformAdmin: demo.isPlatformAdmin },
       create: {
         email: demo.email,
         passwordHash,
@@ -51,6 +53,7 @@ async function main() {
         status: "ACTIVE",
         isEmailVerified: true,
         emailVerifiedAt: new Date(),
+        isPlatformAdmin: demo.isPlatformAdmin,
       },
     });
 

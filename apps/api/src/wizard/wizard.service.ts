@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { prisma } from "@amni/db";
+import type { Prisma } from "@amni/db";
 import {
   ErrorCode,
+  wizardDraftSchema,
   type WizardDraft,
   type WizardSaveInput,
   type WizardStatus,
@@ -9,9 +11,6 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
-// Value imports required so tsc emits `design:paramtypes` for Nest DI metadata.
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { SettingsService } from "../settings/settings.service";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PlansService } from "../plans/plans.service";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -21,12 +20,9 @@ const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * 86_400_
 
 const DEFAULT_DRAFT: WizardDraft = {
   company: {
-    name: "Demo Co.",
-    legalName: "Demo Co. Ltd",
-    industry: "Furniture & interiors",
+    name: "Your company",
+    industry: "Other",
     country: "GB",
-    taxId: "GB123456789",
-    address: "14 Harbourside Way, Bristol BS1 4UP, United Kingdom",
   },
   regional: {
     currency: "GBP",
@@ -42,22 +38,12 @@ const DEFAULT_DRAFT: WizardDraft = {
     enablePayroll: false,
     additionalCompanyFields: {},
   },
-  team: [
-    { email: "demo@amni.dev", firstName: "Amara", lastName: "Osei", role: "admin" },
-  ],
-  import: { source: "sample", mapping: "Standard chart of accounts" },
+  team: [],
+  import: { source: "none" },
   currentStep: "company",
   completedSteps: [],
   updatedAt: iso(0),
 };
-
-const slugify = (value: string): string =>
-  value
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "")
-    .slice(0, 63);
 
 const PLAN_TIER_TO_DB: Record<string, "TRIAL" | "STARTER" | "GROWTH" | "SCALE"> = {
   trial: "TRIAL",
@@ -67,29 +53,72 @@ const PLAN_TIER_TO_DB: Record<string, "TRIAL" | "STARTER" | "GROWTH" | "SCALE"> 
 };
 
 /**
- * Onboarding wizard. Holds the draft in memory for the demo tenant; on submit
- * it provisions a company profile, plan + subscription and enqueues the
- * provisioning job (M3). The status flips to "provisioning" until the worker
- * marks the tenant ACTIVE.
+ * Onboarding is persisted per user so two signups can never share a draft or
+ * attach themselves to another company's tenant. Submission always updates
+ * the company created during registration, then enqueues that exact tenant.
  */
 @Injectable()
 export class WizardService {
-  private draftRecord: WizardDraft = JSON.parse(JSON.stringify(DEFAULT_DRAFT));
-  private submitted = false;
-
   constructor(
-    private readonly settings: SettingsService,
     private readonly plans: PlansService,
     private readonly provisioning: ProvisioningService,
   ) {}
 
-  draft(): WizardDraft {
-    return this.draftRecord;
+  async draft(userId: string): Promise<WizardDraft> {
+    const record = await prisma.onboardingDraft.findUnique({ where: { userId }, select: { data: true } });
+    const parsed = record ? wizardDraftSchema.safeParse(record.data) : undefined;
+    if (parsed?.success) return parsed.data;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true,
+        memberships: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { company: { select: { name: true, country: true } } },
+        },
+      },
+    });
+    if (!user?.memberships[0]) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "No company is linked to this account" });
+    }
+
+    const company = user.memberships[0].company;
+    const draft = wizardDraftSchema.parse({
+      ...DEFAULT_DRAFT,
+      company: {
+        ...DEFAULT_DRAFT.company,
+        name: company.name,
+        legalName: company.name,
+        country: company.country ?? DEFAULT_DRAFT.company.country,
+      },
+      regional: {
+        ...DEFAULT_DRAFT.regional,
+        country: company.country ?? DEFAULT_DRAFT.regional.country,
+      },
+      team: [{
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName ?? undefined,
+        role: "admin",
+      }],
+      updatedAt: new Date().toISOString(),
+    });
+
+    await prisma.onboardingDraft.upsert({
+      where: { userId },
+      update: { data: draft as unknown as Prisma.InputJsonValue },
+      create: { userId, data: draft as unknown as Prisma.InputJsonValue },
+    });
+    return draft;
   }
 
-  save(input: WizardSaveInput): WizardDraft {
-    const previous = this.draftRecord;
-    this.draftRecord = {
+  async save(userId: string, input: WizardSaveInput): Promise<WizardDraft> {
+    const previous = await this.draft(userId);
+    const next = wizardDraftSchema.parse({
       ...previous,
       ...input,
       company: { ...previous.company, ...(input.company ?? {}) },
@@ -99,12 +128,17 @@ export class WizardService {
       team: input.team ?? previous.team,
       completedSteps: input.completedSteps ?? previous.completedSteps,
       updatedAt: new Date().toISOString(),
-    };
-    return this.draftRecord;
+    });
+    await prisma.onboardingDraft.upsert({
+      where: { userId },
+      update: { data: next as unknown as Prisma.InputJsonValue },
+      create: { userId, data: next as unknown as Prisma.InputJsonValue },
+    });
+    return next;
   }
 
   async submit(user: { id: string; email: string }, input?: WizardSubmitInput): Promise<WizardStatus> {
-    const draft = this.draftRecord;
+    const draft = await this.draft(user.id);
 
     const plan = await this.plans.findByCode(input?.planCode ?? "trial");
     if (!plan) {
@@ -115,24 +149,20 @@ export class WizardService {
       });
     }
 
-    const slug = slugify(draft.company.name) || "company";
-    const siteName = slugify(draft.company.name) || slug;
+    const membership = await prisma.membership.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+      include: { company: { include: { tenant: true } } },
+    });
+    if (!membership) {
+      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: "No company is linked to this account" });
+    }
 
-    const company = await prisma.company.upsert({
-      where: { slug },
-      update: {
+    const company = await prisma.company.update({
+      where: { id: membership.companyId },
+      data: {
         name: draft.company.name,
         legalName: draft.company.legalName,
-        industry: draft.company.industry,
-        country: draft.company.country,
-        taxId: draft.company.taxId,
-        address: draft.company.address,
-        status: "ONBOARDING",
-      },
-      create: {
-        name: draft.company.name,
-        legalName: draft.company.legalName,
-        slug,
         industry: draft.company.industry,
         country: draft.company.country,
         taxId: draft.company.taxId,
@@ -141,15 +171,17 @@ export class WizardService {
       },
     });
 
+    const siteName = membership.company.slug;
+
     const tenant = await prisma.tenant.upsert({
       where: { companyId: company.id },
-      update: { locale: draft.regional, planTier: PLAN_TIER_TO_DB[plan.tier] },
+      update: { locale: draft.regional, planTier: planTierFor(plan.tier) },
       create: {
         companyId: company.id,
         siteName,
-        siteUrl: `https://${siteName}.amni.dev`,
+        siteUrl: siteUrlFor(siteName),
         status: "CREATING",
-        planTier: PLAN_TIER_TO_DB[plan.tier],
+        planTier: planTierFor(plan.tier),
         locale: draft.regional,
       },
     });
@@ -157,12 +189,6 @@ export class WizardService {
     if (tenant.status === "ACTIVE") {
       return { status: "ready", message: `${draft.company.name} is already provisioned.` };
     }
-
-    await prisma.membership.upsert({
-      where: { companyId_userId: { companyId: company.id, userId: user.id } },
-      update: { platformRole: "OWNER" },
-      create: { companyId: company.id, userId: user.id, platformRole: "OWNER" },
-    });
 
     const existingSubscription = await prisma.subscription.findFirst({
       where: { companyId: company.id },
@@ -193,34 +219,43 @@ export class WizardService {
       siteUrl: tenant.siteUrl,
     });
 
-    this.settings.updateCompany({
-      name: draft.company.name,
-      legalName: draft.company.legalName,
-      industry: draft.company.industry,
-      country: draft.company.country,
-      taxId: draft.company.taxId,
-      address: draft.company.address,
-      currency: draft.regional.currency,
-      timezone: draft.regional.timezone,
-    });
-
-    this.submitted = true;
+    await prisma.onboardingDraft.update({ where: { userId: user.id }, data: { submittedAt: new Date() } });
     return {
       status: "provisioning",
       message: `${draft.company.name} is being provisioned. We'll take you to your dashboard once the workspace is ready.`,
     };
   }
 
-  async status(): Promise<WizardStatus> {
+  async status(userId: string): Promise<WizardStatus> {
     const membership = await prisma.membership.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
       include: { company: { include: { tenant: true } } },
     });
     const tenant = membership?.company?.tenant;
 
     if (tenant?.status === "ACTIVE") return { status: "ready" };
-    if (this.submitted || tenant) {
+    if (tenant?.status === "FAILED") {
+      return { status: "failed", message: "Provisioning stopped before the workspace was ready." };
+    }
+    if (tenant) {
       return { status: "provisioning", message: "Provisioning your workspace…" };
     }
     return { status: "pending", message: "Complete the company profile to provision your workspace." };
   }
+}
+
+function siteUrlFor(siteName: string): string {
+  const domain = process.env.PLATFORM_DOMAIN ?? (process.env.NODE_ENV === "production" ? "amni.app" : "localhost");
+  const scheme = process.env.NODE_ENV === "production" ? "https" : "http";
+  const port = process.env.NODE_ENV === "production" ? "" : `:${process.env.ERPNEXT_HTTP_PORT ?? "8080"}`;
+  return `${scheme}://${siteName}.${domain}${port}`;
+}
+
+function planTierFor(tier: string): "TRIAL" | "STARTER" | "GROWTH" | "SCALE" {
+  const value = PLAN_TIER_TO_DB[tier.toLowerCase()];
+  if (!value) {
+    throw new ApiException({ code: ErrorCode.UNPROCESSABLE, status: 422, message: `Unsupported plan tier ${tier}` });
+  }
+  return value;
 }

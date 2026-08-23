@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CircleHelp, LogOut, Settings, User } from "lucide-react";
+import { CircleHelp, LogOut, Settings, Shield, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger, Skeleton } from "@amni/ui";
 import { api } from "@/src/lib/api";
@@ -63,6 +63,12 @@ export function UserMenu() {
           <CircleHelp className="h-4 w-4" />
           Help &amp; docs
         </DropdownMenuItem>
+        {user?.isPlatformAdmin ? (
+          <DropdownMenuItem onSelect={() => router.push("/admin")}>
+            <Shield className="h-4 w-4" />
+            Admin console
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} className="text-destructive focus:text-destructive">
           <LogOut className="h-4 w-4" />

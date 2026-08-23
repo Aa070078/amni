@@ -38,8 +38,11 @@ export class SimulationDriver implements ProvisioningDriver {
     return {
       ok: true,
       detail: `simulated: service_account (${ctx.serviceAccountEmail})`,
-      host: ctx.siteUrl,
-      serviceKey: `sim:${ctx.tenantId}`,
+      host: process.env.DEMO_ERP_HOST ?? "http://127.0.0.1:8080",
+      serviceCredentials: {
+        apiKey: process.env.DEMO_ERP_API_KEY ?? "demo-api-key",
+        apiSecret: process.env.DEMO_ERP_API_SECRET ?? "demo-api-secret",
+      },
     };
   }
 

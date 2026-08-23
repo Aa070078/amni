@@ -1,171 +1,58 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ContactRound, FileText, PackageCheck, Receipt, Target, UserRound, Users } from "lucide-react";
+import { ArrowUpRight, FileText, PackageCheck, Receipt, Target, UserRound, Users, type LucideIcon } from "lucide-react";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@amni/ui";
 
 export const metadata: Metadata = { title: "Sales" };
 
+const SALES_WORKFLOWS: Array<{
+  title: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+}> = [
+  { title: "Deals", description: "Move qualified opportunities from forecast to close.", href: "/sales/deals", icon: Target },
+  { title: "Leads", description: "Qualify new demand and turn it into active opportunities.", href: "/sales/leads", icon: Users },
+  { title: "Customers", description: "Manage customer accounts, contacts, and outstanding balances.", href: "/sales/customers", icon: UserRound },
+  { title: "Quotations", description: "Prepare accurate quotes and convert accepted work into orders.", href: "/sales/quotations", icon: FileText },
+  { title: "Sales orders", description: "Track confirmed demand, delivery dates, and fulfilment.", href: "/sales/orders", icon: PackageCheck },
+  { title: "Sales invoices", description: "Bill customers, follow payment status, and close the loop.", href: "/sales/invoices", icon: Receipt },
+];
+
 export default function SalesPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sales</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Deals, leads, customers, quotations, orders, invoices</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-primary">Revenue operations</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Sales</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Run the complete quote-to-cash flow from one focused workspace.
+          </p>
+        </div>
+        <Badge variant="secondary" className="w-fit">6 connected workflows</Badge>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {SALES_WORKFLOWS.map(({ title, description, href, icon: Icon }) => (
+          <Link key={href} href={href} className="group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-accent/30">
+              <CardHeader className="pb-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transform-none" aria-hidden="true" />
+                </div>
+                <CardTitle className="text-base">{title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="leading-6">{description}</CardDescription>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ContactRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            CRM
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Organizations, contacts, tasks, notes, calls, events and outreach — the full engagement suite.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/crm"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open CRM
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Target className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Deals
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Qualified opportunities with expected value and close dates.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/deals"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open deals
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Leads
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Track and move opportunities through your sales pipeline.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/leads"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open leads
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <UserRound className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Customers
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Manage the people and companies you sell to and track what they owe.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/customers"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open customers
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Quotations
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Send quotes and turn them into sales orders.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/quotations"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open quotations
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <PackageCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Sales orders
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Raise orders, track delivery dates, and manage fulfilment.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/orders"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open orders
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Receipt className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Sales invoices
-            <Badge variant="success">Live</Badge>
-          </CardTitle>
-          <CardDescription>
-            Bill customers and record payments against them.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/sales/invoices"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Open sales invoices
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </CardContent>
-      </Card>
     </div>
   );
 }

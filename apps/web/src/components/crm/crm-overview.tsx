@@ -22,26 +22,26 @@ const SECTIONS = [
   {
     title: "Records",
     links: [
-      { href: "/sales/crm/organizations", label: "Companies", icon: Building2 },
-      { href: "/sales/crm/contacts", label: "Contacts", icon: Users },
-      { href: "/sales/crm/tasks", label: "Tasks", icon: CheckSquare },
-      { href: "/sales/crm/notes", label: "Notes", icon: StickyNote },
+      { href: "/crm/organizations", label: "Companies", icon: Building2 },
+      { href: "/crm/contacts", label: "Contacts", icon: Users },
+      { href: "/crm/tasks", label: "Tasks", icon: CheckSquare },
+      { href: "/crm/notes", label: "Notes", icon: StickyNote },
     ],
   },
   {
     title: "Communication",
     links: [
-      { href: "/sales/crm/call-logs", label: "Call logs", icon: Phone },
-      { href: "/sales/crm/whatsapp", label: "WhatsApp", icon: MessageSquare },
-      { href: "/sales/crm/email-templates", label: "Email templates", icon: FileText },
+      { href: "/crm/call-logs", label: "Call logs", icon: Phone },
+      { href: "/crm/whatsapp", label: "WhatsApp", icon: MessageSquare },
+      { href: "/crm/email-templates", label: "Email templates", icon: FileText },
     ],
   },
   {
     title: "Workspace",
     links: [
-      { href: "/sales/crm/events", label: "Events", icon: CalendarDays },
-      { href: "/sales/crm/notifications", label: "Notifications", icon: Bell },
-      { href: "/sales/crm/settings", label: "Settings", icon: Settings2 },
+      { href: "/crm/events", label: "Events", icon: CalendarDays },
+      { href: "/crm/notifications", label: "Notifications", icon: Bell },
+      { href: "/crm/settings", label: "Settings", icon: Settings2 },
     ],
   },
 ];
@@ -77,7 +77,7 @@ export function CrmOverview() {
                     >
                       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                       <span className="flex-1">{label}</span>
-                      {href === "/sales/crm/notifications" && unreadCount > 0 ? (
+                      {href === "/crm/notifications" && unreadCount > 0 ? (
                         <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium tabular-nums text-primary-foreground">
                           {unreadCount}
                         </span>

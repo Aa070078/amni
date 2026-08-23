@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/src/lib/api";
+import type { ProductRole } from "@amni/shared";
 
 export interface MeUser {
   id: string;
@@ -11,6 +12,8 @@ export interface MeUser {
   lastName: string | null;
   status: string;
   isEmailVerified: boolean;
+  isPlatformAdmin: boolean;
+  role: ProductRole;
 }
 
 export function useMe() {

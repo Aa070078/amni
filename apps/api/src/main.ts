@@ -18,7 +18,21 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(cookieParser());
-  app.use(pinoHttp({ autoLogging: true, redact: ["req.headers.authorization", "req.headers.cookie"] }));
+  app.use(
+    pinoHttp({
+      autoLogging: true,
+      redact: {
+        paths: [
+          "req.headers.authorization",
+          "req.headers.cookie",
+          'req.headers["x-csrf-token"]',
+          'req.headers["x-api-key"]',
+          'res.headers["set-cookie"]',
+        ],
+        censor: "[Redacted]",
+      },
+    }),
+  );
   app.use(requestIdMiddleware);
 
   app.setGlobalPrefix("/api/v1", { exclude: ["healthz"] });

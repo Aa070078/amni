@@ -58,7 +58,7 @@ export function TasksTable({ data, loading, onMoveStatus }: TasksTableProps) {
             return (
               <div className="flex flex-col">
                 <Link
-                  href={`/sales/crm/tasks/${task.code}`}
+                  href={`/crm/tasks/${task.code}`}
                   className="font-medium text-foreground hover:text-primary hover:underline"
                 >
                   {task.subject}

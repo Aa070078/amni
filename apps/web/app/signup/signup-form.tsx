@@ -28,7 +28,7 @@ export function SignupForm() {
           country: form.get("country") || "US",
         },
       });
-      router.push("/dashboard");
+      router.push("/setup");
       router.refresh();
     } catch (e) {
       if (e instanceof ApiError) {

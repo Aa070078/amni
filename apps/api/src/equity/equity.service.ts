@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
+
 import { Injectable } from "@nestjs/common";
 import {
-  ErrorCode,
   type CapTableRow,
   type CreateRoundInput,
   type CreateShareClassInput,
@@ -22,365 +23,180 @@ import {
   type UpdateShareholderInput,
 } from "@amni/shared";
 
-import { ApiException } from "../common/api.exception";
+// DomainRecordRepository must remain a value import for Nest constructor metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { DomainRecordRepository } from "../common/domain-record.repository";
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
 
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
-const SEED_SHAREHOLDERS: Shareholder[] = [
-  { code: "SH-0001", name: "Amara Osei", type: "founder", email: "amara@demo.co", totalShares: 25000, holdings: [{ classCode: "CLS-0001", shares: 25000 }], investedAmount: 10000, joinedAt: iso(420), createdAt: iso(420), updatedAt: iso(30) },
-  { code: "SH-0002", name: "Theo Lindqvist", type: "founder", email: "theo@demo.co", totalShares: 15000, holdings: [{ classCode: "CLS-0001", shares: 15000 }], investedAmount: 5000, joinedAt: iso(420), createdAt: iso(420), updatedAt: iso(30) },
-  { code: "SH-0003", name: "Meridian Ventures", type: "investor", email: "funds@meridian.vc", totalShares: 8000, holdings: [{ classCode: "CLS-0002", shares: 8000 }], investedAmount: 200000, joinedAt: iso(120), createdAt: iso(122), updatedAt: iso(120) },
-  { code: "SH-0004", name: "Osei Family Trust", type: "other", totalShares: 2000, holdings: [{ classCode: "CLS-0003", shares: 2000 }], investedAmount: 0, joinedAt: iso(80), createdAt: iso(82), updatedAt: iso(80) },
-];
-
-const SEED_CLASSES: ShareClass[] = [
-  { code: "CLS-0001", name: "Common stock", totalShares: 40000, outstandingShares: 40000, pricePerShare: 1, voting: true, status: "active", createdAt: iso(420), updatedAt: iso(30) },
-  { code: "CLS-0002", name: "Series Seed preferred", totalShares: 8000, outstandingShares: 8000, pricePerShare: 25, voting: true, liquidationPreference: 1, status: "active", createdAt: iso(120), updatedAt: iso(120) },
-  { code: "CLS-0003", name: "Option pool", totalShares: 2000, outstandingShares: 2000, pricePerShare: 0.5, voting: false, status: "active", createdAt: iso(90), updatedAt: iso(90) },
-];
-
-const SEED_ROUNDS: Round[] = [
-  {
-    code: "RD-0001",
-    name: "Seed round",
-    type: "seed",
-    announcedDate: iso(130),
-    closedDate: iso(120),
-    amountRaised: 200000,
-    preMoney: 900000,
-    postMoney: 1100000,
-    sharesIssued: 8000,
-    valuation: 1100000,
-    investors: ["Meridian Ventures"],
-    status: "closed",
-    notes: "Priced round; Meridian Ventures led.",
-    createdAt: iso(132),
-    updatedAt: iso(120),
-  },
-  {
-    code: "RD-0002",
-    name: "Series A — planning",
-    type: "series_a",
-    announcedDate: iso(10),
-    amountRaised: 0,
-    preMoney: 0,
-    postMoney: 0,
-    sharesIssued: 0,
-    valuation: 0,
-    investors: [],
-    status: "planned",
-    notes: "Target announced; terms under discussion.",
-    createdAt: iso(12),
-    updatedAt: iso(10),
-  },
-];
-
-function nextCode(records: { code: string }[], prefix: string): string {
-  const max = records.reduce((highest, record) => {
-    const number = Number(record.code.slice(prefix.length));
-    return number > highest ? number : highest;
-  }, 0);
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
-}
-
-function sortValue<T>(record: T, sortBy: string): unknown {
-  return record[sortBy as keyof T];
-}
+const newCode = (prefix: string): string => `${prefix}${randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
 
 function sortRecords<T>(records: T[], sortBy: string, sortDir: "asc" | "desc"): T[] {
   const direction = sortDir === "asc" ? 1 : -1;
   return [...records].sort((a, b) => {
-    const aValue = sortValue(a, sortBy);
-    const bValue = sortValue(b, sortBy);
-    if (aValue === bValue) return 0;
-    if (aValue == null) return 1;
-    if (bValue == null) return -1;
-    return aValue < bValue ? -1 * direction : direction;
+    const left = a[sortBy as keyof T];
+    const right = b[sortBy as keyof T];
+    if (left === right) return 0;
+    if (left == null) return 1;
+    if (right == null) return -1;
+    return left < right ? -direction : direction;
   });
 }
 
-function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; total: number } {
-  const start = (page - 1) * pageSize;
+function page<T>(items: T[], pageNumber: number, pageSize: number): { items: T[]; total: number } {
+  const start = (pageNumber - 1) * pageSize;
   return { items: items.slice(start, start + pageSize), total: items.length };
 }
 
-/**
- * Reference data for the Demo Co tenant. The cap table is derived from
- * shareholder holdings against the share-class registry.
- */
 @Injectable()
 export class EquityService {
-  private shareholders: Shareholder[] = structuredClone(SEED_SHAREHOLDERS);
-  private classes: ShareClass[] = structuredClone(SEED_CLASSES);
-  private rounds: Round[] = structuredClone(SEED_ROUNDS);
+  constructor(private readonly records: DomainRecordRepository) {}
 
-  overview(): EquityOverview {
-    const totalShares = this.shareholders.reduce((sum, shareholder) => sum + shareholder.totalShares, 0);
-    const totalInvested = this.shareholders.reduce((sum, shareholder) => sum + shareholder.investedAmount, 0);
-    const currentValuation = this.rounds
-      .filter((round) => round.status === "closed")
-      .sort((a, b) => b.closedDate!.localeCompare(a.closedDate!))[0]?.postMoney ?? 0;
-    const optionPool = this.classes.find((entry) => entry.name.toLowerCase().includes("option")) ?? this.classes.find((entry) => entry.code === "CLS-0003");
-
+  async overview(user: GatewayUser, meta: GatewayRequestMeta): Promise<EquityOverview> {
+    const [shareholders, classes, rounds] = await Promise.all([
+      this.all<Shareholder>(user, meta, "shareholder"),
+      this.all<ShareClass>(user, meta, "share_class"),
+      this.all<Round>(user, meta, "round"),
+    ]);
+    const totalShares = shareholders.reduce((sum, item) => sum + item.totalShares, 0);
+    const totalInvested = shareholders.reduce((sum, item) => sum + item.investedAmount, 0);
+    const currentValuation = rounds.filter((item) => item.status === "closed").sort((a, b) => (b.closedDate ?? "").localeCompare(a.closedDate ?? ""))[0]?.postMoney ?? 0;
+    const optionPool = classes.find((item) => item.name.toLowerCase().includes("option"));
+    const investorCount = shareholders.filter((item) => item.type === "investor").length;
     return {
       asOf: new Date().toISOString(),
       kpis: [
         { id: "total_shares", label: "Total shares", value: totalShares, format: "number", hint: "across all classes" },
-        { id: "total_invested", label: "Total invested", value: round2(totalInvested), format: "currency", currency: "USD", delta: 8.9, trend: "up", hint: "since inception" },
+        { id: "total_invested", label: "Total invested", value: round2(totalInvested), format: "currency", currency: "USD", hint: "since inception" },
         { id: "valuation", label: "Post-money valuation", value: round2(currentValuation), format: "currency", currency: "USD", hint: "latest closed round" },
-        { id: "investors", label: "Investors", value: this.shareholders.filter((shareholder) => shareholder.type === "investor").length, format: "number", hint: "institutional + angel" },
+        { id: "investors", label: "Investors", value: investorCount, format: "number", hint: "institutional + angel" },
       ],
       totalShares,
       totalInvested: round2(totalInvested),
       currentValuation: round2(currentValuation),
-      investorCount: this.shareholders.filter((shareholder) => shareholder.type === "investor").length,
-      optionPoolPct: optionPool ? round2((optionPool.outstandingShares / totalShares) * 100) : 0,
-      byClass: this.classes.map((entry) => ({
-        className: entry.name,
-        shares: entry.outstandingShares,
-        pct: round2((entry.outstandingShares / totalShares) * 100),
-      })),
+      investorCount,
+      optionPoolPct: optionPool && totalShares > 0 ? round2((optionPool.outstandingShares / totalShares) * 100) : 0,
+      byClass: classes.map((item) => ({ className: item.name, shares: item.outstandingShares, pct: totalShares > 0 ? round2((item.outstandingShares / totalShares) * 100) : 0 })),
     };
   }
 
-  listShareholders(query: ShareholderListQuery): ShareholderListResponse {
+  async listShareholders(user: GatewayUser, meta: GatewayRequestMeta, query: ShareholderListQuery): Promise<ShareholderListResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.shareholders.filter((shareholder) => {
-      if (query.type && shareholder.type !== query.type) return false;
-      if (!q) return true;
-      return [shareholder.code, shareholder.name, shareholder.email ?? ""].join(" ").toLowerCase().includes(q);
-    });
-
-    const sortBy = query.sortBy ?? "createdAt";
-    const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "asc");
-    const { items, total } = paginate(sorted, query.page, query.pageSize);
-    return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
+    const records = (await this.all<Shareholder>(user, meta, "shareholder")).filter((item) => (!query.type || item.type === query.type) && (!q || `${item.code} ${item.name} ${item.email ?? ""}`.toLowerCase().includes(q)));
+    const result = page(sortRecords(records, query.sortBy ?? "createdAt", query.sortDir ?? "asc"), query.page, query.pageSize);
+    return { items: result.items, meta: { total: result.total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailShareholder(code: string): Shareholder {
-    const shareholder = this.shareholders.find((record) => record.code === code);
-    if (!shareholder) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Shareholder ${code} not found` });
-    }
-    return shareholder;
+  detailShareholder(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string): Promise<Shareholder> {
+    return this.records.get(user, meta, "equity", "shareholder", recordCode);
   }
 
-  createShareholder(input: CreateShareholderInput): Shareholder {
+  async createShareholder(user: GatewayUser, meta: GatewayRequestMeta, input: CreateShareholderInput): Promise<Shareholder> {
     const now = new Date().toISOString();
-    const totalShares = input.holdings.reduce((sum, holding) => sum + holding.shares, 0);
-    const shareholder: Shareholder = {
-      code: nextCode(this.shareholders, "SH-"),
-      name: input.name,
-      type: input.type,
-      email: input.email,
-      totalShares,
-      holdings: input.holdings,
-      investedAmount: input.investedAmount ?? 0,
-      joinedAt: input.joinedAt,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.shareholders.push(shareholder);
-    return shareholder;
+    const item: Shareholder = { code: newCode("SH-"), name: input.name, type: input.type, email: input.email, totalShares: input.holdings.reduce((sum, holding) => sum + holding.shares, 0), holdings: input.holdings, investedAmount: input.investedAmount ?? 0, joinedAt: input.joinedAt, createdAt: now, updatedAt: now };
+    return this.records.create(user, meta, "equity", "shareholder", item.code, item, { title: item.name, category: item.type, numericValue: item.totalShares, eventAt: item.joinedAt, searchText: `${item.code} ${item.name} ${item.email ?? ""}` });
   }
 
-  updateShareholder(code: string, input: UpdateShareholderInput): Shareholder {
-    const shareholder = this.detailShareholder(code);
-    if (input.name !== undefined) shareholder.name = input.name;
-    if (input.type !== undefined) shareholder.type = input.type;
-    if (input.email !== undefined) shareholder.email = input.email;
-    if (input.holdings !== undefined) {
-      shareholder.holdings = input.holdings;
-      shareholder.totalShares = input.holdings.reduce((sum, holding) => sum + holding.shares, 0);
-    }
-    if (input.investedAmount !== undefined) shareholder.investedAmount = input.investedAmount;
-    if (input.joinedAt !== undefined) shareholder.joinedAt = input.joinedAt;
-    shareholder.updatedAt = new Date().toISOString();
-    return shareholder;
+  async updateShareholder(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string, input: UpdateShareholderInput): Promise<Shareholder> {
+    const item = await this.detailShareholder(user, meta, recordCode);
+    Object.assign(item, input, { updatedAt: new Date().toISOString() });
+    if (input.holdings) item.totalShares = input.holdings.reduce((sum, holding) => sum + holding.shares, 0);
+    return this.records.update(user, meta, "equity", "shareholder", recordCode, item, { title: item.name, category: item.type, numericValue: item.totalShares, eventAt: item.joinedAt, searchText: `${item.code} ${item.name} ${item.email ?? ""}` });
   }
 
-  removeShareholder(code: string): void {
-    const index = this.shareholders.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Shareholder ${code} not found` });
-    }
-    this.shareholders.splice(index, 1);
+  removeShareholder(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string): Promise<void> {
+    return this.records.remove(user, meta, "equity", "shareholder", recordCode);
   }
 
-  listClasses(query: ShareClassListQuery): ShareClassListResponse {
+  async listClasses(user: GatewayUser, meta: GatewayRequestMeta, query: ShareClassListQuery): Promise<ShareClassListResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.classes.filter((entry) => {
-      if (query.status && entry.status !== query.status) return false;
-      if (!q) return true;
-      return [entry.code, entry.name].join(" ").toLowerCase().includes(q);
-    });
-
-    const sortBy = query.sortBy ?? "code";
-    const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "asc");
-    const { items, total } = paginate(sorted, query.page, query.pageSize);
-    return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
+    const records = (await this.all<ShareClass>(user, meta, "share_class")).filter((item) => (!query.status || item.status === query.status) && (!q || `${item.code} ${item.name}`.toLowerCase().includes(q)));
+    const result = page(sortRecords(records, query.sortBy ?? "code", query.sortDir ?? "asc"), query.page, query.pageSize);
+    return { items: result.items, meta: { total: result.total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailClass(code: string): ShareClass {
-    const entry = this.classes.find((record) => record.code === code);
-    if (!entry) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Share class ${code} not found` });
-    }
-    return entry;
+  detailClass(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string): Promise<ShareClass> {
+    return this.records.get(user, meta, "equity", "share_class", recordCode);
   }
 
-  createClass(input: CreateShareClassInput): ShareClass {
+  async createClass(user: GatewayUser, meta: GatewayRequestMeta, input: CreateShareClassInput): Promise<ShareClass> {
     const now = new Date().toISOString();
-    const entry: ShareClass = {
-      code: nextCode(this.classes, "CLS-"),
-      name: input.name,
-      totalShares: input.totalShares,
-      outstandingShares: input.outstandingShares,
-      pricePerShare: input.pricePerShare,
-      voting: input.voting ?? true,
-      liquidationPreference: input.liquidationPreference,
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.classes.push(entry);
-    return entry;
+    const item: ShareClass = { code: newCode("CLS-"), name: input.name, totalShares: input.totalShares, outstandingShares: input.outstandingShares, pricePerShare: input.pricePerShare, voting: input.voting ?? true, liquidationPreference: input.liquidationPreference, status: "active", createdAt: now, updatedAt: now };
+    return this.saveClass(user, meta, item, true);
   }
 
-  updateClass(code: string, input: UpdateShareClassInput): ShareClass {
-    const entry = this.detailClass(code);
-    if (input.name !== undefined) entry.name = input.name;
-    if (input.totalShares !== undefined) entry.totalShares = input.totalShares;
-    if (input.outstandingShares !== undefined) entry.outstandingShares = input.outstandingShares;
-    if (input.pricePerShare !== undefined) entry.pricePerShare = input.pricePerShare;
-    if (input.voting !== undefined) entry.voting = input.voting;
-    if (input.liquidationPreference !== undefined) entry.liquidationPreference = input.liquidationPreference;
-    entry.updatedAt = new Date().toISOString();
-    return entry;
+  async updateClass(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string, input: UpdateShareClassInput): Promise<ShareClass> {
+    const item = await this.detailClass(user, meta, recordCode);
+    Object.assign(item, input, { updatedAt: new Date().toISOString() });
+    return this.saveClass(user, meta, item, false);
   }
 
-  changeClassStatus(code: string, input: { status: ShareClassStatus }): ShareClass {
-    const entry = this.detailClass(code);
-    entry.status = input.status;
-    entry.updatedAt = new Date().toISOString();
-    return entry;
+  async changeClassStatus(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string, input: { status: ShareClassStatus }): Promise<ShareClass> {
+    const item = await this.detailClass(user, meta, recordCode);
+    item.status = input.status;
+    item.updatedAt = new Date().toISOString();
+    return this.saveClass(user, meta, item, false);
   }
 
-  removeClass(code: string): void {
-    const index = this.classes.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Share class ${code} not found` });
-    }
-    this.classes.splice(index, 1);
+  removeClass(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string): Promise<void> {
+    return this.records.remove(user, meta, "equity", "share_class", recordCode);
   }
 
-  listRounds(query: RoundListQuery): RoundListResponse {
+  async listRounds(user: GatewayUser, meta: GatewayRequestMeta, query: RoundListQuery): Promise<RoundListResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.rounds.filter((round) => {
-      if (query.status && round.status !== query.status) return false;
-      if (!q) return true;
-      return [round.code, round.name, ...round.investors].join(" ").toLowerCase().includes(q);
-    });
-
-    const sortBy = query.sortBy ?? "announcedDate";
-    const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "desc");
-    const { items, total } = paginate(sorted, query.page, query.pageSize);
-    return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
+    const records = (await this.all<Round>(user, meta, "round")).filter((item) => (!query.status || item.status === query.status) && (!q || `${item.code} ${item.name} ${item.investors.join(" ")}`.toLowerCase().includes(q)));
+    const result = page(sortRecords(records, query.sortBy ?? "announcedDate", query.sortDir ?? "desc"), query.page, query.pageSize);
+    return { items: result.items, meta: { total: result.total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailRound(code: string): Round {
-    const round = this.rounds.find((record) => record.code === code);
-    if (!round) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Funding round ${code} not found` });
-    }
-    return round;
+  detailRound(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string): Promise<Round> {
+    return this.records.get(user, meta, "equity", "round", recordCode);
   }
 
-  createRound(input: CreateRoundInput): Round {
+  async createRound(user: GatewayUser, meta: GatewayRequestMeta, input: CreateRoundInput): Promise<Round> {
     const now = new Date().toISOString();
-    const round: Round = {
-      code: nextCode(this.rounds, "RD-"),
-      name: input.name,
-      type: input.type,
-      announcedDate: input.announcedDate ?? now,
-      closedDate: input.closedDate,
-      amountRaised: input.amountRaised,
-      preMoney: input.preMoney,
-      postMoney: input.postMoney,
-      sharesIssued: input.sharesIssued,
-      valuation: input.postMoney,
-      investors: input.investors,
-      status: input.closedDate ? "closed" : "announced",
-      notes: input.notes,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.rounds.push(round);
-    return round;
+    const item: Round = { code: newCode("RD-"), name: input.name, type: input.type, announcedDate: input.announcedDate ?? now, closedDate: input.closedDate, amountRaised: input.amountRaised, preMoney: input.preMoney, postMoney: input.postMoney, sharesIssued: input.sharesIssued, valuation: input.postMoney, investors: input.investors, status: input.closedDate ? "closed" : "announced", notes: input.notes, createdAt: now, updatedAt: now };
+    return this.saveRound(user, meta, item, true);
   }
 
-  updateRound(code: string, input: UpdateRoundInput): Round {
-    const round = this.detailRound(code);
-    if (input.name !== undefined) round.name = input.name;
-    if (input.type !== undefined) round.type = input.type;
-    if (input.announcedDate !== undefined) round.announcedDate = input.announcedDate;
-    if (input.closedDate !== undefined) {
-      round.closedDate = input.closedDate;
-      if (input.closedDate) round.status = "closed";
-    }
-    if (input.amountRaised !== undefined) round.amountRaised = input.amountRaised;
-    if (input.preMoney !== undefined) round.preMoney = input.preMoney;
-    if (input.postMoney !== undefined) {
-      round.postMoney = input.postMoney;
-      round.valuation = input.postMoney;
-    }
-    if (input.sharesIssued !== undefined) round.sharesIssued = input.sharesIssued;
-    if (input.investors !== undefined) round.investors = input.investors;
-    if (input.notes !== undefined) round.notes = input.notes;
-    round.updatedAt = new Date().toISOString();
-    return round;
+  async updateRound(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string, input: UpdateRoundInput): Promise<Round> {
+    const item = await this.detailRound(user, meta, recordCode);
+    Object.assign(item, input, { updatedAt: new Date().toISOString() });
+    if (input.postMoney !== undefined) item.valuation = input.postMoney;
+    if (input.closedDate) item.status = "closed";
+    return this.saveRound(user, meta, item, false);
   }
 
-  changeRoundStatus(code: string, input: { status: RoundStatus }): Round {
-    const round = this.detailRound(code);
-    round.status = input.status;
-    if (input.status === "closed" && !round.closedDate) {
-      round.closedDate = new Date().toISOString();
-    }
-    round.updatedAt = new Date().toISOString();
-    return round;
+  async changeRoundStatus(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string, input: { status: RoundStatus }): Promise<Round> {
+    const item = await this.detailRound(user, meta, recordCode);
+    item.status = input.status;
+    if (input.status === "closed" && !item.closedDate) item.closedDate = new Date().toISOString();
+    item.updatedAt = new Date().toISOString();
+    return this.saveRound(user, meta, item, false);
   }
 
-  removeRound(code: string): void {
-    const index = this.rounds.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Funding round ${code} not found` });
-    }
-    this.rounds.splice(index, 1);
+  removeRound(user: GatewayUser, meta: GatewayRequestMeta, recordCode: string): Promise<void> {
+    return this.records.remove(user, meta, "equity", "round", recordCode);
   }
 
-  capTable(): CapTableRow[] {
-    const totalShares = this.shareholders.reduce((sum, shareholder) => sum + shareholder.totalShares, 0) || 1;
-    const rows: CapTableRow[] = [];
+  async capTable(user: GatewayUser, meta: GatewayRequestMeta): Promise<CapTableRow[]> {
+    const [shareholders, classes] = await Promise.all([this.all<Shareholder>(user, meta, "shareholder"), this.all<ShareClass>(user, meta, "share_class")]);
+    const totalShares = shareholders.reduce((sum, item) => sum + item.totalShares, 0) || 1;
+    return shareholders.flatMap((shareholder) => shareholder.holdings.map((holding) => ({ shareholderCode: shareholder.code, name: shareholder.name, type: shareholder.type, classCode: holding.classCode, className: classes.find((item) => item.code === holding.classCode)?.name ?? holding.classCode, shares: holding.shares, ownershipPct: round2((holding.shares / totalShares) * 100), investedAmount: shareholder.investedAmount }))).sort((a, b) => b.shares - a.shares);
+  }
 
-    for (const shareholder of this.shareholders) {
-      for (const holding of shareholder.holdings) {
-        const entry = this.classes.find((record) => record.code === holding.classCode);
-        rows.push({
-          shareholderCode: shareholder.code,
-          name: shareholder.name,
-          type: shareholder.type,
-          classCode: holding.classCode,
-          className: entry?.name ?? holding.classCode,
-          shares: holding.shares,
-          ownershipPct: round2((holding.shares / totalShares) * 100),
-          investedAmount: shareholder.investedAmount,
-        });
-      }
-    }
+  private async all<T>(user: GatewayUser, meta: GatewayRequestMeta, recordType: string): Promise<T[]> {
+    return (await this.records.list<T>(user, meta, "equity", recordType, { pageLength: 100 })).items;
+  }
 
-    return rows.sort((a, b) => b.shares - a.shares);
+  private saveClass(user: GatewayUser, meta: GatewayRequestMeta, item: ShareClass, create: boolean): Promise<ShareClass> {
+    const indexes = { title: item.name, status: item.status, numericValue: item.outstandingShares, searchText: `${item.code} ${item.name}` };
+    return create ? this.records.create(user, meta, "equity", "share_class", item.code, item, indexes) : this.records.update(user, meta, "equity", "share_class", item.code, item, indexes);
+  }
+
+  private saveRound(user: GatewayUser, meta: GatewayRequestMeta, item: Round, create: boolean): Promise<Round> {
+    const indexes = { title: item.name, status: item.status, category: item.type, eventAt: item.announcedDate, numericValue: item.amountRaised, searchText: `${item.code} ${item.name} ${item.investors.join(" ")}` };
+    return create ? this.records.create(user, meta, "equity", "round", item.code, item, indexes) : this.records.update(user, meta, "equity", "round", item.code, item, indexes);
   }
 }

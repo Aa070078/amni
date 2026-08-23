@@ -6,6 +6,7 @@ import {
 } from "@amni/shared";
 
 import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { AllowMemberMutation } from "../auth/authorization.decorator";
 import { CurrentUser } from "../auth/request.decorators";
 // Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -13,6 +14,7 @@ import { NotificationsService } from "./notifications.service";
 
 @Controller("notifications")
 @UseGuards(AuthGuard)
+@AllowMemberMutation()
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 

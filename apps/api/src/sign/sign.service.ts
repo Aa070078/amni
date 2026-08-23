@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { Injectable } from "@nestjs/common";
 import {
   ErrorCode,
@@ -21,359 +23,183 @@ import {
 } from "@amni/shared";
 
 import { ApiException } from "../common/api.exception";
-
-const DAY_MS = 86_400_000;
-const iso = (daysAgo: number): string => new Date(Date.now() - daysAgo * DAY_MS).toISOString();
-
-const REQUEST_SORT_WHITELIST = new Set(["code", "title", "documentType", "status", "createdAt", "updatedAt"]);
-const TEMPLATE_SORT_WHITELIST = new Set(["code", "name", "documentType", "version", "status", "createdAt", "updatedAt"]);
-
-const SEED_REQUESTS: SignRequest[] = [
-  {
-    code: "SIG-0001",
-    title: "Facilities management retainer — annual renewal",
-    documentType: "contract",
-    documentCode: "CON-0102",
-    status: "awaiting_signature",
-    signers: [
-      { code: "S-0001", name: "Nadia Rahman", email: "nadia@serenityinteriors.com", role: "Operations Director", status: "signed", signedAt: iso(3) },
-      { code: "S-0002", name: "Owen Park", email: "owen@atlasfacilities.io", role: "Authorized Signatory", status: "pending" },
-    ],
-    expiresAt: iso(-8),
-    createdBy: "Amara Osei",
-    notes: "Signatures collected in order; first signer completed.",
-    createdAt: iso(6),
-    updatedAt: iso(3),
-  },
-  {
-    code: "SIG-0002",
-    title: "Q3 design services quotation approval",
-    documentType: "quotation",
-    documentCode: "QT-0041",
-    status: "completed",
-    signers: [
-      { code: "S-0003", name: "Elif Yilmaz", email: "elif@luminasupplies.com", role: "Procurement Lead", status: "signed", signedAt: iso(9) },
-      { code: "S-0004", name: "Mina Delacroix", email: "mina@demo.co", role: "Approver", status: "signed", signedAt: iso(9) },
-    ],
-    createdBy: "Theo Lindqvist",
-    createdAt: iso(11),
-    updatedAt: iso(9),
-  },
-  {
-    code: "SIG-0003",
-    title: "Priority support contract",
-    documentType: "contract",
-    documentCode: "CON-0110",
-    status: "declined",
-    signers: [
-      { code: "S-0005", name: "Jonas Weber", email: "jonas@northwind.com", role: "Legal", status: "declined", signedAt: iso(14) },
-    ],
-    expiresAt: iso(-10),
-    createdBy: "Amara Osei",
-    notes: "Counterparty rejected terms; awaiting revised redline.",
-    createdAt: iso(16),
-    updatedAt: iso(14),
-  },
-  {
-    code: "SIG-0004",
-    title: "Sales invoice INV-0005 payment acknowledgment",
-    documentType: "invoice",
-    documentCode: "INV-0005",
-    status: "sent",
-    signers: [
-      { code: "S-0006", name: "Atlas Facilities", email: "ar@atlasfacilities.io", role: "Accounts Payable", status: "pending" },
-    ],
-    createdBy: "Theo Lindqvist",
-    createdAt: iso(2),
-    updatedAt: iso(2),
-  },
-  {
-    code: "SIG-0005",
-    title: "Master services agreement — drafting",
-    documentType: "proposal",
-    documentCode: "PRP-0021",
-    status: "draft",
-    signers: [
-      { code: "S-0007", name: "Harbor & Sage", email: "legal@harborsage.co", role: "General Counsel", status: "pending" },
-      { code: "S-0008", name: "Amara Osei", email: "amara@demo.co", role: "CFO", status: "pending" },
-    ],
-    createdBy: "Amara Osei",
-    createdAt: iso(1),
-    updatedAt: iso(1),
-  },
-];
-
-const SEED_TEMPLATES: SignTemplate[] = [
-  { code: "STMP-0001", name: "Standard NDA", documentType: "contract", signerRoles: ["Counterparty"], version: 3, status: "active", createdAt: iso(200), updatedAt: iso(40) },
-  { code: "STMP-0002", name: "Service agreement (2 parties)", documentType: "contract", signerRoles: ["Customer", "Internal approver"], version: 2, status: "active", createdAt: iso(180), updatedAt: iso(35) },
-  { code: "STMP-0003", name: "Quotation acceptance", documentType: "quotation", signerRoles: ["Customer"], version: 1, status: "active", createdAt: iso(90), updatedAt: iso(90) },
-  { code: "STMP-0004", name: "Legacy PO form", documentType: "purchase_order", signerRoles: ["Supplier"], version: 5, status: "archived", createdAt: iso(400), updatedAt: iso(200) },
-];
-
-const SEED_AUDIT: SignAuditEvent[] = [
-  { id: "AUD-001", requestCode: "SIG-0001", event: "sent", actor: "Amara Osei", at: iso(6), detail: "Request sent to 2 signers" },
-  { id: "AUD-002", requestCode: "SIG-0001", event: "signed", actor: "Nadia Rahman", at: iso(3), detail: "First signer completed" },
-  { id: "AUD-003", requestCode: "SIG-0001", event: "viewed", actor: "Owen Park", at: iso(2) },
-  { id: "AUD-004", requestCode: "SIG-0002", event: "completed", actor: "System", at: iso(9), detail: "All signers completed" },
-  { id: "AUD-005", requestCode: "SIG-0003", event: "declined", actor: "Jonas Weber", at: iso(14), detail: "Terms rejected" },
-  { id: "AUD-006", requestCode: "SIG-0003", event: "expired", actor: "System", at: iso(10), detail: "Request expired unactioned" },
-];
-
-function nextCode(records: { code: string }[], prefix: string): string {
-  const max = records.reduce((highest, record) => {
-    const number = Number(record.code.slice(prefix.length));
-    return number > highest ? number : highest;
-  }, 0);
-  return `${prefix}${String(max + 1).padStart(4, "0")}`;
-}
-
-function nextAuditId(records: SignAuditEvent[]): string {
-  const max = records.reduce((highest, record) => {
-    const number = Number(record.id.slice("AUD-".length));
-    return number > highest ? number : highest;
-  }, 0);
-  return `AUD-${String(max + 1).padStart(4, "0")}`;
-}
-
-function sortValue<T>(record: T, sortBy: string): unknown {
-  return record[sortBy as keyof T];
-}
+// DomainRecordRepository must remain a value import for Nest constructor metadata.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { DomainRecordRepository } from "../common/domain-record.repository";
+import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
 
 function sortRecords<T>(records: T[], sortBy: string, sortDir: "asc" | "desc"): T[] {
   const direction = sortDir === "asc" ? 1 : -1;
   return [...records].sort((a, b) => {
-    const aValue = sortValue(a, sortBy);
-    const bValue = sortValue(b, sortBy);
-    if (aValue === bValue) return 0;
-    if (aValue == null) return 1;
-    if (bValue == null) return -1;
-    return aValue < bValue ? -1 * direction : direction;
+    const left = a[sortBy as keyof T];
+    const right = b[sortBy as keyof T];
+    if (left === right) return 0;
+    if (left == null) return 1;
+    if (right == null) return -1;
+    return left < right ? -direction : direction;
   });
 }
 
-function paginate<T>(items: T[], page: number, pageSize: number): { items: T[]; total: number } {
-  const start = (page - 1) * pageSize;
+function page<T>(items: T[], pageNumber: number, pageSize: number): { items: T[]; total: number } {
+  const start = (pageNumber - 1) * pageSize;
   return { items: items.slice(start, start + pageSize), total: items.length };
 }
 
-/**
- * Reference data for the Demo Co tenant. Signature requests, templates and
- * the audit trail remain in-memory until the document-signing gateway lands.
- */
+const newCode = (prefix: string): string => `${prefix}${randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
+
 @Injectable()
 export class SignService {
-  private requests: SignRequest[] = structuredClone(SEED_REQUESTS);
-  private templates: SignTemplate[] = structuredClone(SEED_TEMPLATES);
-  private audit: SignAuditEvent[] = structuredClone(SEED_AUDIT);
+  constructor(private readonly records: DomainRecordRepository) {}
 
-  overview(): SignOverview {
+  async overview(user: GatewayUser, meta: GatewayRequestMeta): Promise<SignOverview> {
+    const [requests, templates] = await Promise.all([this.all<SignRequest>(user, meta, "request"), this.all<SignTemplate>(user, meta, "template")]);
+    const pendingForMe = requests.reduce((total, request) => total + request.signers.filter((signer) => signer.status === "pending").length, 0);
+    const awaitingSignature = requests.filter((request) => request.status === "awaiting_signature").length;
+    const completed = requests.filter((request) => request.status === "completed").length;
+    const templatesActive = templates.filter((template) => template.status === "active").length;
     return {
       asOf: new Date().toISOString(),
       kpis: [
-        { id: "pending_for_me", label: "Pending for me", value: 2, format: "number", delta: 1, trend: "up", hint: "signatures I still owe" },
-        { id: "awaiting_signature", label: "Awaiting signature", value: this.requests.filter((request) => request.status === "awaiting_signature").length, format: "number", hint: "requests waiting on the other side" },
-        { id: "completed", label: "Completed", value: this.requests.filter((request) => request.status === "completed").length, format: "number", hint: "fully signed this quarter" },
-        { id: "templates_active", label: "Active templates", value: this.templates.filter((template) => template.status === "active").length, format: "number", hint: "reusable signing flows" },
+        { id: "pending_for_me", label: "Pending signatures", value: pendingForMe, format: "number", hint: "signatures still outstanding" },
+        { id: "awaiting_signature", label: "Awaiting signature", value: awaitingSignature, format: "number", hint: "requests waiting on signers" },
+        { id: "completed", label: "Completed", value: completed, format: "number", hint: "fully signed requests" },
+        { id: "templates_active", label: "Active templates", value: templatesActive, format: "number", hint: "reusable signing flows" },
       ],
-      pendingForMe: 2,
-      awaitingSignature: this.requests.filter((request) => request.status === "awaiting_signature").length,
-      completed: this.requests.filter((request) => request.status === "completed").length,
-      templatesActive: this.templates.filter((template) => template.status === "active").length,
+      pendingForMe,
+      awaitingSignature,
+      completed,
+      templatesActive,
     };
   }
 
-  listRequests(query: SignRequestListQuery): SignRequestListResponse {
+  async listRequests(user: GatewayUser, meta: GatewayRequestMeta, query: SignRequestListQuery): Promise<SignRequestListResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.requests.filter((request) => {
-      if (query.status && request.status !== query.status) return false;
-      if (!q) return true;
-      return [request.code, request.title, request.documentCode ?? "", ...request.signers.map((signer) => signer.name)]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-
-    const sortBy = query.sortBy && REQUEST_SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
-    const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "desc");
-    const { items, total } = paginate(sorted, query.page, query.pageSize);
-    return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
+    const records = (await this.all<SignRequest>(user, meta, "request")).filter((item) => (!query.status || item.status === query.status) && (!q || `${item.code} ${item.title} ${item.documentCode ?? ""} ${item.signers.map((signer) => signer.name).join(" ")}`.toLowerCase().includes(q)));
+    const result = page(sortRecords(records, query.sortBy ?? "createdAt", query.sortDir ?? "desc"), query.page, query.pageSize);
+    return { items: result.items, meta: { total: result.total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailRequest(code: string): SignRequest {
-    const request = this.requests.find((record) => record.code === code);
-    if (!request) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signature request ${code} not found` });
-    }
-    return request;
+  detailRequest(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<SignRequest> {
+    return this.records.get(user, meta, "sign", "request", code);
   }
 
-  createRequest(input: CreateSignRequestInput): SignRequest {
+  async createRequest(user: GatewayUser, meta: GatewayRequestMeta, input: CreateSignRequestInput): Promise<SignRequest> {
     const now = new Date().toISOString();
-    const request: SignRequest = {
-      code: nextCode(this.requests, "SIG-"),
-      title: input.title,
-      documentType: input.documentType,
-      documentCode: input.documentCode,
-      status: "draft",
-      signers: input.signers.map((signer, index) => ({
-        code: `S-${String(index + 1).padStart(4, "0")}`,
-        name: signer.name,
-        email: signer.email,
-        role: signer.role,
-        status: "pending",
-      })),
-      expiresAt: input.expiresAt,
-      notes: input.notes,
-      createdBy: "System",
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.requests.push(request);
-    return request;
+    const request: SignRequest = { code: newCode("SIG-"), title: input.title, documentType: input.documentType, documentCode: input.documentCode, status: "draft", signers: input.signers.map((signer, index) => ({ code: `S-${String(index + 1).padStart(4, "0")}`, ...signer, status: "pending" })), expiresAt: input.expiresAt, notes: input.notes, createdBy: user.email, createdAt: now, updatedAt: now };
+    return this.saveRequest(user, meta, request, true);
   }
 
-  updateRequest(code: string, input: UpdateSignRequestInput): SignRequest {
-    const request = this.detailRequest(code);
-    if (input.title !== undefined) request.title = input.title;
-    if (input.documentType !== undefined) request.documentType = input.documentType;
-    if (input.documentCode !== undefined) request.documentCode = input.documentCode;
-    if (input.expiresAt !== undefined) request.expiresAt = input.expiresAt;
-    if (input.notes !== undefined) request.notes = input.notes;
-    if (input.signers !== undefined) {
-      request.signers = input.signers.map((signer, index) => ({
-        code: `S-${String(index + 1).padStart(4, "0")}`,
-        name: signer.name,
-        email: signer.email,
-        role: signer.role,
-        status: "pending",
-      }));
-    }
+  async updateRequest(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateSignRequestInput): Promise<SignRequest> {
+    const request = await this.detailRequest(user, meta, code);
+    const { signers, ...values } = input;
+    Object.assign(request, values);
+    if (signers) request.signers = signers.map((signer, index) => ({ code: `S-${String(index + 1).padStart(4, "0")}`, ...signer, status: "pending" }));
     request.updatedAt = new Date().toISOString();
-    return request;
+    return this.saveRequest(user, meta, request, false);
   }
 
-  changeRequestStatus(code: string, input: { status: SignRequestStatus }): SignRequest {
-    const request = this.detailRequest(code);
+  async changeRequestStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: SignRequestStatus }): Promise<SignRequest> {
+    const request = await this.detailRequest(user, meta, code);
     request.status = input.status;
     request.updatedAt = new Date().toISOString();
-    this.audit.push({ id: nextAuditId(this.audit), requestCode: request.code, event: input.status === "completed" ? "completed" : "sent", actor: "System", at: request.updatedAt });
-    return request;
+    const saved = await this.saveRequest(user, meta, request, false);
+    await this.addAudit(user, meta, request.code, input.status === "completed" ? "completed" : "sent", user.email, request.updatedAt);
+    return saved;
   }
 
-  markSignerSigned(code: string, signerCode: string): SignRequest {
-    const request = this.detailRequest(code);
-    const signer = request.signers.find((record) => record.code === signerCode);
-    if (!signer) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signer ${signerCode} not found on ${code}` });
-    }
-    if (signer.status === "declined") {
-      throw new ApiException({ code: ErrorCode.UNPROCESSABLE, status: 422, message: `Signer ${signerCode} already declined ${code}` });
-    }
+  async markSignerSigned(user: GatewayUser, meta: GatewayRequestMeta, code: string, signerCode: string): Promise<SignRequest> {
+    const request = await this.detailRequest(user, meta, code);
+    const signer = request.signers.find((item) => item.code === signerCode);
+    if (!signer) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signer ${signerCode} not found on ${code}` });
+    if (signer.status === "declined") throw new ApiException({ code: ErrorCode.UNPROCESSABLE, status: 422, message: `Signer ${signerCode} already declined ${code}` });
     const now = new Date().toISOString();
     signer.status = "signed";
     signer.signedAt = now;
-    const allSigned = request.signers.every((record) => record.status === "signed");
-    if (allSigned) request.status = "completed";
+    const completed = request.signers.every((item) => item.status === "signed");
+    if (completed) request.status = "completed";
     request.updatedAt = now;
-    this.audit.push({ id: nextAuditId(this.audit), requestCode: request.code, event: allSigned ? "completed" : "signed", actor: signer.name, at: now });
-    return request;
+    const saved = await this.saveRequest(user, meta, request, false);
+    await this.addAudit(user, meta, request.code, completed ? "completed" : "signed", signer.name, now);
+    return saved;
   }
 
-  declineRequest(code: string, input: DeclineSignRequestInput): SignRequest {
-    const request = this.detailRequest(code);
-    const signer = request.signers.find((record) => record.code === input.signerCode);
-    if (!signer) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signer ${input.signerCode} not found on ${code}` });
-    }
+  async declineRequest(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: DeclineSignRequestInput): Promise<SignRequest> {
+    const request = await this.detailRequest(user, meta, code);
+    const signer = request.signers.find((item) => item.code === input.signerCode);
+    if (!signer) throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signer ${input.signerCode} not found on ${code}` });
     const now = new Date().toISOString();
     signer.status = "declined";
     signer.signedAt = now;
     request.status = "declined";
     request.updatedAt = now;
-    this.audit.push({ id: nextAuditId(this.audit), requestCode: request.code, event: "declined", actor: signer.name, at: now, detail: input.reason });
-    return request;
+    const saved = await this.saveRequest(user, meta, request, false);
+    await this.addAudit(user, meta, request.code, "declined", signer.name, now, input.reason);
+    return saved;
   }
 
-  removeRequest(code: string): void {
-    const index = this.requests.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signature request ${code} not found` });
-    }
-    this.requests.splice(index, 1);
+  removeRequest(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    return this.records.remove(user, meta, "sign", "request", code);
   }
 
-  listTemplates(query: SignTemplateListQuery): SignTemplateListResponse {
+  async listTemplates(user: GatewayUser, meta: GatewayRequestMeta, query: SignTemplateListQuery): Promise<SignTemplateListResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.templates.filter((template) => {
-      if (query.status && template.status !== query.status) return false;
-      if (!q) return true;
-      return [template.code, template.name, ...template.signerRoles].join(" ").toLowerCase().includes(q);
-    });
-
-    const sortBy = query.sortBy && TEMPLATE_SORT_WHITELIST.has(query.sortBy) ? query.sortBy : "createdAt";
-    const sorted = sortRecords(filtered, sortBy, query.sortDir ?? "desc");
-    const { items, total } = paginate(sorted, query.page, query.pageSize);
-    return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
+    const records = (await this.all<SignTemplate>(user, meta, "template")).filter((item) => (!query.status || item.status === query.status) && (!q || `${item.code} ${item.name} ${item.signerRoles.join(" ")}`.toLowerCase().includes(q)));
+    const result = page(sortRecords(records, query.sortBy ?? "createdAt", query.sortDir ?? "desc"), query.page, query.pageSize);
+    return { items: result.items, meta: { total: result.total, page: query.page, pageSize: query.pageSize } };
   }
 
-  detailTemplate(code: string): SignTemplate {
-    const template = this.templates.find((record) => record.code === code);
-    if (!template) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signing template ${code} not found` });
-    }
-    return template;
+  templateDetail(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<SignTemplate> {
+    return this.records.get(user, meta, "sign", "template", code);
   }
 
-  createTemplate(input: CreateSignTemplateInput): SignTemplate {
+  async createTemplate(user: GatewayUser, meta: GatewayRequestMeta, input: CreateSignTemplateInput): Promise<SignTemplate> {
     const now = new Date().toISOString();
-    const template: SignTemplate = {
-      code: nextCode(this.templates, "STMP-"),
-      name: input.name,
-      documentType: input.documentType,
-      signerRoles: input.signerRoles,
-      version: 1,
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.templates.push(template);
-    return template;
+    const template: SignTemplate = { code: newCode("STMP-"), ...input, version: 1, status: "active", createdAt: now, updatedAt: now };
+    return this.saveTemplate(user, meta, template, true);
   }
 
-  updateTemplate(code: string, input: UpdateSignTemplateInput): SignTemplate {
-    const template = this.detailTemplate(code);
-    if (input.name !== undefined) template.name = input.name;
-    if (input.documentType !== undefined) template.documentType = input.documentType;
-    if (input.signerRoles !== undefined) template.signerRoles = input.signerRoles;
+  async updateTemplate(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: UpdateSignTemplateInput): Promise<SignTemplate> {
+    const template = await this.templateDetail(user, meta, code);
+    Object.assign(template, input);
     template.version += 1;
     template.updatedAt = new Date().toISOString();
-    return template;
+    return this.saveTemplate(user, meta, template, false);
   }
 
-  changeTemplateStatus(code: string, input: { status: SignTemplateStatus }): SignTemplate {
-    const template = this.detailTemplate(code);
+  async changeTemplateStatus(user: GatewayUser, meta: GatewayRequestMeta, code: string, input: { status: SignTemplateStatus }): Promise<SignTemplate> {
+    const template = await this.templateDetail(user, meta, code);
     template.status = input.status;
     template.updatedAt = new Date().toISOString();
-    return template;
+    return this.saveTemplate(user, meta, template, false);
   }
 
-  removeTemplate(code: string): void {
-    const index = this.templates.findIndex((record) => record.code === code);
-    if (index === -1) {
-      throw new ApiException({ code: ErrorCode.NOT_FOUND, status: 404, message: `Signing template ${code} not found` });
-    }
-    this.templates.splice(index, 1);
+  removeTemplate(user: GatewayUser, meta: GatewayRequestMeta, code: string): Promise<void> {
+    return this.records.remove(user, meta, "sign", "template", code);
   }
 
-  listAudit(query: SignAuditListQuery): SignAuditResponse {
+  async listAudit(user: GatewayUser, meta: GatewayRequestMeta, query: SignAuditListQuery): Promise<SignAuditResponse> {
     const q = (query.q ?? "").toLowerCase().trim();
-    const filtered = this.audit.filter((event) => {
-      if (!q) return true;
-      return [event.requestCode, event.event, event.actor ?? "", event.detail ?? ""].join(" ").toLowerCase().includes(q);
-    });
+    const records = (await this.all<SignAuditEvent>(user, meta, "audit")).filter((item) => !q || `${item.requestCode} ${item.event} ${item.actor ?? ""} ${item.detail ?? ""}`.toLowerCase().includes(q));
+    const result = page(sortRecords(records, "at", "desc"), query.page, query.pageSize);
+    return { items: result.items, meta: { total: result.total, page: query.page, pageSize: query.pageSize } };
+  }
 
-    const sorted = sortRecords(filtered, "at", "desc");
-    const { items, total } = paginate(sorted, query.page, query.pageSize);
-    return { items, meta: { total, page: query.page, pageSize: query.pageSize } };
+  private async all<T>(user: GatewayUser, meta: GatewayRequestMeta, recordType: string): Promise<T[]> {
+    return (await this.records.list<T>(user, meta, "sign", recordType, { pageLength: 100 })).items;
+  }
+
+  private saveRequest(user: GatewayUser, meta: GatewayRequestMeta, request: SignRequest, create: boolean): Promise<SignRequest> {
+    const indexes = { title: request.title, status: request.status, category: request.documentType, referenceCode: request.documentCode, eventAt: request.expiresAt, searchText: `${request.code} ${request.title} ${request.documentCode ?? ""} ${request.signers.map((signer) => `${signer.name} ${signer.email}`).join(" ")}` };
+    return create ? this.records.create(user, meta, "sign", "request", request.code, request, indexes) : this.records.update(user, meta, "sign", "request", request.code, request, indexes);
+  }
+
+  private saveTemplate(user: GatewayUser, meta: GatewayRequestMeta, template: SignTemplate, create: boolean): Promise<SignTemplate> {
+    const indexes = { title: template.name, status: template.status, category: template.documentType, numericValue: template.version, searchText: `${template.code} ${template.name} ${template.signerRoles.join(" ")}` };
+    return create ? this.records.create(user, meta, "sign", "template", template.code, template, indexes) : this.records.update(user, meta, "sign", "template", template.code, template, indexes);
+  }
+
+  private addAudit(user: GatewayUser, meta: GatewayRequestMeta, requestCode: string, event: SignAuditEvent["event"], actor: string, at: string, detail?: string): Promise<SignAuditEvent> {
+    const audit: SignAuditEvent = { id: randomUUID(), requestCode, event, actor, at, detail };
+    return this.records.create(user, meta, "sign", "audit", audit.id, audit, { status: event, referenceCode: requestCode, eventAt: at, searchText: `${requestCode} ${event} ${actor} ${detail ?? ""}` });
   }
 }

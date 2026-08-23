@@ -52,7 +52,6 @@ const LIST_FIELDS = [
   PURCHASE_INVOICE_FIELDS.currency,
   "grand_total",
   "outstanding_amount",
-  PURCHASE_INVOICE_FIELDS.purchaseOrder,
   PURCHASE_INVOICE_FIELDS.notes,
   "status",
   "docstatus",
@@ -265,7 +264,6 @@ export class PurchaseInvoicesService {
         date,
         dueDate: input.dueDate ?? new Date(new Date(date).getTime() + 30 * DAY_MS).toISOString(),
         currency: input.currency,
-        purchaseOrder: input.purchaseOrderCode,
         notes: input.notes ?? "",
         items: lines.map((line) => ({ product: line.product, name: line.name, uom: line.uom, qty: line.qty, rate: line.rate })),
       }),
@@ -280,7 +278,6 @@ export class PurchaseInvoicesService {
       ...(input.date !== undefined ? { [PURCHASE_INVOICE_FIELDS.date]: input.date } : {}),
       ...(input.dueDate !== undefined ? { [PURCHASE_INVOICE_FIELDS.dueDate]: input.dueDate } : {}),
       ...(input.currency !== undefined ? { [PURCHASE_INVOICE_FIELDS.currency]: input.currency } : {}),
-      ...(input.purchaseOrderCode !== undefined ? { [PURCHASE_INVOICE_FIELDS.purchaseOrder]: input.purchaseOrderCode } : {}),
       ...(input.notes !== undefined ? { [PURCHASE_INVOICE_FIELDS.notes]: input.notes } : {}),
       ...(input.items !== undefined
         ? { items: buildLines(input.items, products).map((line) => ({ item_code: line.product, item_name: line.name, qty: line.qty, rate: line.rate, uom: line.uom, amount: line.amount })) }

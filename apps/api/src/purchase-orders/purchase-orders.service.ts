@@ -48,7 +48,6 @@ const LIST_FIELDS = [
   PURCHASE_ORDER_FIELDS.expectedDate,
   PURCHASE_ORDER_FIELDS.currency,
   "grand_total",
-  PURCHASE_ORDER_FIELDS.notes,
   PURCHASE_ORDER_FIELDS.owner,
   "status",
   "docstatus",
@@ -257,7 +256,6 @@ export class PurchaseOrdersService {
         date,
         expectedDate: input.expectedDate ?? new Date(new Date(date).getTime() + 14 * DAY_MS).toISOString(),
         currency: input.currency,
-        notes: input.notes ?? "",
         items: lines.map((line) => ({ product: line.product, name: line.name, uom: line.uom, qty: line.qty, rate: line.rate })),
       }),
     });
@@ -271,7 +269,6 @@ export class PurchaseOrdersService {
       ...(input.date !== undefined ? { [PURCHASE_ORDER_FIELDS.date]: input.date } : {}),
       ...(input.expectedDate !== undefined ? { [PURCHASE_ORDER_FIELDS.expectedDate]: input.expectedDate } : {}),
       ...(input.currency !== undefined ? { [PURCHASE_ORDER_FIELDS.currency]: input.currency } : {}),
-      ...(input.notes !== undefined ? { [PURCHASE_ORDER_FIELDS.notes]: input.notes } : {}),
       ...(input.items !== undefined
         ? { items: buildLines(input.items, products).map((line) => ({ item_code: line.product, item_name: line.name, qty: line.qty, rate: line.rate, uom: line.uom, amount: line.amount })) }
         : {}),

@@ -7,9 +7,11 @@ import type { RequestMeta } from "./auth.service";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AuthService } from "./auth.service";
 import { AuthGuard, type AuthenticatedRequest } from "./auth.guard";
+import { AllowMemberMutation } from "./authorization.decorator";
 import { CurrentUser, ReqMeta } from "./request.decorators";
 import {
   changePasswordSchema,
+  acceptInvitationSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
@@ -76,6 +78,7 @@ export class AuthController {
 
   @Post("change-password")
   @UseGuards(AuthGuard)
+  @AllowMemberMutation()
   async changePassword(@Body() body: unknown, @Req() req: AuthenticatedRequest, @ReqMeta() meta: RequestMeta) {
     const input = changePasswordSchema.parse(body);
     await this.auth.changePassword(input, req.user!.id, meta);
@@ -86,6 +89,13 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async me(@CurrentUser() user: { id: string; email: string; role: string }) {
     const result = await this.auth.me(user.id);
+    return { data: { user: { ...result.user, role: user.role } } };
+  }
+
+  @Post("accept-invitation")
+  @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 60_000 } })
+  async acceptInvitation(@Body() body: unknown, @Res({ passthrough: true }) res: Response, @ReqMeta() meta: RequestMeta) {
+    const result = await this.auth.acceptInvitation(acceptInvitationSchema.parse(body), res, meta);
     return { data: result };
   }
 }

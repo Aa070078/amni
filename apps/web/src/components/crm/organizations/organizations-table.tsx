@@ -31,7 +31,7 @@ export function OrganizationsTable({ data, loading }: OrganizationsTableProps) {
             return (
               <div className="flex flex-col">
                 <Link
-                  href={`/sales/crm/organizations/${org.code}`}
+                  href={`/crm/organizations/${org.code}`}
                   className="font-medium text-foreground hover:text-primary hover:underline"
                 >
                   {org.name}

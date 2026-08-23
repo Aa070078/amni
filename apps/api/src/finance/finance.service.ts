@@ -1,12 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import { FINANCE_DOCTYPE, PURCHASING_DOCTYPE } from "@amni/erp";
-import type {
-  FinanceArBucket,
-  FinanceOverview,
-  FinanceSeriesPoint,
-  FinancialReport,
-  ReportRow,
-  ReportType,
+import { ErpError, FINANCE_DOCTYPE, PURCHASING_DOCTYPE, type ErpListResult } from "@amni/erp";
+import {
+  ErrorCode,
+  type FinanceArBucket,
+  type FinanceOverview,
+  type FinanceSeriesPoint,
+  type FinancialReport,
+  type ReportRow,
+  type ReportType,
 } from "@amni/shared";
 
 import type { GatewayRequestMeta, GatewayUser } from "../erp-gateway/erp-gateway.service";
@@ -222,6 +223,19 @@ export class FinanceService {
     };
   }
 
+  /**
+   * Expense Claim lives in the hrms app; tenant sites without it (hrms not
+   * installed) must still get a full finance overview, just without expense
+   * contributions — degrade to an empty dataset instead of failing the page.
+   */
+  private async listExpenses(user: GatewayUser, meta: GatewayRequestMeta): Promise<ErpListResult<Record<string, unknown>>> {
+    try {
+      return await this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, { fields: EXPENSE_FIELDS, limitPageLength: 500 });
+    } catch (error) {
+      if (error instanceof ErpError && error.code === ErrorCode.ERP_NOT_FOUND) return { items: [], hasMore: false };
+      throw error;
+    }
+  }
   private async fetchAll(user: GatewayUser, meta: GatewayRequestMeta): Promise<{
     salesInvoices: SimpleInvoice[];
     purchaseInvoices: SimpleInvoice[];
@@ -232,7 +246,7 @@ export class FinanceService {
       this.gateway.list(user, meta, "Sales Invoice", { fields: INVOICE_FIELDS, limitPageLength: 500 }),
       this.gateway.list(user, meta, PURCHASING_DOCTYPE.purchaseInvoice, { fields: INVOICE_FIELDS, limitPageLength: 500 }),
       this.gateway.list(user, meta, FINANCE_DOCTYPE.paymentEntry, { fields: PAYMENT_FIELDS, limitPageLength: 500 }),
-      this.gateway.list(user, meta, FINANCE_DOCTYPE.expenseClaim, { fields: EXPENSE_FIELDS, limitPageLength: 500 }),
+      this.listExpenses(user, meta),
     ]);
     return {
       salesInvoices: sales.items.map(toInvoice),

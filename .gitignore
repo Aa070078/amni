@@ -6,9 +6,14 @@ node_modules/
 dist/
 build/
 .next/
+apps/web/.next-e2e/
+apps/web/.next-e2e-*/
+apps/web/.next-stale-backup-*/
 out/
 coverage/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 
 # Next.js
 .next/

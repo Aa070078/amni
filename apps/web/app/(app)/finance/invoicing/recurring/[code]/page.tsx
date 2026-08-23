@@ -11,7 +11,7 @@ export default async function RecurringDetailPage({ params }: Props) {
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <RecurringDetailView code={code} />
+      <RecurringDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

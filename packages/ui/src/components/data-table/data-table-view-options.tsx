@@ -60,7 +60,7 @@ function DataTableViewOptions<TData extends RowData>({
           .getAllColumns()
           .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
           .map((column) => {
-            const label = (column.columnDef.header as string) ?? column.id;
+            const label = typeof column.columnDef.header === "string" ? column.columnDef.header : column.id;
             return (
               <DropdownMenuCheckboxItem
                 key={column.id}

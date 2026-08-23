@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -19,8 +20,9 @@ import {
   type CrmNoteListResponse,
 } from "@amni/shared";
 
-import { AuthGuard } from "../auth/auth.guard";
-// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
+import { metaFrom, userFrom } from "../common/request-context";
+// Value import required so TypeScript emits Nest constructor metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmNotesService } from "./notes.service";
 
@@ -30,29 +32,29 @@ export class CrmNotesController {
   constructor(private readonly notes: CrmNotesService) {}
 
   @Get()
-  list(@Query() query: unknown): CrmNoteListResponse {
-    return this.notes.list(crmNoteListQuerySchema.parse(query));
+  list(@Req() req: AuthenticatedRequest, @Query() query: unknown): Promise<CrmNoteListResponse> {
+    return this.notes.list(userFrom(req), metaFrom(req), crmNoteListQuerySchema.parse(query));
   }
 
   @Get(":code")
-  detail(@Param("code") code: string): CrmNote {
-    return this.notes.detail(code);
+  detail(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<CrmNote> {
+    return this.notes.detail(userFrom(req), metaFrom(req), code);
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): CrmNote {
-    return this.notes.create(createCrmNoteInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<CrmNote> {
+    return this.notes.create(userFrom(req), metaFrom(req), createCrmNoteInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): CrmNote {
-    return this.notes.update(code, updateCrmNoteInputSchema.parse(body));
+  update(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<CrmNote> {
+    return this.notes.update(userFrom(req), metaFrom(req), code, updateCrmNoteInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.notes.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.notes.remove(userFrom(req), metaFrom(req), code);
   }
 }

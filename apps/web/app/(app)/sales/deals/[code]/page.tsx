@@ -7,7 +7,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ cod
   const { code } = await params;
   return (
     <div className="mx-auto w-full max-w-7xl">
-      <DealDetailView code={code} />
+      <DealDetailView code={decodeURIComponent(code)} />
     </div>
   );
 }

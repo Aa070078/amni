@@ -9,6 +9,8 @@ import { ErpGatewayService, type GatewayRequestMeta, type GatewayUser } from "..
 const mocks = vi.hoisted(() => {
   const client = {
     list: vi.fn(),
+    query: vi.fn(),
+    call: vi.fn(),
     get: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -42,10 +44,17 @@ const CUSTOMER_DOCS = [
 ];
 
 function mockCustomerList(docs: object[]) {
-  mocks.client.list.mockImplementation(async (doctype: string) => {
-    if (doctype === "Customer") return { items: docs, hasMore: false };
-    return { items: [], hasMore: false };
+  mocks.client.query.mockImplementation(async (_doctype: string, options: { filters?: Record<string, unknown>; q?: string; orderBy?: string; start?: number; pageLength?: number }) => {
+    const source = docs as Array<Record<string, unknown>>;
+    const q = (options.q ?? "").toLowerCase();
+    const filtered = source.filter((doc) => Object.entries(options.filters ?? {}).every(([field, value]) => String(doc[field] ?? "") === String(value)))
+      .filter((doc) => !q || Object.values(doc).some((value) => String(value ?? "").toLowerCase().includes(q)));
+    const [field, direction] = (options.orderBy ?? "creation desc").split(" ");
+    filtered.sort((a, b) => String(a[field ?? ""] ?? "").localeCompare(String(b[field ?? ""] ?? "")) * (direction === "asc" ? 1 : -1));
+    const start = options.start ?? 0;
+    return { items: filtered.slice(start, start + (options.pageLength ?? 20)), total: filtered.length };
   });
+  mocks.client.call.mockResolvedValue({ items: [] });
 }
 
 describe("CustomersService", () => {
@@ -111,17 +120,8 @@ describe("CustomersService", () => {
     });
 
     it("derives outstanding and totalSales from the tenant's sales invoices", async () => {
-      mocks.client.list.mockImplementation(async (doctype: string) => {
-        if (doctype === "Customer") return { items: CUSTOMER_DOCS, hasMore: false };
-        return {
-          items: [
-            { customer: "CUS-0001", grand_total: 5000, outstanding_amount: 1200, docstatus: 1 },
-            { customer: "CUS-0001", grand_total: 3000, outstanding_amount: 0, docstatus: 1 },
-            { customer: "CUS-0001", grand_total: 9000, outstanding_amount: 9000, docstatus: 2 },
-          ],
-          hasMore: false,
-        };
-      });
+      mockCustomerList(CUSTOMER_DOCS);
+      mocks.client.call.mockResolvedValue({ items: [{ customer: "CUS-0001", total_sales: 8000, outstanding: 1200 }] });
 
       const result = await service.list(USER, META, { page: 1, pageSize: 20 });
       const serenity = result.items.find((c) => c.code === "CUS-0001");
@@ -133,7 +133,7 @@ describe("CustomersService", () => {
 
   describe("detail", () => {
     it("returns the mapped customer", async () => {
-      mocks.client.list.mockResolvedValue({ items: [], hasMore: false });
+      mocks.client.call.mockResolvedValue({ items: [] });
       mocks.client.get.mockResolvedValue(CUSTOMER_DOCS[0]);
 
       const detail = await service.detail(USER, META, "CUS-0001");
@@ -147,7 +147,7 @@ describe("CustomersService", () => {
     });
 
     it("throws not_found for an unknown customer", async () => {
-      mocks.client.list.mockResolvedValue({ items: [], hasMore: false });
+      mocks.client.call.mockResolvedValue({ items: [] });
       mocks.client.get.mockRejectedValue(new ErpError(ErrorCode.ERP_NOT_FOUND, "Not Found", { status: 404 }));
 
       await expect(service.detail(USER, META, "CUS-9999")).rejects.toMatchObject({

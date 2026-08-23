@@ -23,7 +23,7 @@ import {
 
 import { AuthGuard, type AuthenticatedRequest } from "../auth/auth.guard";
 import { metaFrom, userFrom } from "../common/request-context";
-// Value import required so tsc emits `design:paramtypes` for Nest DI metadata.
+// Value import required so TypeScript emits Nest constructor metadata.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CrmOrganizationsService } from "./organizations.service";
 
@@ -44,18 +44,18 @@ export class CrmOrganizationsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() body: unknown): Organization {
-    return this.organizations.create(createOrganizationInputSchema.parse(body));
+  create(@Req() req: AuthenticatedRequest, @Body() body: unknown): Promise<Organization> {
+    return this.organizations.create(userFrom(req), metaFrom(req), createOrganizationInputSchema.parse(body));
   }
 
   @Patch(":code")
-  update(@Param("code") code: string, @Body() body: unknown): Organization {
-    return this.organizations.update(code, updateOrganizationInputSchema.parse(body));
+  update(@Req() req: AuthenticatedRequest, @Param("code") code: string, @Body() body: unknown): Promise<Organization> {
+    return this.organizations.update(userFrom(req), metaFrom(req), code, updateOrganizationInputSchema.parse(body));
   }
 
   @Delete(":code")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param("code") code: string): void {
-    this.organizations.remove(code);
+  remove(@Req() req: AuthenticatedRequest, @Param("code") code: string): Promise<void> {
+    return this.organizations.remove(userFrom(req), metaFrom(req), code);
   }
 }

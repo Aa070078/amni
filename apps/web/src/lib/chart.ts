@@ -20,11 +20,11 @@ function niceStep(value: number): number {
 export function niceDomain(min: number, max: number, targetTicks = 4): Domain {
   const range = Math.max(1, max - min);
   const step = niceStep(range / Math.max(1, targetTicks));
-  return {
-    min: Math.floor(min / step) * step,
-    max: Math.ceil(max / step) * step,
-    step,
-  };
+  const lo = Math.floor(min / step) * step;
+  // A flat series (min === max) snaps both bounds to the same step multiple,
+  // which would make the render-time scale divide by zero (NaN geometry).
+  const hi = Math.ceil(max / step) * step;
+  return { min: lo, max: hi > lo ? hi : lo + step, step };
 }
 
 export function buildPoints(values: number[], width: number, height: number, domain: Domain, pad = 4): ChartPoint[] {

@@ -57,7 +57,7 @@ export function ContactDetailView({ code }: ContactDetailViewProps) {
               </Button>
             ) : null}
             <Button asChild variant={is404 ? "default" : "outline"}>
-              <Link href="/sales/crm/contacts">
+              <Link href="/crm/contacts">
                 <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
                 Back to contacts
               </Link>
@@ -76,7 +76,7 @@ export function ContactDetailView({ code }: ContactDetailViewProps) {
   return (
     <div className="space-y-6">
       <Link
-        href="/sales/crm/contacts"
+        href="/crm/contacts"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -99,7 +99,7 @@ export function ContactDetailView({ code }: ContactDetailViewProps) {
                   ·{" "}
                   {contact.organizationCode ? (
                     <Link
-                      href={`/sales/crm/organizations/${contact.organizationCode}`}
+                      href={`/crm/organizations/${contact.organizationCode}`}
                       className="font-medium text-foreground hover:underline"
                     >
                       {contact.company}

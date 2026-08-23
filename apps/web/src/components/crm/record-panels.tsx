@@ -159,7 +159,7 @@ export function RecordTasksPanel({
                   <Check className="h-3 w-3" aria-hidden="true" />
                 </Button>
                 <div className="min-w-0 flex-1">
-                  <Link href={`/sales/crm/tasks/${task.code}`} className="text-sm font-medium hover:underline">
+                  <Link href={`/crm/tasks/${task.code}`} className="text-sm font-medium hover:underline">
                     {task.subject}
                   </Link>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -256,7 +256,7 @@ export function RecordNotesPanel({
             {(notesQuery.data?.items ?? []).map((note) => (
               <li key={note.code} className="py-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Link href={`/sales/crm/notes/${note.code}`} className="text-sm font-medium hover:underline">
+                  <Link href={`/crm/notes/${note.code}`} className="text-sm font-medium hover:underline">
                     {note.title}
                   </Link>
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{note.code}</span>

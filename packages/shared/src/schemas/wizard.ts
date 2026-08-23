@@ -34,7 +34,7 @@ export const wizardSubmitInputSchema = z.object({
 });
 
 export const wizardStatusSchema = z.object({
-  status: z.enum(["pending", "provisioning", "ready"]),
+  status: z.enum(["pending", "provisioning", "failed", "ready"]),
   message: z.string().max(240).optional(),
 });
 
