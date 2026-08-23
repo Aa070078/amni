@@ -65,37 +65,34 @@ export function HrmsPanel() {
   return (
     <div className="flex flex-col gap-3">
       {state.kind === "ready" ? (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
-              Full HR suite — people, leave, attendance, payroll. Changes appear here instantly.
+        <div className="flex flex-col items-center justify-center gap-4 rounded-md border border-dashed p-12 text-center">
+          <HeartHandshake className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">HRMS is ready</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Full HR suite — people, leave, attendance, payroll. Opens in a new tab so you get the
+              full ERP experience.
             </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => setReloadKey((key) => key + 1)}
-                aria-label="Reload HRMS"
-              >
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                Reload
-              </Button>
-              <Button variant="outline" size="sm" type="button" asChild>
-                <a href={state.siteUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                  Open in new tab
-                </a>
-              </Button>
-            </div>
           </div>
-          <iframe
-            key={reloadKey}
-            title="HRMS — people, leave and payroll"
-            src={state.url}
-            className="h-[calc(100vh-11rem)] min-h-[520px] w-full rounded-md border"
-          />
-        </>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => setReloadKey((key) => key + 1)}
+              aria-label="Refresh connection"
+            >
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              Refresh
+            </Button>
+            <Button size="sm" type="button" asChild>
+              <a href={state.url} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                Open HRMS
+              </a>
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-md border border-dashed text-center">
           {state.kind === "loading" ? (
