@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, LayoutDashboard, Users } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, Users, UserCog } from "lucide-react";
 import { Skeleton } from "@amni/ui";
 import { cn } from "@amni/ui";
 import { useMe } from "@/src/hooks/use-me";
@@ -12,6 +12,7 @@ import { AdminAccessDenied } from "./admin-access-denied";
 const NAV_ITEMS = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/tenants", label: "Tenants", icon: Users },
+  { href: "/admin/users", label: "Users", icon: UserCog },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

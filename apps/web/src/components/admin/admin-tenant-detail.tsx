@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ExternalLink, Pause, Play, Archive } from "lucide-react";
+import { Button } from "@amni/ui";
 import {
   Card,
   CardContent,
@@ -41,9 +42,27 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 }
 
 export function AdminTenantDetail({ tenantId }: AdminTenantDetailProps) {
+  const queryClient = useQueryClient();
   const detailQuery = useQuery({
     queryKey: ["admin", "tenant", tenantId],
     queryFn: () => adminClient.tenant(tenantId),
+  });
+
+  const suspendMut = useMutation({
+    mutationFn: () => adminClient.suspendTenant(tenantId),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "tenant", tenantId] }); void queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] }); },
+  });
+  const resumeMut = useMutation({
+    mutationFn: () => adminClient.resumeTenant(tenantId),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "tenant", tenantId] }); void queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] }); },
+  });
+  const archiveMut = useMutation({
+    mutationFn: () => adminClient.archiveTenant(tenantId),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "tenant", tenantId] }); void queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] }); },
+  });
+  const planMut = useMutation({
+    mutationFn: (plan: "starter" | "growth" | "scale") => adminClient.changeTenantPlan(tenantId, plan),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["admin", "tenant", tenantId] }); void queryClient.invalidateQueries({ queryKey: ["admin", "tenants"] }); },
   });
 
   if (detailQuery.isLoading) {
@@ -106,6 +125,32 @@ export function AdminTenantDetail({ tenantId }: AdminTenantDetailProps) {
           <TenantStatusBadge status={tenant.status} />
           <PlanTierBadge tier={tenant.planTier} />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {tenant.status === "ACTIVE" ? (
+          <Button variant="outline" size="sm" onClick={() => suspendMut.mutate()} disabled={suspendMut.isPending}>
+            <Pause className="mr-1.5 h-3.5 w-3.5" /> Suspend
+          </Button>
+        ) : tenant.status === "SUSPENDED" ? (
+          <Button variant="outline" size="sm" onClick={() => resumeMut.mutate()} disabled={resumeMut.isPending}>
+            <Play className="mr-1.5 h-3.5 w-3.5" /> Resume
+          </Button>
+        ) : null}
+        {tenant.status !== "ARCHIVED" ? (
+          <Button variant="outline" size="sm" onClick={() => { if (confirm("Archive this tenant? This action cannot be undone.")) archiveMut.mutate(); }} disabled={archiveMut.isPending}>
+            <Archive className="mr-1.5 h-3.5 w-3.5" /> Archive
+          </Button>
+        ) : null}
+        <select
+          value={tenant.planTier}
+          onChange={(e) => { if (confirm(`Change plan to ${e.target.value}?`)) planMut.mutate(e.target.value as "starter" | "growth" | "scale"); }}
+          className="rounded-md border bg-background px-2 py-1 text-sm"
+        >
+          <option value="starter">Starter</option>
+          <option value="growth">Growth</option>
+          <option value="scale">Scale</option>
+        </select>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

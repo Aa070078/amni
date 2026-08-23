@@ -111,3 +111,39 @@ export type AdminSubscription = z.infer<typeof adminSubscriptionSchema>;
 export type AdminErpInstance = z.infer<typeof adminErpInstanceSchema>;
 export type AdminTenantDetail = z.infer<typeof adminTenantDetailSchema>;
 export type AdminSummary = z.infer<typeof adminSummarySchema>;
+
+// --- User management ---
+
+export const adminUserStatusSchema = z.enum(["ACTIVE", "SUSPENDED", "ARCHIVED"]);
+export const adminUserSummarySchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  firstName: z.string(),
+  lastName: z.string().nullable(),
+  status: adminUserStatusSchema,
+  isPlatformAdmin: z.boolean(),
+  lastLoginAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+});
+export const adminUserListQuerySchema = offsetPaginationSchema.merge(searchSchema).extend({
+  status: adminUserStatusSchema.optional(),
+});
+export const adminUserListResponseSchema = pageSchema(adminUserSummarySchema);
+export const adminUserDetailSchema = adminUserSummarySchema.extend({
+  memberships: z.array(
+    z.object({
+      id: z.string().uuid(),
+      companyName: z.string(),
+      companySlug: z.string(),
+      platformRole: platformRoleSchema,
+      productRole: z.string(),
+      createdAt: z.string().datetime(),
+    }),
+  ),
+});
+
+export type AdminUserStatus = z.infer<typeof adminUserStatusSchema>;
+export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+export type AdminUserListQuery = z.infer<typeof adminUserListQuerySchema>;
+export type AdminUserListResponse = z.infer<typeof adminUserListResponseSchema>;
+export type AdminUserDetail = z.infer<typeof adminUserDetailSchema>;
