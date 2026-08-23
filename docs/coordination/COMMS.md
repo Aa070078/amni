@@ -600,3 +600,12 @@ subject: Slow page navigation on dev environments is next dev compile time, not 
 Measured during live verification: every API endpoint answers in 0.04-0.17s, but serving the web app with 
 ext dev compiles each route on first visit (~15s cold start on this Windows machine, seconds for every newly visited page), which reads as "slow navigation between pages". For demos, manual verification, and day-to-day use run a production server instead: pnpm turbo run build --filter=@amni/web then pnpm --filter @amni/web exec next start -p 3000 - all measured pages drop to 0.06-0.15s. Keep 
 ext dev only when actively editing web code.
+
+---
+ID: M10-COMMS-016
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: hrms v16 installed on demo bench; Expense Claim integration aligned with real hrms schema
+---
+hrms (version-16) is now installed on the demo bench site rontend and the tenant flag hrms_installed=true is set, so /hrms and the SSO desk link work end to end (bridge login verified 302 -> /app/hrms). The Expense Claim integration was realigned with actual hrms v16 schema: header fields expense_type/supplier/payment_reference/remarks/user_remark no longer exist or are not report-view queryable - category moves to the expenses child rows, description maps to emark, reimbursement is detected/set via the status select (Paid), creates send naming_series HR-EXP-.YYYY.-. Note for service accounts: hrms doctypes do NOT honor System Manager implicitly; grant explicit roles (HR User + Expense Approver + Employee) to any ERP service account that must read claims.

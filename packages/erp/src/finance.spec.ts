@@ -63,23 +63,17 @@ afterEach(() => {
 describe("finance doc builders", () => {
   it("builds an Expense Claim doc using the field map", () => {
     const doc = buildExpenseClaimDoc({
-      category: "travel",
       date: "2026-08-01",
       description: "Client site visit",
-      supplier: "Uber",
       amount: 120.5,
       status: "Approved",
       claimedBy: "Jane Doe",
-      paymentRef: "PAY-0001",
     });
-    expect(doc[EXPENSE_CLAIM_FIELDS.category]).toBe("travel");
     expect(doc[EXPENSE_CLAIM_FIELDS.date]).toBe("2026-08-01");
     expect(doc[EXPENSE_CLAIM_FIELDS.description]).toBe("Client site visit");
-    expect(doc[EXPENSE_CLAIM_FIELDS.supplier]).toBe("Uber");
     expect(doc[EXPENSE_CLAIM_FIELDS.amount]).toBe(120.5);
     expect(doc[EXPENSE_CLAIM_FIELDS.status]).toBe("Approved");
     expect(doc[EXPENSE_CLAIM_FIELDS.claimedBy]).toBe("Jane Doe");
-    expect(doc[EXPENSE_CLAIM_FIELDS.paymentRef]).toBe("PAY-0001");
   });
 
   it("builds a Journal Entry doc with debit/credit account lines", () => {
@@ -145,7 +139,7 @@ describe("finance client wrappers", () => {
   it("creates an expense claim then submits and cancels it", async () => {
     const { fetchMock, lastUrl } = installFetch(() => jsonResponse(200, { data: { name: "EXP-0001" }, message: { name: "EXP-0001" } }));
     const client = makeClient();
-    const doc = await createExpenseClaim(client, { category: "travel", description: "Client visit", amount: 120.5 });
+    const doc = await createExpenseClaim(client, { description: "Client visit", amount: 120.5 });
     expect(doc.name).toBe("EXP-0001");
     expect(decoded(lastUrl())).toContain(`/resource/${FINANCE_DOCTYPE.expenseClaim}`);
 
