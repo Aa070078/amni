@@ -635,3 +635,12 @@ to: @all
 subject: Full system test passed - 35 API endpoints, 21 web pages, auth flows, ERP bridge, HRMS SSO all verified
 ---
 Ran comprehensive end-to-end tests: 35 API endpoints (all 200), 21 web pages (all 200, <0.2s), 3 login flows (admin/member/owner), wrong-password and non-existent user error handling, ERP bridge smoke tests for all 12 allow-listed doctypes, HRMS SSO flow (token mint -> bridge 302 -> desk session), and HR workspace visibility (9 HR modules). Known limitations: bench business data is empty (post-crash), no Company/Employee master data for HR self-service, auth/refresh is not a separate endpoint. Full report in PR #78 comment. (Renumbered from 018 during dev rebase.)
+
+---
+ID: M10-COMMS-020
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: Platform admin full-access features - user management + tenant actions
+---
+Added full platform admin capabilities to the admin console. Backend: 10 new endpoints (user list/detail/suspend/activate/promote/demote, tenant suspend/resume/archive/change-plan) behind AuthGuard + AdminGuard. Frontend: new /admin/users page with search/filter/pagination and action buttons, tenant detail page now has Suspend/Resume/Archive buttons and plan tier dropdown. Safety: cannot suspend platform admins, CSRF required for mutations. Verified: typecheck clean, build successful, GET endpoints return correct data. (Originally numbered 019; renumbered during dev rebase.) See also PR #81.
