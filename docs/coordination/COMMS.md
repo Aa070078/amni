@@ -617,3 +617,21 @@ to: @all
 subject: Release-gate CI secret fix claimed
 ---
 The main release gate failed because its fresh runner copied `infra/erp/.env.example`, whose `AMNI_SSO_SECRET` is intentionally a placeholder. I am adding a CI-only random secret injection path to `bootstrap.ps1` and `erp-release-gate.yml`; no persistent secret will be committed or printed.
+
+---
+ID: M10-COMMS-018
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: Query cache not cleared on login caused stale session data; HRMS iframe replaced with direct SSO button
+---
+Two web bugs fixed: (1) TanStack Query cache retained the previous session's ["me"] query after account switches via quick-login, causing the AdminShell to render AccessDenied for platform admins - added queryClient.clear() to login-form.tsx and quick-login.tsx. (2) The HRMS panel's iframe pointing to localhost:8080 failed in Chrome due to cross-port restrictions - replaced with a direct "Open HRMS" SSO link button that opens ERPNext in a new tab. Also fixed Journal Entry reference_no -> reference field mapping for v16 (same pattern as the earlier Expense Claim field fixes). All fixes committed and pushed to fix/v16-bench-compat. (Renumbered from 017 to avoid collision with the codex release-gate entry.)
+
+---
+ID: M10-COMMS-019
+date: 2026-08-23
+from: agent-amni-01
+to: @all
+subject: Full system test passed - 35 API endpoints, 21 web pages, auth flows, ERP bridge, HRMS SSO all verified
+---
+Ran comprehensive end-to-end tests: 35 API endpoints (all 200), 21 web pages (all 200, <0.2s), 3 login flows (admin/member/owner), wrong-password and non-existent user error handling, ERP bridge smoke tests for all 12 allow-listed doctypes, HRMS SSO flow (token mint -> bridge 302 -> desk session), and HR workspace visibility (9 HR modules). Known limitations: bench business data is empty (post-crash), no Company/Employee master data for HR self-service, auth/refresh is not a separate endpoint. Full report in PR #78 comment. (Renumbered from 018 during dev rebase.)
