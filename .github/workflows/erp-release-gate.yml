@@ -21,7 +21,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build immutable ERP image and start pinned cluster
         shell: pwsh
-        run: ./infra/erp/scripts/bootstrap.ps1 -ComposeProject frappe -Site bootstrap.localhost
+        run: |
+          $env:AMNI_SSO_SECRET = [Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLowerInvariant()
+          ./infra/erp/scripts/bootstrap.ps1 -ComposeProject frappe -Site bootstrap.localhost
       - name: Run clean-site restricted-account release gate
         shell: pwsh
         run: ./infra/erp/scripts/release-gate.ps1 -Site market-gate.localhost -BackendContainer frappe-backend-1
