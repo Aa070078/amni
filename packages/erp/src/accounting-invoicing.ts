@@ -31,7 +31,7 @@ export interface ErpAccountingJournalLine {
 export interface ErpAccountingJournal {
   name: string;
   posting_date?: string;
-  reference_no?: string;
+  reference?: string;
   user_remark?: string;
   owner?: string;
   docstatus?: 0 | 1 | 2;
